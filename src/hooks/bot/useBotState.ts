@@ -59,8 +59,10 @@ const DEFAULTS = {
     sorosLevels: 0,
     sorosProfitPercentage: 0,
     virtualLossStreak: 0,
+    virtualWinStreak: 0, // NOVO
     isWaitingForVirtualResult: false,
     virtualTargetLosses: 3,
+    virtualTargetWins: 0, // NOVO
     // NOVOS ESTADOS PARA FILTRO DE SEQUÊNCIA
     isStreakFilterActive: true,
     maxStreakAllowed: 2,
@@ -165,8 +167,10 @@ export const useBotState = () => {
     const [sorosLevels, setSorosLevels] = useState(initialState.sorosLevels);
     const [sorosProfitPercentage, setSorosProfitPercentage] = useState(initialState.sorosProfitPercentage);
     const [virtualLossStreak, setVirtualLossStreak] = useState(initialState.virtualLossStreak);
+    const [virtualWinStreak, setVirtualWinStreak] = useState(initialState.virtualWinStreak); // NOVO
     const [isWaitingForVirtualResult, setIsWaitingForVirtualResult] = useState(initialState.isWaitingForVirtualResult);
     const [virtualTargetLosses, setVirtualTargetLosses] = useState(initialState.virtualTargetLosses);
+    const [virtualTargetWins, setVirtualTargetWins] = useState(initialState.virtualTargetWins); // NOVO
     
     // NOVOS ESTADOS
     const [isStreakFilterActive, setIsStreakFilterActive] = useState(initialState.isStreakFilterActive);
@@ -275,8 +279,10 @@ export const useBotState = () => {
         lastTradeProfit, setLastTradeProfit,
         isMartingaleActive, setIsMartingaleActive,
         virtualLossStreak, setVirtualLossStreak,
+        virtualWinStreak, setVirtualWinStreak, // NOVO
         isWaitingForVirtualResult, setIsWaitingForVirtualResult,
-        virtualTargetLosses, setVirtualTargetLosses, // ADICIONADO AQUI
+        virtualTargetLosses, setVirtualTargetLosses,
+        virtualTargetWins, setVirtualTargetWins, // NOVO
         // EXPORTANDO NOVOS ESTADOS
         isStreakFilterActive, setIsStreakFilterActive,
         maxStreakAllowed, setMaxStreakAllowed,

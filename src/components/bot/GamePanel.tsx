@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, Timer, Target, ShieldAlert } from 'lucide-react';
+import { TrendingUp, TrendingDown, Timer, Target, ShieldAlert, Trophy } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
 import { cn } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
@@ -30,8 +30,9 @@ export const GamePanel: React.FC = () => {
         totalProfit,
         wins,
         losses,
-        // Novos estados do Loss Virtual
+        // Filtros Virtuais
         virtualTargetLosses, setVirtualTargetLosses,
+        virtualTargetWins, setVirtualTargetWins, // NOVO
     } = useBotContext();
 
     const handleStakeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -44,6 +45,15 @@ export const GamePanel: React.FC = () => {
             setVirtualTargetLosses(val);
         } else if (e.target.value === '') {
             setVirtualTargetLosses(0);
+        }
+    };
+
+    const handleVirtualWinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = parseInt(e.target.value);
+        if (!isNaN(val) && val >= 0) {
+            setVirtualTargetWins(val);
+        } else if (e.target.value === '') {
+            setVirtualTargetWins(0);
         }
     };
 
@@ -101,22 +111,38 @@ export const GamePanel: React.FC = () => {
                         />
                     </div>
                     
-                    {/* NOVO CAMPO: LOSS VIRTUAL */}
-                    <div className="space-y-1">
-                        <div className="flex justify-between items-center px-1">
-                            <Label htmlFor="virtualLoss" className="text-sm flex items-center gap-1">
-                                Loss Virtual <ShieldAlert className="h-3 w-3 text-yellow-500" />
-                            </Label>
-                            <span className="text-[10px] text-muted-foreground">Meta</span>
+                    {/* INDICADORES DE FILTRO VIRTUAL NO GRID */}
+                    <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                            <div className="flex justify-between items-center px-1">
+                                <Label htmlFor="virtualLoss" className="text-[10px] flex items-center gap-0.5 truncate">
+                                    Loss Virtual <ShieldAlert className="h-2.5 w-2.5 text-yellow-500" />
+                                </Label>
+                            </div>
+                            <Input 
+                                id="virtualLoss" 
+                                type="number"
+                                value={virtualTargetLosses} 
+                                onChange={handleVirtualLossChange} 
+                                className="text-center text-xs font-bold h-9 px-1"
+                                min="0"
+                            />
                         </div>
-                        <Input 
-                            id="virtualLoss" 
-                            type="number"
-                            value={virtualTargetLosses} 
-                            onChange={handleVirtualLossChange} 
-                            className="text-center text-sm font-bold h-9"
-                            min="0"
-                        />
+                        <div className="space-y-1">
+                            <div className="flex justify-between items-center px-1">
+                                <Label htmlFor="virtualWin" className="text-[10px] flex items-center gap-0.5 truncate">
+                                    Win Virtual <Trophy className="h-2.5 w-2.5 text-green-500" />
+                                </Label>
+                            </div>
+                            <Input 
+                                id="virtualWin" 
+                                type="number"
+                                value={virtualTargetWins} 
+                                onChange={handleVirtualWinChange} 
+                                className="text-center text-xs font-bold h-9 px-1"
+                                min="0"
+                            />
+                        </div>
                     </div>
                 </div>
 

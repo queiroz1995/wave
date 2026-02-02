@@ -50,8 +50,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isDoubleOneTriggerActive, doubleOneTriggerCount, doubleOneTriggerTargetDigits,
         isMartingaleActive,
         virtualLossStreak, setVirtualLossStreak,
+        virtualWinStreak, setVirtualWinStreak, // NOVO
         isWaitingForVirtualResult, setIsWaitingForVirtualResult,
-        virtualTargetLosses, setVirtualTargetLosses, // ADICIONADO AQUI
+        virtualTargetLosses, setVirtualTargetLosses,
+        virtualTargetWins, setVirtualTargetWins, // NOVO
         // NOVOS ESTADOS
         isStreakFilterActive, maxStreakAllowed,
     } = stateAndSetters;
@@ -112,9 +114,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isTradeOpen.current = false;
         martingaleLevel.current = 0;
         setVirtualLossStreak(0);
+        setVirtualWinStreak(0); // NOVO
         setIsWaitingForVirtualResult(false);
         addLog(reason, 'INFO');
-    }, [setIsBotRunning, addLog, setVirtualLossStreak, setIsWaitingForVirtualResult]);
+    }, [setIsBotRunning, addLog, setVirtualLossStreak, setVirtualWinStreak, setIsWaitingForVirtualResult]);
 
     const processTickData = useCallback((tick: { quote: string, epoch: number, symbol: string }) => {
         const lastDigit = parseInt(String(tick.quote).replace(/[^\d.]/g, '').slice(-1));
@@ -216,7 +219,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     useEffect(() => {
         if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isTradeOpen.current) return;
         
-        // FASE 2: ANALISANDO A SEQUÊNCIA DE LOSSES (IMEDIATA)
+        // FASE 2: ANALISANDO A SEQUÊNCIA DE FILTRO (IMEDIATA)
         if (isWaitingForVirtualResult && lastTradeDetails.current) {
             processedTickEpoch.current = lastTickEpoch;
             const currentDigit = lastDigits[0];
@@ -228,27 +231,52 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             else if (trade.contractType === 'DIGITOVER') isVirtualWin = currentDigit > (trade.barrier || 0);
             else if (trade.contractType === 'DIGITUNDER') isVirtualWin = currentDigit < (trade.barrier || 0);
 
-            if (isVirtualWin) {
-                // Se der WIN no meio da sequência, reseta tudo e busca novo padrão
-                addLog(`Win Virtual no dígito ${currentDigit}. Sequência interrompida.`, 'INFO');
-                setVirtualLossStreak(0);
-                setIsWaitingForVirtualResult(false);
-            } else {
-                // Se der LOSS, incrementa e continua analisando IMEDIATAMENTE o próximo tick
-                const nextStreak = virtualLossStreak + 1;
-                setVirtualLossStreak(nextStreak);
-                addLog(`Loss Virtual ${nextStreak}/${virtualTargetLosses} (Dígito ${currentDigit})`, 'ERROR');
-                
-                if (nextStreak >= virtualTargetLosses) {
-                    addLog("Sequência de Filtro atingida! EXECUTANDO ENTRADA REAL COM GALE ACUMULADO.", 'TRADE');
-                    isTradeOpen.current = true;
+            // LOGICA: SE TIVER META DE LOSS VIRTUAL, ELA TEM PRIORIDADE
+            if (virtualTargetLosses > 0 && virtualLossStreak < virtualTargetLosses) {
+                if (isVirtualWin) {
+                    addLog(`Win Virtual no dígito ${currentDigit}. Sequência de Loss interrompida.`, 'INFO');
                     setVirtualLossStreak(0);
+                    setVirtualWinStreak(0);
                     setIsWaitingForVirtualResult(false);
-                    // Aqui ele executa a entrada real usando o martingaleLevel.current acumulado
-                    executeBuy(trade.contractType!, trade.strategyName, trade.signalId, trade.barrier || 0);
+                } else {
+                    const nextLossStreak = virtualLossStreak + 1;
+                    setVirtualLossStreak(nextLossStreak);
+                    addLog(`Loss Virtual ${nextLossStreak}/${virtualTargetLosses} (Dígito ${currentDigit})`, 'ERROR');
+                    
+                    if (nextLossStreak >= virtualTargetLosses && virtualTargetWins === 0) {
+                        addLog("Sequência de Loss atingida! EXECUTANDO ENTRADA REAL.", 'TRADE');
+                        isTradeOpen.current = true;
+                        setVirtualLossStreak(0);
+                        setIsWaitingForVirtualResult(false);
+                        executeBuy(trade.contractType!, trade.strategyName, trade.signalId, trade.barrier || 0);
+                    }
                 }
+                return;
             }
-            return;
+
+            // LOGICA: SE JÁ PASSOU PELOS LOSSES OU NÃO TINHA, VERIFICA WINS VIRTUAIS
+            if (virtualTargetWins > 0) {
+                if (isVirtualWin) {
+                    const nextWinStreak = virtualWinStreak + 1;
+                    setVirtualWinStreak(nextWinStreak);
+                    addLog(`Win Virtual ${nextWinStreak}/${virtualTargetWins} (Dígito ${currentDigit})`, 'WIN');
+                    
+                    if (nextWinStreak >= virtualTargetWins) {
+                        addLog("Sequência de Vitória Virtual atingida! EXECUTANDO ENTRADA REAL.", 'TRADE');
+                        isTradeOpen.current = true;
+                        setVirtualLossStreak(0);
+                        setVirtualWinStreak(0);
+                        setIsWaitingForVirtualResult(false);
+                        executeBuy(trade.contractType!, trade.strategyName, trade.signalId, trade.barrier || 0);
+                    }
+                } else {
+                    addLog(`Loss Virtual no dígito ${currentDigit}. Sequência de confirmação interrompida.`, 'INFO');
+                    setVirtualLossStreak(0);
+                    setVirtualWinStreak(0);
+                    setIsWaitingForVirtualResult(false);
+                }
+                return;
+            }
         }
 
         // FASE 1: BUSCANDO O PADRÃO INICIAL
@@ -283,13 +311,22 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const sId = addSignal({ strategy: strategyName, signal: getSignalType(contract), details: 'Análise Sequencial', winRate: '...' });
             setCurrentSignal(contract, { strategyName, winRate: 0, signalId: sId });
             
-            // ATIVA IMEDIATAMENTE A ESPERA PELOS PRÓXIMOS DÍGITOS
-            lastTradeDetails.current = { stake: 0, strategyName, signalId: sId, contractType: contract, barrier };
-            setIsWaitingForVirtualResult(true);
-            setVirtualLossStreak(0);
-            addLog(`Padrão Detectado. Aguardando ${virtualTargetLosses} losses virtuais para entrar...`, 'INFO');
+            // VERIFICA SE DEVE ATIVAR O FILTRO VIRTUAL OU ENTRAR DIRETO
+            if (virtualTargetLosses > 0 || virtualTargetWins > 0) {
+                lastTradeDetails.current = { stake: 0, strategyName, signalId: sId, contractType: contract, barrier };
+                setIsWaitingForVirtualResult(true);
+                setVirtualLossStreak(0);
+                setVirtualWinStreak(0);
+                const msg = [];
+                if (virtualTargetLosses > 0) msg.push(`${virtualTargetLosses} losses`);
+                if (virtualTargetWins > 0) msg.push(`${virtualTargetWins} wins`);
+                addLog(`Padrão Detectado. Aguardando ${msg.join(' e ')} para entrar...`, 'INFO');
+            } else {
+                isTradeOpen.current = true;
+                executeBuy(contract, strategyName, sId, barrier);
+            }
         }
-    }, [isBotRunning, lastDigits, lastTickEpoch, activeStrategy, smartAIAnalysis, digitTradeMode, digitPrediction, isDoubleOneTriggerActive, doubleOneTriggerCount, doubleOneTriggerTargetDigits, catalogerPatternLength, isWaitingForVirtualResult, virtualLossStreak, virtualTargetLosses, isMarketStable]);
+    }, [isBotRunning, lastDigits, lastTickEpoch, activeStrategy, smartAIAnalysis, digitTradeMode, digitPrediction, isDoubleOneTriggerActive, doubleOneTriggerCount, doubleOneTriggerTargetDigits, catalogerPatternLength, isWaitingForVirtualResult, virtualLossStreak, virtualWinStreak, virtualTargetLosses, virtualTargetWins, isMarketStable]);
 
     // Resultados Reais
     useEffect(() => {
@@ -342,7 +379,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const toggleBot = useCallback(() => {
         if (!isConnected) return;
         if (isBotRunning) stopBot("Parado");
-        else { setIsBotRunning(true); totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0); martingaleLevel.current = 0; setVirtualLossStreak(0); }
+        else { setIsBotRunning(true); totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0); martingaleLevel.current = 0; setVirtualLossStreak(0); setVirtualWinStreak(0); }
     }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit]);
 
     const contextValue = useMemo(() => ({

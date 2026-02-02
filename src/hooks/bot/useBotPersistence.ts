@@ -33,8 +33,8 @@ export const useBotPersistence = (state: ReturnType<typeof useBotState>) => {
         maxTrades,
         // Soros
         isSorosActive, sorosLevels, sorosProfitPercentage,
-        // Virtual Loss
-        virtualLossStreak, isWaitingForVirtualResult, virtualTargetLosses,
+        // Virtual Loss/Win
+        virtualLossStreak, virtualWinStreak, isWaitingForVirtualResult, virtualTargetLosses, virtualTargetWins,
         // NOVO: Filtro de Sequência
         isStreakFilterActive, maxStreakAllowed,
     } = state;
@@ -65,8 +65,10 @@ export const useBotPersistence = (state: ReturnType<typeof useBotState>) => {
             sorosLevels,
             sorosProfitPercentage,
             virtualLossStreak,
+            virtualWinStreak,
             isWaitingForVirtualResult,
             virtualTargetLosses,
+            virtualTargetWins,
             isStreakFilterActive,
             maxStreakAllowed,
         };
@@ -96,8 +98,10 @@ export const useBotPersistence = (state: ReturnType<typeof useBotState>) => {
         sorosLevels,
         sorosProfitPercentage,
         virtualLossStreak,
+        virtualWinStreak,
         isWaitingForVirtualResult,
         virtualTargetLosses,
+        virtualTargetWins,
         isStreakFilterActive,
         maxStreakAllowed,
     ]);
