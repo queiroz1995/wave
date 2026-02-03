@@ -6,21 +6,18 @@ import { DashboardLayout } from '@/components/DashboardLayout';
 import { DigitStream } from '@/components/bot/DigitStream';
 import { Card, CardContent } from '@/components/ui/card';
 import { DigitStats } from '@/components/bot/DigitStats';
-import { VirtualLossDisplay } from '@/components/bot/VirtualLossDisplay';
-import { LogicStatePanel } from '@/components/bot/LogicStatePanel';
+import { RouletteMode } from '@/components/bot/RouletteMode';
+import { useBotContext } from '@/context/BotContext';
 
 const IndexPage = () => {
+  const { isRouletteMode } = useBotContext();
+
   return (
     <DashboardLayout>
-      {/* Indicador de Virtual Loss no topo quando o bot estiver rodando */}
-      <VirtualLossDisplay />
-      
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <ConnectionPanel />
-        <GamePanel />
+        {isRouletteMode ? <RouletteMode /> : <GamePanel />}
       </div>
-
-      <LogicStatePanel />
       
       <Card className="bg-card/80 backdrop-blur-sm">
         <CardContent className="p-0">

@@ -3,7 +3,6 @@
 import { useState, useCallback } from 'react';
 import { LogEntry, LogType, TradeType, SignalEntry, ContractType } from '@/types/bot';
 
-// Lista de ativos otimizada para Dígitos (Misturando 1s e Normais para evitar erros de 'Trading not offered')
 export const AVAILABLE_ASSETS = [
     { id: 'R_10', name: 'Volatility 10 (Normal)' },
     { id: '1HZ10V', name: 'Volatility 10 (1s)' },
@@ -21,9 +20,9 @@ const DEFAULTS = {
     realToken: '',
     demoToken: '',
     accountType: 'demo' as 'real' | 'demo',
-    asset: 'R_10', // Alterado para o mais estável por padrão
+    asset: '1HZ10V', 
     duration: 1,
-    initialStake: '0.35',
+    initialStake: '1.00',
     digitTradeMode: 'evenOdd' as 'evenOdd' | 'overUnder',
     digitPrediction: 1,
     overUnderDirection: 'OVER' as 'OVER' | 'UNDER',
@@ -31,11 +30,11 @@ const DEFAULTS = {
     isManualGaleActive: false,
     martingaleFactor: '2.2',
     maxLevels: 3,
-    takeProfit: '10.00',
-    stopLoss: '50.00',
+    takeProfit: '100.00',
+    stopLoss: '500.00',
     lossRecoveryStrategy: 'martingale' as 'martingale',
     targetProfitPerTrade: '0.35',
-    activeStrategy: 'smartAI' as 'colorPattern' | 'imbalance' | 'analyzer' | 'dynamicDigit' | 'smartAI' | 'doubleOneTrigger',
+    activeStrategy: 'smartAI' as any,
     minWinRate: 55,
     marketStabilityThreshold: '10',
     colorPatternProfiles: {},
@@ -79,16 +78,22 @@ const DEFAULTS = {
     isStreakFilterActive: true,
     maxStreakAllowed: 2,
     marketPulse: 'stable' as 'calm' | 'stable' | 'aggressive',
+    // ROULETTE STATES
+    isRouletteMode: true,
+    rouletteTimer: 16,
+    isRouletteSpinning: false,
+    rouletteHistory: [] as number[],
+    selectedRouletteNumbers: [] as number[],
 };
 
 const getInitialState = () => {
     const savedStateJSON = localStorage.getItem('derivBotState');
-    if (!savedStateJSON) return { ...DEFAULTS, bankManagementActualBankroll: DEFAULTS.bankManagementInitialBankroll };
+    if (!savedStateJSON) return { ...DEFAULTS };
     try {
         const savedState = JSON.parse(savedStateJSON);
         return { ...DEFAULTS, ...savedState };
     } catch (e) {
-        return { ...DEFAULTS, bankManagementActualBankroll: DEFAULTS.bankManagementInitialBankroll };
+        return { ...DEFAULTS };
     }
 };
 
@@ -118,7 +123,7 @@ export const useBotState = () => {
     const [martingaleMode, setMartingaleMode] = useState<'IMMEDIATE'>(initialState.martingaleMode);
     const [maxTrades, setMaxTrades] = useState(initialState.maxTrades);
     const [isMartingaleActive, setIsMartingaleActive] = useState(initialState.isMartingaleActive);
-    const [activeStrategy, setActiveStrategy] = useState<'colorPattern' | 'imbalance' | 'analyzer' | 'dynamicDigit' | 'smartAI' | 'doubleOneTrigger'>(initialState.activeStrategy);
+    const [activeStrategy, setActiveStrategy] = useState(initialState.activeStrategy);
     const [minWinRate, setMinWinRate] = useState<number | string>(initialState.minWinRate);
     const [marketStabilityThreshold, setMarketStabilityThreshold] = useState<number | string>(initialState.marketStabilityThreshold);
     const [colorPatternProfiles, setColorPatternProfiles] = useState(initialState.colorPatternProfiles);
@@ -159,6 +164,13 @@ export const useBotState = () => {
     const [maxStreakAllowed, setMaxStreakAllowed] = useState(initialState.maxStreakAllowed);
 
     const [marketPulse, setMarketPulse] = useState<'calm' | 'stable' | 'aggressive'>(initialState.marketPulse);
+
+    // ROULETTE STATES
+    const [isRouletteMode, setIsRouletteMode] = useState(initialState.isRouletteMode);
+    const [rouletteTimer, setRouletteTimer] = useState(initialState.rouletteTimer);
+    const [isRouletteSpinning, setIsRouletteSpinning] = useState(initialState.isRouletteSpinning);
+    const [rouletteHistory, setRouletteHistory] = useState<number[]>(initialState.rouletteHistory);
+    const [selectedRouletteNumbers, setSelectedRouletteNumbers] = useState<number[]>(initialState.selectedRouletteNumbers);
 
     const [isBotRunning, setIsBotRunning] = useState(false);
     const [manualGaleLevel, setManualGaleLevel] = useState(0);
@@ -263,5 +275,11 @@ export const useBotState = () => {
         marketPulse, setMarketPulse,
         targetProfitPerTrade, setTargetProfitPerTrade,
         addLog, clearLogs, addSignal, clearSignals, updateSignalResult,
+        // ROULETTE
+        isRouletteMode, setIsRouletteMode,
+        rouletteTimer, setRouletteTimer,
+        isRouletteSpinning, setIsRouletteSpinning,
+        rouletteHistory, setRouletteHistory,
+        selectedRouletteNumbers, setSelectedRouletteNumbers,
     };
 };
