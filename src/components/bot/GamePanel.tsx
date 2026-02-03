@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Target, ShieldAlert, Trophy, Activity, Crosshair } from 'lucide-react';
+import { Badge } from "@/components/ui/badge";
+import { Target, ShieldAlert, Trophy, Activity, Crosshair, History } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
 import { cn } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
@@ -35,7 +36,38 @@ export const GamePanel: React.FC = () => {
         // NOVOS ESTADOS
         isManualSniperMode, setIsManualSniperMode,
         marketPulse,
+        lastDigits,
+        analyzerWindowSize,
     } = useBotContext();
+
+    // CÁLCULO DE SEQUÊNCIAS PARA O PAINEL MANUAL
+    const streakInfo = useMemo(() => {
+        const digits = (lastDigits || []).slice(0, 100); // Focado em 100 rodadas
+        if (digits.length === 0) return { maxE: 0, maxO: 0, activeC: 0, activeT: null };
+
+        let maxE = 0; let maxO = 0; let curC = 0; let curT: 'E' | 'O' | null = null;
+
+        digits.forEach((d) => {
+            const t = d % 2 === 0 ? 'E' : 'O';
+            if (t === curT) { curC++; } 
+            else {
+                if (curT === 'E') maxE = Math.max(maxE, curC);
+                if (curT === 'O') maxO = Math.max(maxO, curC);
+                curT = t; curC = 1;
+            }
+        });
+        if (curT === 'E') maxE = Math.max(maxE, curC);
+        if (curT === 'O') maxO = Math.max(maxO, curC);
+
+        // Sequência Atual
+        let actC = 1; const actT = digits[0] % 2 === 0 ? 'E' : 'O';
+        for (let i = 1; i < digits.length; i++) {
+            if ((digits[i] % 2 === 0 ? 'E' : 'O') === actT) actC++;
+            else break;
+        }
+
+        return { maxE, maxO, actC, actT };
+    }, [lastDigits]);
 
     const handleStakeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setInitialStake(e.target.value.replace(',', '.'));
@@ -70,7 +102,6 @@ export const GamePanel: React.FC = () => {
 
     return (
         <Card className="bg-card/80 backdrop-blur-sm relative overflow-hidden">
-            {/* Market Pulse Bar - INNOVATION */}
             <div className={cn("absolute top-0 left-0 w-full h-1 transition-colors duration-500", pulseConfig.bg.replace('/20', ''))} />
             
             <CardContent className="pt-4 space-y-3">
@@ -111,37 +142,48 @@ export const GamePanel: React.FC = () => {
                 </div>
 
                 {isManualMode && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-stretch pt-2 border-t">
-                        <div className={cn("p-2 rounded-lg border text-center transition-all h-full flex flex-col justify-center", signalBg)}>
-                            <p className="text-[10px] text-muted-foreground">SINAL IA</p>
-                            <p className={cn("text-base font-extrabold tracking-wider", signalColor)}>{signalText}</p>
+                    <div className="space-y-2 pt-2 border-t">
+                        {/* MINI PAINEL DE SEQUÊNCIAS - PERTO DOS BOTÕES */}
+                        <div className="flex justify-between items-center bg-muted/30 p-1.5 rounded-md border border-border/50">
+                            <div className="flex gap-2">
+                                <Badge variant="outline" className="text-[9px] bg-green-500/10 text-green-500 border-green-500/20">Max E: {streakInfo.maxE}x</Badge>
+                                <Badge variant="outline" className="text-[9px] bg-red-500/10 text-red-500 border-red-500/20">Max O: {streakInfo.maxO}x</Badge>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-[9px] text-muted-foreground font-bold uppercase">Atual:</span>
+                                <span className={cn(
+                                    "text-xs font-black",
+                                    streakInfo.actT === 'E' ? "text-green-500" : "text-red-500"
+                                )}>
+                                    {streakInfo.actC}x {streakInfo.actT === 'E' ? 'P' : 'I'}
+                                </span>
+                            </div>
                         </div>
-                        
-                        <div className="grid grid-cols-2 gap-2">
-                            <Button 
-                                onClick={() => manualBuy(digitTradeMode === 'evenOdd' ? 'DIGITEVEN' : 'DIGITOVER', 'Manual Sniper')}
-                                disabled={!isConnected || (isManualSniperMode && marketPulse === 'aggressive')}
-                                className={cn(
-                                    "h-full py-2 bg-green-600 hover:bg-green-700 text-white font-bold flex-col",
-                                    isManualSniperMode && marketPulse === 'aggressive' && "opacity-50 cursor-not-allowed"
-                                )}
-                            >
-                                {isManualSniperMode && <Crosshair className="h-3 w-3 mb-1" />}
-                                <span className="text-xs uppercase">{digitTradeMode === 'evenOdd' ? 'PAR' : 'ACIMA'}</span>
-                                <span className="text-[9px] font-normal opacity-80">${nextManualStake.toFixed(2)}</span>
-                            </Button>
-                            <Button 
-                                onClick={() => manualBuy(digitTradeMode === 'evenOdd' ? 'DIGITODD' : 'DIGITUNDER', 'Manual Sniper')}
-                                disabled={!isConnected || (isManualSniperMode && marketPulse === 'aggressive')}
-                                className={cn(
-                                    "h-full py-2 bg-red-600 hover:bg-red-700 text-white font-bold flex-col",
-                                    isManualSniperMode && marketPulse === 'aggressive' && "opacity-50 cursor-not-allowed"
-                                )}
-                            >
-                                {isManualSniperMode && <Crosshair className="h-3 w-3 mb-1" />}
-                                <span className="text-xs uppercase">{digitTradeMode === 'evenOdd' ? 'ÍMPAR' : 'ABAIXO'}</span>
-                                <span className="text-[9px] font-normal opacity-80">${nextManualStake.toFixed(2)}</span>
-                            </Button>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-stretch">
+                            <div className={cn("p-2 rounded-lg border text-center transition-all h-full flex flex-col justify-center", signalBg)}>
+                                <p className="text-[10px] text-muted-foreground">SINAL IA</p>
+                                <p className={cn("text-base font-extrabold tracking-wider", signalColor)}>{signalText}</p>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-2">
+                                <Button 
+                                    onClick={() => manualBuy(digitTradeMode === 'evenOdd' ? 'DIGITEVEN' : 'DIGITOVER', 'Manual Sniper')}
+                                    disabled={!isConnected}
+                                    className="h-full py-2 bg-green-600 hover:bg-green-700 text-white font-bold flex-col"
+                                >
+                                    <span className="text-xs uppercase">{digitTradeMode === 'evenOdd' ? 'PAR' : 'ACIMA'}</span>
+                                    <span className="text-[9px] font-normal opacity-80">${nextManualStake.toFixed(2)}</span>
+                                </Button>
+                                <Button 
+                                    onClick={() => manualBuy(digitTradeMode === 'evenOdd' ? 'DIGITODD' : 'DIGITUNDER', 'Manual Sniper')}
+                                    disabled={!isConnected}
+                                    className="h-full py-2 bg-red-600 hover:bg-red-700 text-white font-bold flex-col"
+                                >
+                                    <span className="text-xs uppercase">{digitTradeMode === 'evenOdd' ? 'ÍMPAR' : 'ABAIXO'}</span>
+                                    <span className="text-[9px] font-normal opacity-80">${nextManualStake.toFixed(2)}</span>
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 )}
