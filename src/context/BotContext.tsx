@@ -48,7 +48,18 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const setupRealtimeSync = useCallback(async () => {
         if (!asset) return;
 
-        // Busca histórico de dígitos (Ticks) para análise técnica
+        // Busca histórico REAL de rodadas concluídas (16s) do banco
+        const { data: historyData } = await supabase
+            .from('roulette_results')
+            .select('number')
+            .order('timestamp', { ascending: false })
+            .limit(20);
+
+        if (historyData?.length) {
+            setRouletteHistory(historyData.map(h => h.number));
+        }
+
+        // Busca ticks para análise (dominância)
         const { data: ticksData } = await supabase
             .from('ticks')
             .select('digit, epoch')
@@ -61,21 +72,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setLastTickEpoch(ticksData[0].epoch);
         }
 
-        // Busca histórico de rodadas concluídas da Roleta
-        const { data: historyData } = await supabase
-            .from('roulette_results')
-            .select('number')
-            .order('timestamp', { ascending: false })
-            .limit(100);
-
-        if (historyData?.length) {
-            setRouletteHistory(historyData.map(h => h.number));
-        } else if (ticksData?.length) {
-            // Fallback: se não houver histórico de roleta, usa os últimos dígitos do mercado
-            setRouletteHistory(ticksData.map(t => t.digit).slice(0, 20));
-        }
-
-        // ESCUTA NOVOS RESULTADOS NO BANCO
+        // ESCUTA NOVOS RESULTADOS NO BANCO (Sincroniza múltiplos usuários)
         const channel = supabase
             .channel('roulette-realtime')
             .on(
@@ -83,7 +80,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 { event: 'INSERT', schema: 'public', table: 'roulette_results' },
                 (payload) => {
                     const newDigit = payload.new.number;
-                    setRouletteHistory((prev: number[]) => [newDigit, ...prev].slice(0, 100));
+                    // Só adiciona se o número for diferente do último ou se passaram 10s (evita duplicatas de múltiplos bots)
+                    setRouletteHistory((prev: number[]) => {
+                        if (prev[0] === newDigit && payload.new.source === 'Rico 2.0') return prev;
+                        return [newDigit, ...prev].slice(0, 50);
+                    });
                     setIsRouletteSpinning(false);
                 }
             )
@@ -98,8 +99,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setupRealtimeSync();
     }, [setupRealtimeSync]);
 
-    // 2. LÓGICA DE EXECUÇÃO
-    const executeTrade = useCallback((contractType: ContractType, prediction?: number, stake?: number, strategyName: string = 'Manual') => {
+    // 2. LÓGICA DE EXECUÇÃO NA DERIV
+    const executeTrade = useCallback((contractType: ContractType, prediction?: number, stake?: number) => {
         if (!isConnected) return;
         const amount = stake || parseFloat(initialStake) || 0.35;
         sendMessageRef.current({
@@ -119,7 +120,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addLog(`Aposta enviada: ${contractType} (${prediction ?? ''})`, 'TRADE');
     }, [isConnected, initialStake, asset, duration, addLog]);
 
-    // 3. CICLO DA ROLETA
+    // 3. CICLO DA ROLETA (16 SEGUNDOS)
     useEffect(() => {
         if (!isRouletteMode) return;
         const timer = setInterval(() => {
@@ -140,9 +141,16 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         setIsRouletteSpinning(true);
         
-        // Insere o resultado no banco (isso disparará o Realtime para todos os usuários)
-        await supabase.from('roulette_results').insert({ number: resultDigit, source: 'Rico 2.0' });
+        // 1. Adiciona no histórico local IMEDIATAMENTE para ser rápido
+        setRouletteHistory((prev: number[]) => [resultDigit, ...prev].slice(0, 50));
         
+        // 2. Salva no banco para outros usuários verem
+        await supabase.from('roulette_results').insert({ 
+            number: resultDigit, 
+            source: 'Rico 2.0' 
+        });
+        
+        // 3. Processa apostas se houver números selecionados
         if (selectedRouletteNumbers.length > 0) {
             setLastSelectedRouletteNumbers(selectedRouletteNumbers);
             
@@ -154,21 +162,27 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 totalProfitRef.current += winAmount;
                 setTotalProfit(totalProfitRef.current);
                 setWins(prev => prev + 1);
-                toast.success(`GANHOU! Dígito ${resultDigit}`);
+                toast.success(`ROULETTE: VITÓRIA NO DÍGITO ${resultDigit}!`);
             } else {
-                totalProfitRef.current -= (stake * selectedRouletteNumbers.length);
+                const totalBet = stake * selectedRouletteNumbers.length;
+                totalProfitRef.current -= totalBet;
                 setTotalProfit(totalProfitRef.current);
                 setLosses(prev => prev + 1);
+                toast.error(`ROULETTE: O dígito foi ${resultDigit}.`);
             }
 
+            // Executa na conta real/demo se houver token
             if (isConnected) {
-                selectedRouletteNumbers.forEach(num => executeTrade('DIGITMATCH' as any, num, undefined, 'Roleta'));
+                selectedRouletteNumbers.forEach(num => executeTrade('DIGITMATCH' as any, num));
             }
             setSelectedRouletteNumbers([]);
         }
-    }, [lastDigits, selectedRouletteNumbers, isConnected, executeTrade, initialStake, setTotalProfit, setWins, setLosses, setSelectedRouletteNumbers, setLastSelectedRouletteNumbers, setIsRouletteSpinning]);
 
-    // 4. WEBSOCKET E TICKS
+        // Aguarda animação de "spin" e reseta
+        setTimeout(() => setIsRouletteSpinning(false), 2000);
+    }, [lastDigits, selectedRouletteNumbers, isConnected, executeTrade, initialStake, setTotalProfit, setWins, setLosses, setSelectedRouletteNumbers, setLastSelectedRouletteNumbers, setIsRouletteSpinning, setRouletteHistory]);
+
+    // 4. WEBSOCKET E TICKS (DADOS PÚBLICOS)
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
         const data = event.payload;
         if (event.type === 'socket_ready') {
@@ -184,7 +198,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setLastDigits(prev => [digit, ...prev].slice(0, 250));
                 setLastTickEpoch(data.tick.epoch);
                 
-                // Salva o tick live no banco para manter os gráficos sincronizados
+                // Salva o tick live no banco (usado para o Catalogador e gráficos)
                 supabase.from('ticks').upsert({ symbol: asset, epoch: data.tick.epoch, digit: digit, type: 'live' });
             } else if (data?.msg_type === 'balance') {
                 setAccountBalance(data.balance.balance);
