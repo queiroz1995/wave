@@ -3,22 +3,25 @@
 import { useState, useCallback } from 'react';
 import { LogEntry, LogType, TradeType, SignalEntry, ContractType } from '@/types/bot';
 
-// Lista de ativos focada em índices de 1 segundo (1s) para operações rápidas
+// Lista de ativos otimizada para Dígitos (Misturando 1s e Normais para evitar erros de 'Trading not offered')
 export const AVAILABLE_ASSETS = [
+    { id: 'R_10', name: 'Volatility 10 (Normal)' },
     { id: '1HZ10V', name: 'Volatility 10 (1s)' },
+    { id: 'R_25', name: 'Volatility 25 (Normal)' },
     { id: '1HZ25V', name: 'Volatility 25 (1s)' },
+    { id: 'R_50', name: 'Volatility 50 (Normal)' },
     { id: '1HZ50V', name: 'Volatility 50 (1s)' },
+    { id: 'R_75', name: 'Volatility 75 (Normal)' },
     { id: '1HZ75V', name: 'Volatility 75 (1s)' },
+    { id: 'R_100', name: 'Volatility 100 (Normal)' },
     { id: '1HZ100V', name: 'Volatility 100 (1s)' },
-    { id: '1HZ150V', name: 'Volatility 150 (1s)' },
-    { id: '1HZ250V', name: 'Volatility 250 (1s)' },
 ];
 
 const DEFAULTS = {
     realToken: '',
     demoToken: '',
     accountType: 'demo' as 'real' | 'demo',
-    asset: '1HZ10V',
+    asset: 'R_10', // Alterado para o mais estável por padrão
     duration: 1,
     initialStake: '0.35',
     digitTradeMode: 'evenOdd' as 'evenOdd' | 'overUnder',
