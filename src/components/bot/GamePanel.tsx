@@ -29,14 +29,13 @@ export const GamePanel: React.FC = () => {
         lastDigits,
         virtualTargetLosses, setVirtualTargetLosses,
         virtualTargetWins, setVirtualTargetWins,
-        isManualSniperMode, setIsManualSniperMode,
         marketPulse,
     } = useBotContext();
 
     // CÁLCULO DE SEQUÊNCIAS E MAPA DE 16 DÍGITOS
-    const sniperData = useMemo(() => {
+    const streakData = useMemo(() => {
         const digits = (lastDigits || []).slice(0, 100);
-        const last16 = (lastDigits || []).slice(0, 16); // MAPA DE 16 DÍGITOS
+        const last16 = (lastDigits || []).slice(0, 16);
 
         if (digits.length === 0) return { maxE: 0, maxO: 0, actC: 0, actT: null, last16: [] };
 
@@ -103,22 +102,18 @@ export const GamePanel: React.FC = () => {
                         <Activity className={cn("h-4 w-4", pulseConfig.color)} />
                         <span className={cn("text-[10px] font-bold uppercase", pulseConfig.color)}>Ritmo: {pulseConfig.label}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-muted-foreground font-semibold">Sniper Manual</span>
-                        <Switch checked={isManualSniperMode} onCheckedChange={setIsManualSniperMode} />
-                    </div>
                 </div>
 
-                {/* MAPA SNIPER DE 16 DÍGITOS */}
+                {/* MAPA DE DÍGITOS (16) */}
                 <div className="space-y-1.5">
                     <div className="flex items-center justify-between px-1">
                         <span className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
-                            <Zap className="h-3 w-3 text-yellow-500" /> Mapa Sniper (16s)
+                            <Zap className="h-3 w-3 text-yellow-500" /> Histórico Visual (16)
                         </span>
                         <span className="text-[9px] text-muted-foreground italic">Esquerda = Recente</span>
                     </div>
                     <div className="grid grid-cols-8 gap-1">
-                        {sniperData.last16.map((digit, i) => (
+                        {streakData.last16.map((digit, i) => (
                             <div 
                                 key={i} 
                                 className={cn(
@@ -130,7 +125,7 @@ export const GamePanel: React.FC = () => {
                                 {digit}
                             </div>
                         ))}
-                        {Array.from({ length: 16 - sniperData.last16.length }).map((_, i) => (
+                        {Array.from({ length: 16 - streakData.last16.length }).map((_, i) => (
                             <div key={`empty-${i}`} className="h-6 bg-muted/20 border border-dashed rounded-[4px]" />
                         ))}
                     </div>
@@ -163,16 +158,16 @@ export const GamePanel: React.FC = () => {
                     <div className="space-y-2 pt-2 border-t">
                         <div className="flex justify-between items-center bg-muted/30 p-1.5 rounded-md border border-border/50">
                             <div className="flex gap-2">
-                                <Badge variant="outline" className="text-[9px] bg-green-500/10 text-green-500 border-green-500/20">Max E: {sniperData.maxE}x</Badge>
-                                <Badge variant="outline" className="text-[9px] bg-red-500/10 text-red-500 border-red-500/20">Max O: {sniperData.maxO}x</Badge>
+                                <Badge variant="outline" className="text-[9px] bg-green-500/10 text-green-500 border-green-500/20">Max E: {streakData.maxE}x</Badge>
+                                <Badge variant="outline" className="text-[9px] bg-red-500/10 text-red-500 border-red-500/20">Max O: {streakData.maxO}x</Badge>
                             </div>
                             <div className="flex items-center gap-1.5">
                                 <span className="text-[9px] text-muted-foreground font-bold uppercase">Atual:</span>
                                 <span className={cn(
                                     "text-xs font-black",
-                                    sniperData.actT === 'E' ? "text-green-500" : "text-red-500"
+                                    streakData.actT === 'E' ? "text-green-500" : "text-red-500"
                                 )}>
-                                    {sniperData.actC}x {sniperData.actT === 'E' ? 'P' : 'I'}
+                                    {streakData.actC}x {streakData.actT === 'E' ? 'P' : 'I'}
                                 </span>
                             </div>
                         </div>
@@ -185,7 +180,7 @@ export const GamePanel: React.FC = () => {
                             
                             <div className="grid grid-cols-2 gap-2">
                                 <Button 
-                                    onClick={() => manualBuy(digitTradeMode === 'evenOdd' ? 'DIGITEVEN' : 'DIGITOVER', 'Manual Sniper')}
+                                    onClick={() => manualBuy(digitTradeMode === 'evenOdd' ? 'DIGITEVEN' : 'DIGITOVER', 'Manual')}
                                     disabled={!isConnected}
                                     className="h-full py-2 bg-green-600 hover:bg-green-700 text-white font-bold flex-col"
                                 >
@@ -193,7 +188,7 @@ export const GamePanel: React.FC = () => {
                                     <span className="text-[9px] font-normal opacity-80">${nextManualStake.toFixed(2)}</span>
                                 </Button>
                                 <Button 
-                                    onClick={() => manualBuy(digitTradeMode === 'evenOdd' ? 'DIGITODD' : 'DIGITUNDER', 'Manual Sniper')}
+                                    onClick={() => manualBuy(digitTradeMode === 'evenOdd' ? 'DIGITODD' : 'DIGITUNDER', 'Manual')}
                                     disabled={!isConnected}
                                     className="h-full py-2 bg-red-600 hover:bg-red-700 text-white font-bold flex-col"
                                 >

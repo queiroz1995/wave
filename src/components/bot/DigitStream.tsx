@@ -9,23 +9,20 @@ export const DigitStream = () => {
   const [progress, setProgress] = useState(100);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Efeito de contagem regressiva visual para o próximo tick (estimado em 1s ou 2s)
   useEffect(() => {
     setProgress(100);
     if (timerRef.current) clearInterval(timerRef.current);
     
-    // Intervalo de animação suave (ajustado para 1s padrão, mas se adapta visualmente)
-    const step = 2; // quanto decrementa
+    const step = 2; 
     timerRef.current = setInterval(() => {
       setProgress(prev => Math.max(0, prev - step));
-    }, 20); // 50hz update
+    }, 20); 
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [lastTickEpoch]);
 
-  // Pegamos os últimos 15 dígitos para a fila
   const streamDigits = lastDigits.slice(0, 15);
   const latestDigit = streamDigits[0];
 
@@ -33,7 +30,6 @@ export const DigitStream = () => {
     <div className="w-full p-4 border-t bg-card/40 overflow-hidden relative">
       <div className="flex items-center gap-6">
         
-        {/* DESTAQUE SNIPER: O ÚLTIMO DÍGITO FICA GRANDE E LENTO */}
         <div className="flex flex-col items-center justify-center border-r pr-6 border-border/50">
           <span className="text-[10px] font-bold text-muted-foreground uppercase mb-1 flex items-center gap-1">
             <Zap className="h-3 w-3 text-yellow-500" /> Atual
@@ -45,7 +41,6 @@ export const DigitStream = () => {
           )}>
             {latestDigit !== undefined ? latestDigit : '-'}
           </div>
-          {/* Barra de Vida do Dígito */}
           <div className="w-full h-1 bg-muted mt-2 rounded-full overflow-hidden">
             <div 
               className="h-full bg-primary transition-all duration-100 ease-linear"
@@ -54,7 +49,6 @@ export const DigitStream = () => {
           </div>
         </div>
 
-        {/* FILA DE HISTÓRICO SUAVE */}
         <div className="flex-1 overflow-hidden">
           <span className="text-[10px] font-bold text-muted-foreground uppercase mb-2 block flex items-center gap-1">
             <Clock className="h-3 w-3" /> Histórico Recente

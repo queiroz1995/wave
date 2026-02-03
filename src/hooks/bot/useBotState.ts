@@ -46,7 +46,7 @@ const DEFAULTS = {
     analyzerMinWinRate: 75,
     analyzerAutoTrade: true,
     dynamicAnalysisWindow: 0,
-    analyzerWindowSize: 100, // Ajustado para 100 como padrão
+    analyzerWindowSize: 100, 
     patternLengthForAnalysis: 3,
     catalogerPatternLength: 3,
     catalogerMinWinRate: 75,
@@ -78,9 +78,7 @@ const DEFAULTS = {
     virtualTargetWins: 0,
     isStreakFilterActive: true,
     maxStreakAllowed: 2,
-    isManualSniperMode: false,
     marketPulse: 'stable' as 'calm' | 'stable' | 'aggressive',
-    maxMarketSpeed: 1.0,
 };
 
 const getInitialState = () => {
@@ -160,9 +158,7 @@ export const useBotState = () => {
     const [isStreakFilterActive, setIsStreakFilterActive] = useState(initialState.isStreakFilterActive);
     const [maxStreakAllowed, setMaxStreakAllowed] = useState(initialState.maxStreakAllowed);
 
-    const [isManualSniperMode, setIsManualSniperMode] = useState(initialState.isManualSniperMode);
     const [marketPulse, setMarketPulse] = useState<'calm' | 'stable' | 'aggressive'>(initialState.marketPulse);
-    const [maxMarketSpeed, setMaxMarketSpeed] = useState(initialState.maxMarketSpeed);
 
     const [isBotRunning, setIsBotRunning] = useState(false);
     const [manualGaleLevel, setManualGaleLevel] = useState(0);
@@ -264,9 +260,7 @@ export const useBotState = () => {
         virtualTargetWins, setVirtualTargetWins,
         isStreakFilterActive, setIsStreakFilterActive,
         maxStreakAllowed, setMaxStreakAllowed,
-        isManualSniperMode, setIsManualSniperMode,
-        marketPulse, setMarketPulse,
-        maxMarketSpeed, setMaxMarketSpeed,
+        marketPulse, setMarketPulse, // Corrigido: Incluindo setMarketPulse
         targetProfitPerTrade, setTargetProfitPerTrade,
         addLog, clearLogs, addSignal, clearSignals, updateSignalResult,
     };

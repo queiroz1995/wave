@@ -1,17 +1,15 @@
 "use client";
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Settings, RotateCcw, Activity } from 'lucide-react';
+import { Settings, RotateCcw } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
 import { toast } from "sonner";
 import { Switch } from '@/components/ui/switch';
-import { InfoTooltip } from '../InfoTooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Slider } from '@/components/ui/slider';
 import { AVAILABLE_ASSETS } from '@/hooks/bot/useBotState';
 
 export const TradeParameters = () => {
@@ -20,10 +18,8 @@ export const TradeParameters = () => {
         isManualMode, setIsManualMode,
         isManualGaleActive, setIsManualGaleActive,
         digitTradeMode, setDigitTradeMode,
-        digitPrediction, setDigitPrediction,
         overUnderDirection, setOverUnderDirection,
         asset, setAsset,
-        maxMarketSpeed, setMaxMarketSpeed,
     } = useBotContext();
 
     const resetParams = () => {
@@ -49,24 +45,7 @@ export const TradeParameters = () => {
                             ))}
                         </SelectContent>
                     </Select>
-                    <p className="text-[10px] text-muted-foreground">Nota: Índices sem (1s) atualizam a cada 2 segundos (mais lentos).</p>
-                </div>
-
-                <div className="space-y-3 pt-4 border-t">
-                    <div className="flex justify-between items-center">
-                        <Label className="flex items-center gap-1.5">Sensibilidade Sniper (s) <Activity className="h-3 w-3 text-primary" /></Label>
-                        <span className="font-bold text-primary">{maxMarketSpeed.toFixed(1)}s</span>
-                    </div>
-                    <Slider 
-                        value={[maxMarketSpeed]} 
-                        onValueChange={(v) => setMaxMarketSpeed(v[0])} 
-                        min={0.5} 
-                        max={3.0} 
-                        step={0.1} 
-                    />
-                    <p className="text-[10px] text-muted-foreground italic">
-                        O Sniper só autoriza entradas manuais se o intervalo entre ticks for maior que {maxMarketSpeed}s.
-                    </p>
+                    <p className="text-[10px] text-muted-foreground">Nota: Índices sem (1s) atualizam a cada 2 segundos.</p>
                 </div>
 
                 <div className="space-y-2 pt-4 border-t">

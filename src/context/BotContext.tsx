@@ -20,7 +20,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     useBotPersistence(stateAndSetters);
 
     const isTradeOpen = useRef(false);
-    const processedTickEpoch = useRef<number | null>(null);
     const totalProfitRef = useRef(0.00);
     const martingaleLevel = useRef(0);
     const [lastCompletedContract, setLastCompletedContract] = useState<any>(null);
@@ -58,7 +57,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isMartingaleActive,
         manualGaleLevel, setManualGaleLevel,
         isManualGaleActive,
-        isManualSniperMode, setMarketPulse, maxMarketSpeed,
+        setMarketPulse, // Corrigido: agora existe no hook
     } = stateAndSetters;
 
     const [isConnected, setIsConnected] = useState(false);
@@ -165,22 +164,15 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const manualBuy = useCallback((type: ContractType, strategyName: string) => {
         if (!isConnected) return;
         
-        // Se NÃO estiver no modo Sniper, respeita o bloqueio de ordem aberta
-        if (!isManualSniperMode && isTradeOpen.current) {
-            addLog("Aguarde a conclusão da ordem anterior ou ative o modo Sniper.", "ERROR");
-            return;
-        }
-
-        const diff = (Date.now() - lastTickTimestamp.current) / 1000;
-        if (isManualSniperMode && diff < maxMarketSpeed) {
-            addLog(`Ritmo muito rápido (${diff.toFixed(2)}s). Aguarde estabilizar.`, "ERROR");
+        if (isTradeOpen.current) {
+            addLog("Aguarde a conclusão da ordem anterior.", "ERROR");
             return;
         }
 
         const sId = addSignal({ strategy: strategyName, signal: type === 'DIGITEVEN' ? 'EVEN' : type === 'DIGITODD' ? 'ODD' : type === 'DIGITOVER' ? 'OVER' : 'UNDER', details: 'Manual' });
         isTradeOpen.current = true;
         executeBuy(type, strategyName, sId, digitPrediction, true);
-    }, [isConnected, isManualSniperMode, maxMarketSpeed, addSignal, executeBuy, digitPrediction, addLog]);
+    }, [isConnected, addSignal, executeBuy, digitPrediction, addLog]);
 
     const stopBot = useCallback((reason: string) => {
         setIsBotRunning(false);
