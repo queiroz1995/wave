@@ -79,7 +79,7 @@ const DEFAULTS = {
     maxStreakAllowed: 2,
     marketPulse: 'stable' as 'calm' | 'stable' | 'aggressive',
     // ROULETTE STATES
-    isRouletteMode: false, // Alterado para false
+    isRouletteMode: true, // Sempre True agora
     rouletteTimer: 16,
     isRouletteSpinning: false,
     rouletteHistory: [] as number[],
@@ -91,9 +91,9 @@ const getInitialState = () => {
     if (!savedStateJSON) return { ...DEFAULTS };
     try {
         const savedState = JSON.parse(savedStateJSON);
-        return { ...DEFAULTS, ...savedState };
+        return { ...DEFAULTS, ...savedState, isRouletteMode: true };
     } catch (e) {
-        return { ...DEFAULTS };
+        return { ...DEFAULTS, isRouletteMode: true };
     }
 };
 
@@ -166,7 +166,7 @@ export const useBotState = () => {
     const [marketPulse, setMarketPulse] = useState<'calm' | 'stable' | 'aggressive'>(initialState.marketPulse);
 
     // ROULETTE STATES
-    const [isRouletteMode, setIsRouletteMode] = useState(initialState.isRouletteMode);
+    const [isRouletteMode, setIsRouletteMode] = useState(true); // Sempre True
     const [rouletteTimer, setRouletteTimer] = useState(initialState.rouletteTimer);
     const [isRouletteSpinning, setIsRouletteSpinning] = useState(initialState.isRouletteSpinning);
     const [rouletteHistory, setRouletteHistory] = useState<number[]>(initialState.rouletteHistory);

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { BarChart, Bot, Dices } from 'lucide-react';
+import { BarChart } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useBotContext } from '@/context/BotContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,14 +11,13 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { FunctionGuideModal } from '@/components/bot/FunctionGuideModal';
 import { Separator } from '@/components/ui/separator';
 import { SettingsSheet } from '@/components/bot/SettingsSheet';
-import { Button } from '@/components/ui/button';
 
 interface DashboardLayoutProps {
     children: React.ReactNode;
 }
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
-    const { totalProfit, accountBalance, wins, losses, isRouletteMode, setIsRouletteMode } = useBotContext();
+    const { totalProfit, accountBalance, wins, losses } = useBotContext();
     const isMobile = useIsMobile(1024);
     const [activeTab, setActiveTab] = useState("operations");
 
@@ -38,7 +37,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                         <BarChart className="h-6 w-6 text-primary" />
                     </div>
                     <h1 className="text-xl sm:text-2xl font-extrabold">
-                        Rico 2.0
+                        Rico 2.0 (Modo Roleta)
                     </h1>
                 </div>
                 <div className="flex items-center gap-2 sm:gap-4">
@@ -60,17 +59,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                             <p className="font-bold text-primary">${accountBalance?.toFixed(2) || '0.00'}</p>
                         </div>
                     </div>
-
-                    {/* Botão de Troca de Modo */}
-                    <Button 
-                        variant="outline" 
-                        size="icon" 
-                        onClick={() => setIsRouletteMode(!isRouletteMode)}
-                        className={isRouletteMode ? "bg-primary/20 border-primary" : ""}
-                        title={isRouletteMode ? "Voltar para Robô Trader" : "Ir para Modo Roleta"}
-                    >
-                        {isRouletteMode ? <Bot className="h-4 w-4" /> : <Dices className="h-4 w-4" />}
-                    </Button>
 
                     <SettingsSheet />
                     <FunctionGuideModal />

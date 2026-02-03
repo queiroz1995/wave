@@ -5,13 +5,16 @@ import { useBotContext } from '@/context/BotContext';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Timer, Zap, Trophy, History } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { Timer, Zap, Trophy, History, Plus, Minus } from 'lucide-react';
 
 export const RouletteMode = () => {
     const { 
         rouletteTimer, isRouletteSpinning, rouletteHistory, 
         selectedRouletteNumbers, setSelectedRouletteNumbers,
-        initialStake, isConnected 
+        initialStake, setInitialStake, isConnected 
     } = useBotContext();
 
     const isBettingOpen = rouletteTimer > 4;
@@ -22,6 +25,19 @@ export const RouletteMode = () => {
         setSelectedRouletteNumbers((prev: number[]) => 
             prev.includes(num) ? prev.filter(n => n !== num) : [...prev, num]
         );
+    };
+
+    const handleStakeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value.replace(',', '.');
+        if (/^\d*\.?\d*$/.test(val)) {
+            setInitialStake(val);
+        }
+    };
+
+    const adjustStake = (amount: number) => {
+        const current = parseFloat(initialStake) || 0;
+        const next = Math.max(0.35, current + amount);
+        setInitialStake(next.toFixed(2));
     };
 
     const getDigitColor = (digit: number) => {
@@ -57,6 +73,20 @@ export const RouletteMode = () => {
                     <Badge variant={isBettingOpen ? "default" : "destructive"} className="px-4 py-1 uppercase font-bold animate-pulse">
                         {isBettingOpen ? "Apostas Abertas" : "Sorteando..."}
                     </Badge>
+                </div>
+
+                {/* Controle de Stake */}
+                <div className="space-y-2 pt-2 border-t border-white/5">
+                    <Label className="text-xs font-bold uppercase text-muted-foreground">Valor por Número (Stake)</Label>
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" size="icon" className="h-10 w-10 shrink-0" onClick={() => adjustStake(-1)}><Minus className="h-4 w-4" /></Button>
+                        <Input 
+                            value={initialStake} 
+                            onChange={handleStakeChange} 
+                            className="text-center text-xl font-black h-10 border-primary/40 bg-background/50" 
+                        />
+                        <Button variant="outline" size="icon" className="h-10 w-10 shrink-0" onClick={() => adjustStake(1)}><Plus className="h-4 w-4" /></Button>
+                    </div>
                 </div>
 
                 {/* Grelha de Apostas 0-9 */}
