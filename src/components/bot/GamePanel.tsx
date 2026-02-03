@@ -94,9 +94,11 @@ export const GamePanel: React.FC = () => {
 
     return (
         <Card className="bg-card/80 backdrop-blur-sm relative overflow-hidden">
+            {/* Barra de Ritmo no Topo */}
             <div className={cn("absolute top-0 left-0 w-full h-1 transition-colors duration-500", pulseConfig.bg.replace('/20', ''))} />
             
             <CardContent className="pt-4 space-y-3">
+                {/* Header do Painel */}
                 <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                         <Activity className={cn("h-4 w-4", pulseConfig.color)} />
@@ -104,11 +106,11 @@ export const GamePanel: React.FC = () => {
                     </div>
                 </div>
 
-                {/* MAPA DE DÍGITOS (16) */}
+                {/* MINI MAPA DE DÍGITOS (16) */}
                 <div className="space-y-1.5">
                     <div className="flex items-center justify-between px-1">
                         <span className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
-                            <Zap className="h-3 w-3 text-yellow-500" /> Histórico Visual (16)
+                            <Zap className="h-3 w-3 text-yellow-500" /> Mini Mapa Sniper (16)
                         </span>
                         <span className="text-[9px] text-muted-foreground italic">Esquerda = Recente</span>
                     </div>
@@ -131,6 +133,7 @@ export const GamePanel: React.FC = () => {
                     </div>
                 </div>
 
+                {/* Inputs Rápidos */}
                 <div className="grid grid-cols-2 gap-4 pt-2">
                     <div className="space-y-1">
                         <div className="flex justify-between items-center px-1">
@@ -154,8 +157,10 @@ export const GamePanel: React.FC = () => {
                     </div>
                 </div>
 
+                {/* Área de Trade Manual / Sinal */}
                 {isManualMode && (
                     <div className="space-y-2 pt-2 border-t">
+                        {/* Status de Sequência */}
                         <div className="flex justify-between items-center bg-muted/30 p-1.5 rounded-md border border-border/50">
                             <div className="flex gap-2">
                                 <Badge variant="outline" className="text-[9px] bg-green-500/10 text-green-500 border-green-500/20">Max E: {streakData.maxE}x</Badge>
@@ -172,12 +177,15 @@ export const GamePanel: React.FC = () => {
                             </div>
                         </div>
 
+                        {/* Botões de Ação */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-stretch">
+                            {/* Bloco de Sinal */}
                             <div className={cn("p-2 rounded-lg border text-center transition-all h-full flex flex-col justify-center", signalBg)}>
                                 <p className="text-[10px] text-muted-foreground">SINAL IA</p>
                                 <p className={cn("text-base font-extrabold tracking-wider", signalColor)}>{signalText}</p>
                             </div>
                             
+                            {/* Botões de Compra */}
                             <div className="grid grid-cols-2 gap-2">
                                 <Button 
                                     onClick={() => manualBuy(digitTradeMode === 'evenOdd' ? 'DIGITEVEN' : 'DIGITOVER', 'Manual')}
@@ -200,6 +208,7 @@ export const GamePanel: React.FC = () => {
                     </div>
                 )}
                 
+                {/* Botão de Controle Principal */}
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
