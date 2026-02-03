@@ -48,12 +48,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } = stateAndSetters;
 
     const [isConnected, setIsConnected] = useState(false);
-    const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
+    const [status, setStatus] = useState({ message: 'Conectando...', color: 'bg-yellow-500' });
 
     // FUNÇÃO PARA EXECUTAR COMPRA NA DERIV (ENTRADA REAL)
     const executeTrade = useCallback((contractType: ContractType, prediction?: number, stake?: number, strategyName: string = 'Manual') => {
         if (!isConnected) {
-            toast.error("Conecte-se antes de operar!");
+            toast.error("Você precisa conectar o Token para realizar apostas reais!");
             return;
         }
 
@@ -164,17 +164,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } catch (e) {}
     }, [asset, setLastDigits, setLastTickEpoch]);
 
-    useEffect(() => { 
-        if (asset !== currentAssetRef.current) {
-            if (isConnected) {
-                sendMessageRef.current({ forget_all: 'ticks' });
-                sendMessageRef.current({ ticks: asset, subscribe: 1 });
-            }
-            fetchInitialTicks();
-            currentAssetRef.current = asset;
-        }
-    }, [asset, isConnected, fetchInitialTicks]);
-
     const processTickData = useCallback((tick: { quote: string, epoch: number, symbol: string }) => {
         const now = Date.now();
         const diff = (now - lastTickTimestamp.current) / 1000;
@@ -190,6 +179,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setLastTickEpoch(tick.epoch);
         setChartData(prev => [...prev, { time: new Date(tick.epoch * 1000).toLocaleTimeString('pt-BR', { hour12: false }), price: parseFloat(tick.quote) }].slice(-50));
 
+        // SALVAMENTO AUTOMÁTICO NO SUPABASE
         supabase.from('ticks').upsert({
             symbol: tick.symbol,
             epoch: tick.epoch,
@@ -203,13 +193,26 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
         const data = event.payload;
+        
+        if (event.type === 'socket_ready') {
+            // Assim que o socket abre (mesmo sem token), assina o ativo atual
+            console.log("[BotContext] Socket pronto. Assinando ticks públicos para:", asset);
+            sendMessageRef.current({ ticks: asset, subscribe: 1 });
+            return;
+        }
+
         if (event.type === 'message') {
             if (data?.msg_type === 'authorize') {
-                setIsConnected(true); 
-                setStatus({ message: `Conectado - ${data.authorize.is_virtual ? 'Demo' : 'Real'}`, color: 'bg-green-500' });
-                if (data.authorize.balance) setAccountBalance(data.authorize.balance);
-                sendMessageRef.current({ balance: 1, subscribe: 1 });
-                sendMessageRef.current({ ticks: asset, subscribe: 1 });
+                if (data.error) {
+                    toast.error(`Falha na Autorização: ${data.error.message}`);
+                    setStatus({ message: 'Token Inválido', color: 'bg-red-500' });
+                    setIsConnected(false);
+                } else {
+                    setIsConnected(true); 
+                    setStatus({ message: `Conta ${data.authorize.is_virtual ? 'Demo' : 'Real'} Ativa`, color: 'bg-green-500' });
+                    if (data.authorize.balance) setAccountBalance(data.authorize.balance);
+                    sendMessageRef.current({ balance: 1, subscribe: 1 });
+                }
             } 
             else if (data?.msg_type === 'balance') {
                 if (data.balance?.balance !== undefined) {
@@ -224,6 +227,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     setActiveContract({ contract_id: data.buy.contract_id }); 
                 } else if (data.error) {
                     addLog(`Erro na Compra: ${data.error.message}`, 'ERROR');
+                    toast.error(data.error.message);
                 }
             } else if (data?.msg_type === 'proposal_open_contract') {
                 const poc = data.proposal_open_contract;
@@ -234,17 +238,39 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     }, [asset, processTickData, setAccountBalance, setActiveContract, setTradeStatus, addLog]);
 
-    const ws = useTradingWebSocketManager({ isConnected, status, setIsConnected, setStatus, setAccountBalance, onMessage: handleWebSocketMessage, reconnectAttemptsRef });
-    const { sendMessage, connect, disconnect } = ws;
+    const ws = useTradingWebSocketManager({ 
+        isConnected, 
+        status, 
+        setIsConnected, 
+        setStatus, 
+        setAccountBalance, 
+        onMessage: handleWebSocketMessage, 
+        reconnectAttemptsRef 
+    });
+    
+    const { sendMessage, connect, disconnect, isSocketOpen } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
+
+    // Sempre que o ativo mudar, tenta assinar (se o socket estiver aberto)
+    useEffect(() => { 
+        if (asset !== currentAssetRef.current) {
+            if (isSocketOpen) {
+                sendMessageRef.current({ forget_all: 'ticks' });
+                sendMessageRef.current({ ticks: asset, subscribe: 1 });
+            }
+            fetchInitialTicks();
+            currentAssetRef.current = asset;
+        }
+    }, [asset, isSocketOpen, fetchInitialTicks]);
 
     const handleConnect = useCallback((targetType?: 'real' | 'demo', targetToken?: string) => {
         const type = targetType || accountType;
         const token = targetToken || (type === 'real' ? realToken : demoToken);
         if (token) connect(token, type);
+        else toast.error("Por favor, insira um token.");
     }, [accountType, realToken, demoToken, connect]);
 
-    const handleDisconnect = useCallback(() => { disconnect(); setIsBotRunning(false); }, [disconnect, setIsBotRunning]);
+    const handleDisconnect = useCallback(() => { disconnect(); }, [disconnect]);
 
     const contextValue = useMemo(() => ({
         ...stateAndSetters, isConnected, status, handleConnect, handleDisconnect, manualBuy, toggleBot: () => setIsBotRunning(!isBotRunning),
