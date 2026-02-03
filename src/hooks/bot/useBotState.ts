@@ -59,13 +59,16 @@ const DEFAULTS = {
     sorosLevels: 0,
     sorosProfitPercentage: 0,
     virtualLossStreak: 0,
-    virtualWinStreak: 0, // NOVO
+    virtualWinStreak: 0,
     isWaitingForVirtualResult: false,
     virtualTargetLosses: 3,
-    virtualTargetWins: 0, // NOVO
-    // NOVOS ESTADOS PARA FILTRO DE SEQUÊNCIA
+    virtualTargetWins: 0,
     isStreakFilterActive: true,
     maxStreakAllowed: 2,
+    // NOVOS ESTADOS PARA OPERAÇÃO MANUAL INOVADORA
+    isManualSniperMode: false,
+    marketPulse: 'stable' as 'calm' | 'stable' | 'aggressive',
+    maxMarketSpeed: 1.5, // Segundos entre ticks
 };
 
 const getInitialState = () => {
@@ -92,10 +95,6 @@ const getInitialState = () => {
         const allowedStrategies = ['smartAI', 'doubleOneTrigger', 'colorPattern'];
         if (!allowedStrategies.includes(mergedState.activeStrategy)) {
             mergedState.activeStrategy = DEFAULTS.activeStrategy;
-        }
-
-        if (typeof savedState.doubleOneTriggerTargetDigit === 'number') {
-            mergedState.doubleOneTriggerTargetDigits = [savedState.doubleOneTriggerTargetDigit];
         }
 
         return mergedState;
@@ -167,14 +166,17 @@ export const useBotState = () => {
     const [sorosLevels, setSorosLevels] = useState(initialState.sorosLevels);
     const [sorosProfitPercentage, setSorosProfitPercentage] = useState(initialState.sorosProfitPercentage);
     const [virtualLossStreak, setVirtualLossStreak] = useState(initialState.virtualLossStreak);
-    const [virtualWinStreak, setVirtualWinStreak] = useState(initialState.virtualWinStreak); // NOVO
+    const [virtualWinStreak, setVirtualWinStreak] = useState(initialState.virtualWinStreak);
     const [isWaitingForVirtualResult, setIsWaitingForVirtualResult] = useState(initialState.isWaitingForVirtualResult);
     const [virtualTargetLosses, setVirtualTargetLosses] = useState(initialState.virtualTargetLosses);
-    const [virtualTargetWins, setVirtualTargetWins] = useState(initialState.virtualTargetWins); // NOVO
-    
-    // NOVOS ESTADOS
+    const [virtualTargetWins, setVirtualTargetWins] = useState(initialState.virtualTargetWins);
     const [isStreakFilterActive, setIsStreakFilterActive] = useState(initialState.isStreakFilterActive);
     const [maxStreakAllowed, setMaxStreakAllowed] = useState(initialState.maxStreakAllowed);
+
+    // NOVOS ESTADOS INOVADORES
+    const [isManualSniperMode, setIsManualSniperMode] = useState(initialState.isManualSniperMode);
+    const [marketPulse, setMarketPulse] = useState<'calm' | 'stable' | 'aggressive'>(initialState.marketPulse);
+    const [maxMarketSpeed, setMaxMarketSpeed] = useState(initialState.maxMarketSpeed);
 
     const [isBotRunning, setIsBotRunning] = useState(false);
     const [manualGaleLevel, setManualGaleLevel] = useState(0);
@@ -279,12 +281,15 @@ export const useBotState = () => {
         lastTradeProfit, setLastTradeProfit,
         isMartingaleActive, setIsMartingaleActive,
         virtualLossStreak, setVirtualLossStreak,
-        virtualWinStreak, setVirtualWinStreak, // NOVO
+        virtualWinStreak, setVirtualWinStreak,
         isWaitingForVirtualResult, setIsWaitingForVirtualResult,
         virtualTargetLosses, setVirtualTargetLosses,
-        virtualTargetWins, setVirtualTargetWins, // NOVO
-        // EXPORTANDO NOVOS ESTADOS
+        virtualTargetWins, setVirtualTargetWins,
         isStreakFilterActive, setIsStreakFilterActive,
         maxStreakAllowed, setMaxStreakAllowed,
+        // EXPORTANDO NOVOS ESTADOS INOVADORES
+        isManualSniperMode, setIsManualSniperMode,
+        marketPulse, setMarketPulse,
+        maxMarketSpeed, setMaxMarketSpeed,
     };
 };

@@ -5,11 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, Timer, Target, ShieldAlert, Trophy } from 'lucide-react';
+import { Target, ShieldAlert, Trophy, Activity, Crosshair } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
 import { cn } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Switch } from '@/components/ui/switch';
 
 export const GamePanel: React.FC = () => {
     const {
@@ -23,54 +24,22 @@ export const GamePanel: React.FC = () => {
         currentSignalDetails,
         isManualGaleActive,
         manualGaleLevel,
-        lossRecoveryStrategy,
         martingaleFactor,
         digitTradeMode,
         digitPrediction,
         totalProfit,
         wins,
         losses,
-        // Filtros Virtuais
         virtualTargetLosses, setVirtualTargetLosses,
-        virtualTargetWins, setVirtualTargetWins, // NOVO
+        virtualTargetWins, setVirtualTargetWins,
+        // NOVOS ESTADOS
+        isManualSniperMode, setIsManualSniperMode,
+        marketPulse,
     } = useBotContext();
 
     const handleStakeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setInitialStake(e.target.value.replace(',', '.'));
     };
-
-    const handleVirtualLossChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = parseInt(e.target.value);
-        if (!isNaN(val) && val >= 0) {
-            setVirtualTargetLosses(val);
-        } else if (e.target.value === '') {
-            setVirtualTargetLosses(0);
-        }
-    };
-
-    const handleVirtualWinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = parseInt(e.target.value);
-        if (!isNaN(val) && val >= 0) {
-            setVirtualTargetWins(val);
-        } else if (e.target.value === '') {
-            setVirtualTargetWins(0);
-        }
-    };
-
-    const signalText = currentSignal === 'DIGITEVEN' ? 'PAR' :
-                       currentSignal === 'DIGITODD' ? 'ÍMPAR' :
-                       currentSignal === 'DIGITOVER' ? `ACIMA ${digitPrediction}` :
-                       currentSignal === 'DIGITUNDER' ? `ABAIXO ${digitPrediction}` :
-                       'AGUARDANDO';
-
-    const isUpSignal = currentSignal === 'DIGITEVEN' || currentSignal === 'DIGITOVER';
-    const isDownSignal = currentSignal === 'DIGITODD' || currentSignal === 'DIGITUNDER';
-
-    const signalColor = isUpSignal ? 'text-green-500' : isDownSignal ? 'text-red-500' : 'text-muted-foreground';
-    const signalBg = currentSignal ? (isUpSignal ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30') : 'bg-muted/50 border-border';
-    
-    const winRate = currentSignalDetails?.winRate;
-    const strategyName = currentSignalDetails?.strategyName;
 
     const nextManualStake = useMemo(() => {
         const baseStake = parseFloat(initialStake) || 0.35;
@@ -81,166 +50,115 @@ export const GamePanel: React.FC = () => {
         return baseStake;
     }, [initialStake, isManualGaleActive, manualGaleLevel, martingaleFactor]);
 
-    const automationDisabled = !isConnected;
+    const signalText = currentSignal === 'DIGITEVEN' ? 'PAR' :
+                       currentSignal === 'DIGITODD' ? 'ÍMPAR' :
+                       currentSignal === 'DIGITOVER' ? `ACIMA ${digitPrediction}` :
+                       currentSignal === 'DIGITUNDER' ? `ABAIXO ${digitPrediction}` :
+                       'AGUARDANDO';
 
-    const totalTrades = wins + losses;
-    const sessionWinRate = totalTrades > 0 ? (wins / totalTrades) * 100 : 0;
+    const isUpSignal = currentSignal === 'DIGITEVEN' || currentSignal === 'DIGITOVER';
+    const isDownSignal = currentSignal === 'DIGITODD' || currentSignal === 'DIGITUNDER';
+    const signalColor = isUpSignal ? 'text-green-500' : isDownSignal ? 'text-red-500' : 'text-muted-foreground';
+    const signalBg = currentSignal ? (isUpSignal ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30') : 'bg-muted/50 border-border';
+    
+    // Configurações do Pulso do Mercado
+    const pulseConfig = {
+        calm: { label: 'CALMO', color: 'text-blue-500', bg: 'bg-blue-500/20' },
+        stable: { label: 'ESTÁVEL', color: 'text-green-500', bg: 'bg-green-500/20' },
+        aggressive: { label: 'AGRESSIVO', color: 'text-red-500', bg: 'bg-red-500/20' },
+    }[marketPulse as 'calm' | 'stable' | 'aggressive'] || { label: '...', color: 'text-muted-foreground', bg: 'bg-muted' };
 
     return (
-        <Card className="bg-card/80 backdrop-blur-sm">
+        <Card className="bg-card/80 backdrop-blur-sm relative overflow-hidden">
+            {/* Market Pulse Bar - INNOVATION */}
+            <div className={cn("absolute top-0 left-0 w-full h-1 transition-colors duration-500", pulseConfig.bg.replace('/20', ''))} />
+            
             <CardContent className="pt-4 space-y-3">
+                <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                        <Activity className={cn("h-4 w-4", pulseConfig.color)} />
+                        <span className={cn("text-[10px] font-bold uppercase", pulseConfig.color)}>Ritmo: {pulseConfig.label}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground font-semibold">Sniper Manual</span>
+                        <Switch checked={isManualSniperMode} onCheckedChange={setIsManualSniperMode} />
+                    </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                         <div className="flex justify-between items-center px-1">
                             <Label htmlFor="initialStake" className="text-sm">Stake ($)</Label>
                             <div className="flex items-center gap-2 text-xs">
-                                <div className="text-right">
-                                    <span className="text-muted-foreground">Lucro: </span>
-                                    <span className={cn('font-bold', totalProfit > 0 ? 'text-green-500' : totalProfit < 0 ? 'text-red-500' : '')}>
-                                        ${totalProfit.toFixed(2)}
-                                    </span>
-                                </div>
+                                <span className={cn('font-bold', totalProfit > 0 ? 'text-green-500' : totalProfit < 0 ? 'text-red-500' : '')}>
+                                    ${totalProfit.toFixed(2)}
+                                </span>
                             </div>
                         </div>
-                        <Input 
-                            id="initialStake" 
-                            value={initialStake} 
-                            onChange={handleStakeChange} 
-                            className="text-center text-sm font-bold h-9"
-                            placeholder="0.35"
-                        />
+                        <Input id="initialStake" value={initialStake} onChange={handleStakeChange} className="text-center text-sm font-bold h-9" />
                     </div>
                     
-                    {/* INDICADORES DE FILTRO VIRTUAL NO GRID */}
                     <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
-                            <div className="flex justify-between items-center px-1">
-                                <Label htmlFor="virtualLoss" className="text-[10px] flex items-center gap-0.5 truncate">
-                                    Loss Virtual <ShieldAlert className="h-2.5 w-2.5 text-yellow-500" />
-                                </Label>
-                            </div>
-                            <Input 
-                                id="virtualLoss" 
-                                type="number"
-                                value={virtualTargetLosses} 
-                                onChange={handleVirtualLossChange} 
-                                className="text-center text-xs font-bold h-9 px-1"
-                                min="0"
-                            />
+                            <Label className="text-[10px] flex items-center gap-0.5 truncate px-1">Loss <ShieldAlert className="h-2.5 w-2.5" /></Label>
+                            <Input type="number" value={virtualTargetLosses} onChange={(e) => setVirtualTargetLosses(parseInt(e.target.value) || 0)} className="text-center text-xs h-9" />
                         </div>
                         <div className="space-y-1">
-                            <div className="flex justify-between items-center px-1">
-                                <Label htmlFor="virtualWin" className="text-[10px] flex items-center gap-0.5 truncate">
-                                    Win Virtual <Trophy className="h-2.5 w-2.5 text-green-500" />
-                                </Label>
-                            </div>
-                            <Input 
-                                id="virtualWin" 
-                                type="number"
-                                value={virtualTargetWins} 
-                                onChange={handleVirtualWinChange} 
-                                className="text-center text-xs font-bold h-9 px-1"
-                                min="0"
-                            />
+                            <Label className="text-[10px] flex items-center gap-0.5 truncate px-1">Win <Trophy className="h-2.5 w-2.5" /></Label>
+                            <Input type="number" value={virtualTargetWins} onChange={(e) => setVirtualTargetWins(parseInt(e.target.value) || 0)} className="text-center text-xs h-9" />
                         </div>
                     </div>
                 </div>
 
-                <div className="space-y-1">
-                    <div className="flex justify-between items-center mb-1">
-                        <Label htmlFor="duration" className="text-sm">Duração (Ticks)</Label>
-                        <span className="font-bold text-primary text-sm">{duration}</span>
-                    </div>
-                    <Slider 
-                        id="duration" 
-                        value={[duration]} 
-                        onValueChange={(val) => setDuration(val[0])} 
-                        min={1} 
-                        max={10} 
-                        step={1}
-                    />
-                </div>
-                
                 {isManualMode && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-stretch">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-stretch pt-2 border-t">
                         <div className={cn("p-2 rounded-lg border text-center transition-all h-full flex flex-col justify-center", signalBg)}>
-                            <p className="text-xs text-muted-foreground">SINAL ATUAL</p>
+                            <p className="text-[10px] text-muted-foreground">SINAL IA</p>
                             <p className={cn("text-base font-extrabold tracking-wider", signalColor)}>{signalText}</p>
-                            
-                            {currentSignal && strategyName && (
-                                <div className="mt-0.5 flex items-center justify-center gap-1 text-[10px]">
-                                    <Target className="h-2.5 w-2.5 text-primary" />
-                                    <span className="font-semibold text-foreground truncate">{strategyName.replace('Padrão: ', '').replace('Analisador: ', '')}</span>
-                                </div>
-                            )}
                         </div>
                         
-                        {digitTradeMode === 'evenOdd' ? (
-                            <div className="grid grid-cols-2 gap-2">
-                                <Button 
-                                    onClick={() => manualBuy('DIGITEVEN', 'Manual')}
-                                    disabled={!isConnected}
-                                    className="h-full py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold flex-col"
-                                >
-                                    <span>PAR</span>
-                                    <span className="text-[9px] font-normal opacity-80">(${nextManualStake.toFixed(2)})</span>
-                                </Button>
-                                <Button 
-                                    onClick={() => manualBuy('DIGITODD', 'Manual')}
-                                    disabled={!isConnected}
-                                    className="h-full py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex-col"
-                                >
-                                    <span>ÍMPAR</span>
-                                    <span className="text-[9px] font-normal opacity-80">(${nextManualStake.toFixed(2)})</span>
-                                </Button>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-2 gap-2">
-                                <Button 
-                                    onClick={() => manualBuy('DIGITOVER', 'Manual')}
-                                    disabled={!isConnected || digitPrediction === 9}
-                                    className="h-full py-1.5 bg-green-600 hover:bg-green-700 text-white text-[10px] font-bold flex-col gap-0.5"
-                                >
-                                    <span>ACIMA {digitPrediction}</span>
-                                    <span className="text-[9px] font-normal opacity-80">(${nextManualStake.toFixed(2)})</span>
-                                </Button>
-                                <Button 
-                                    onClick={() => manualBuy('DIGITUNDER', 'Manual')}
-                                    disabled={!isConnected || digitPrediction === 0}
-                                    className="h-full py-1.5 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold flex-col gap-0.5"
-                                >
-                                    <span>ABAIXO {digitPrediction}</span>
-                                    <span className="text-[9px] font-normal opacity-80">(${nextManualStake.toFixed(2)})</span>
-                                </Button>
-                            </div>
-                        )}
+                        <div className="grid grid-cols-2 gap-2">
+                            <Button 
+                                onClick={() => manualBuy(digitTradeMode === 'evenOdd' ? 'DIGITEVEN' : 'DIGITOVER', 'Manual Sniper')}
+                                disabled={!isConnected || (isManualSniperMode && marketPulse === 'aggressive')}
+                                className={cn(
+                                    "h-full py-2 bg-green-600 hover:bg-green-700 text-white font-bold flex-col",
+                                    isManualSniperMode && marketPulse === 'aggressive' && "opacity-50 cursor-not-allowed"
+                                )}
+                            >
+                                {isManualSniperMode && <Crosshair className="h-3 w-3 mb-1" />}
+                                <span className="text-xs uppercase">{digitTradeMode === 'evenOdd' ? 'PAR' : 'ACIMA'}</span>
+                                <span className="text-[9px] font-normal opacity-80">${nextManualStake.toFixed(2)}</span>
+                            </Button>
+                            <Button 
+                                onClick={() => manualBuy(digitTradeMode === 'evenOdd' ? 'DIGITODD' : 'DIGITUNDER', 'Manual Sniper')}
+                                disabled={!isConnected || (isManualSniperMode && marketPulse === 'aggressive')}
+                                className={cn(
+                                    "h-full py-2 bg-red-600 hover:bg-red-700 text-white font-bold flex-col",
+                                    isManualSniperMode && marketPulse === 'aggressive' && "opacity-50 cursor-not-allowed"
+                                )}
+                            >
+                                {isManualSniperMode && <Crosshair className="h-3 w-3 mb-1" />}
+                                <span className="text-xs uppercase">{digitTradeMode === 'evenOdd' ? 'ÍMPAR' : 'ABAIXO'}</span>
+                                <span className="text-[9px] font-normal opacity-80">${nextManualStake.toFixed(2)}</span>
+                            </Button>
+                        </div>
                     </div>
                 )}
+                
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <div className="w-full">
-                                <Button 
-                                    onClick={toggleBot} 
-                                    disabled={automationDisabled}
-                                    size="sm" 
-                                    className={cn(
-                                        "w-full transition-all text-sm h-9", 
-                                        isBotRunning 
-                                            ? "bg-yellow-600 hover:bg-yellow-700" 
-                                            : "bg-primary hover:bg-primary/90 animate-pulse-bright",
-                                        automationDisabled && "cursor-not-allowed"
-                                    )}
-                                >
-                                    {isBotRunning ? 'Parar Automação' : 'Iniciar Automação'}
-                                </Button>
-                            </div>
+                            <Button 
+                                onClick={toggleBot} 
+                                disabled={!isConnected}
+                                size="sm" 
+                                className={cn("w-full transition-all text-sm h-9", isBotRunning ? "bg-yellow-600 hover:bg-yellow-700" : "bg-primary hover:bg-primary/90")}
+                            >
+                                {isBotRunning ? 'Parar Automação' : 'Iniciar Automação'}
+                            </Button>
                         </TooltipTrigger>
-                        {automationDisabled && (
-                             <TooltipContent>
-                                <p>Conecte-se à sua conta para iniciar a automação.</p>
-                            </TooltipContent>
-                        )}
+                        {!isConnected && <TooltipContent><p>Conecte-se para operar.</p></TooltipContent>}
                     </Tooltip>
                 </TooltipProvider>
             </CardContent>
