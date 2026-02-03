@@ -7,9 +7,6 @@ import { useBotContext } from '@/context/BotContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OperationLog } from '@/components/bot/OperationLog';
 import { TradeHistory } from '@/components/bot/TradeHistory';
-import { SequenceAnalyzer } from '@/components/bot/SequenceAnalyzer';
-import { ClosedHistory } from '@/components/bot/ClosedHistory';
-import { Cataloger } from '@/components/bot/Cataloger';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { FunctionGuideModal } from '@/components/bot/FunctionGuideModal';
 import { Separator } from '@/components/ui/separator';
@@ -21,7 +18,7 @@ interface DashboardLayoutProps {
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     const { totalProfit, accountBalance, wins, losses } = useBotContext();
-    const isMobile = useIsMobile(1024); // lg breakpoint
+    const isMobile = useIsMobile(1024);
     const [activeTab, setActiveTab] = useState("operations");
 
     const tabTriggerClasses = "text-sm px-4 py-2 justify-start w-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground";
@@ -29,9 +26,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     const tabs = [
         { value: "operations", label: "Operações" },
         { value: "results", label: "Histórico" },
-        { value: "analyzer", label: "Analisador" },
-        { value: "cataloger", label: "Catalogador" },
-        { value: "closed-history", label: "Hist. Fechado" },
     ];
 
     const totalTrades = wins + losses;
@@ -41,9 +35,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
         <>
             <TabsContent value="operations" className="h-full mt-0"><OperationLog /></TabsContent>
             <TabsContent value="results" className="h-full mt-0"><TradeHistory /></TabsContent>
-            <TabsContent value="analyzer" className="h-full mt-0"><SequenceAnalyzer /></TabsContent>
-            <TabsContent value="cataloger" className="h-full mt-0"><Cataloger /></TabsContent>
-            <TabsContent value="closed-history" className="h-full mt-0"><ClosedHistory /></TabsContent>
         </>
     );
 
@@ -66,7 +57,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                         </div>
                         <Separator orientation="vertical" className="h-8" />
                         <div className="text-center">
-                            <p className="text-xs text-muted-foreground">ASSERTIVIDADE</p>
+                            <p className="text-xs text-muted-foreground">WIN RATE</p>
                             <p className={`font-bold ${winRate >= 50 ? 'text-green-500' : totalTrades > 0 ? 'text-red-500' : ''}`}>
                                 {winRate.toFixed(1)}%
                             </p>
@@ -89,24 +80,18 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 </div>
 
                 <div className="lg:col-span-1 min-h-[400px] lg:h-[calc(100dvh-150px)]">
-                    {isMobile ? (
-                        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full flex flex-col">
-                            <div className="flex-grow min-h-0">
-                                {renderTabContent()}
-                            </div>
-                        </Tabs>
-                    ) : (
-                        <Tabs defaultValue="operations" orientation="vertical" className="w-full h-full grid grid-cols-4">
-                            <TabsList className="col-span-1 flex flex-col h-auto items-start gap-1 bg-transparent p-0 pr-4">
+                    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full flex flex-col">
+                        {!isMobile && (
+                            <TabsList className="flex w-full mb-4 bg-muted/50 p-1">
                                 {tabs.map(tab => (
-                                    <TabsTrigger key={tab.value} value={tab.value} className={tabTriggerClasses}>{tab.label}</TabsTrigger>
+                                    <TabsTrigger key={tab.value} value={tab.value} className="flex-1">{tab.label}</TabsTrigger>
                                 ))}
                             </TabsList>
-                            <div className="col-span-3 h-full">
-                                {renderTabContent()}
-                            </div>
-                        </Tabs>
-                    )}
+                        )}
+                        <div className="flex-grow min-h-0">
+                            {renderTabContent()}
+                        </div>
+                    </Tabs>
                 </div>
             </main>
         </div>
