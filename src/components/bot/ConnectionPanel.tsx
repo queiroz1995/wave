@@ -23,10 +23,7 @@ export const ConnectionPanel: React.FC = () => {
     const currentToken = accountType === 'real' ? realToken : demoToken;
 
     const handleAccountTypeChange = (value: 'real' | 'demo') => {
-        console.log(`[ConnectionPanel] Changing account type to: ${value}. Is connected: ${isConnected}`);
-        setAccountType(value); // Atualiza o tipo de conta no estado
-        
-        // Conecta imediatamente à nova conta (handleConnect gerenciará a desconexão da anterior se houver)
+        setAccountType(value); 
         const tokenToUse = value === 'real' ? realToken : demoToken;
         handleConnect(value, tokenToUse);
     };
@@ -36,7 +33,6 @@ export const ConnectionPanel: React.FC = () => {
             addLog("Token de acesso vazio. Por favor, insira o token antes de sincronizar.", 'ERROR');
             return;
         }
-        // Chama handleConnect sem argumentos para usar o estado atual (token e accountType)
         handleConnect();
     };
 
@@ -97,12 +93,12 @@ export const ConnectionPanel: React.FC = () => {
                     )}
                 </div>
                 
-                {isConnected && accountBalance !== null && (
+                {isConnected && (
                     <div className="text-center pt-4 border-t">
                         <Label>Saldo da Conta</Label>
                         <p className="text-2xl font-bold text-primary flex items-center justify-center gap-2">
                             <DollarSign className="h-6 w-6" />
-                            {accountBalance.toFixed(2)}
+                            {accountBalance?.toFixed(2) || '0.00'}
                         </p>
                     </div>
                 )}
