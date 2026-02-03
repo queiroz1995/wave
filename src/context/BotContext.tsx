@@ -59,7 +59,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         const amount = stake || parseFloat(initialStake) || 0.35;
         
-        // Estrutura oficial para comando de compra imediata
         const proposal = {
             buy: 1,
             price: amount,
@@ -85,7 +84,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sendMessageRef.current(proposal);
     }, [isConnected, initialStake, asset, duration, addLog]);
 
-    // APOSTA MANUAL DO PAINEL PRINCIPAL
     const manualBuy = useCallback((type: ContractType, strategy: string, customStake?: number) => {
         executeTrade(type, undefined, customStake, strategy);
     }, [executeTrade]);
@@ -107,19 +105,22 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return () => clearInterval(timer);
     }, [isRouletteMode, selectedRouletteNumbers]);
 
-    const handleRouletteResult = useCallback(() => {
+    const handleRouletteResult = useCallback(async () => {
         setIsRouletteSpinning(true);
         const resultDigit = lastDigits[0];
         
-        // Se houver aposta, salva como a última
+        // SALVA RESULTADO NO SUPABASE PARA ESTATÍSTICAS GLOBAIS
+        await supabase.from('roulette_results').insert({
+            number: resultDigit,
+            source: 'Rico 2.0 App'
+        });
+        
         if (selectedRouletteNumbers.length > 0) {
             setLastSelectedRouletteNumbers(selectedRouletteNumbers);
         }
 
-        // SE ESTIVER CONECTADO, EXECUTA AS ENTRADAS REAIS NA CORRETORA (DIGITMATCH)
         if (isConnected && selectedRouletteNumbers.length > 0) {
             selectedRouletteNumbers.forEach((num: number) => {
-                // Aposta no dígito exato (Digit Match) paga aprox. 9x
                 executeTrade('DIGITMATCH' as any, num, undefined, 'Roleta');
             });
         }
@@ -185,13 +186,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const lastDigit = parseInt(String(tick.quote).replace(/[^\d.]/g, '').slice(-1));
         if (isNaN(lastDigit)) return;
 
-        // Atualiza estado local
         setLastDigits(prev => [lastDigit, ...prev].slice(0, 250));
         setLastTickEpoch(tick.epoch);
         setChartData(prev => [...prev, { time: new Date(tick.epoch * 1000).toLocaleTimeString('pt-BR', { hour12: false }), price: parseFloat(tick.quote) }].slice(-50));
 
-        // SALVA NO SUPABASE (COLETA 24H)
-        // Usamos upsert para evitar duplicatas caso vários usuários estejam online
         supabase.from('ticks').upsert({
             symbol: tick.symbol,
             epoch: tick.epoch,
@@ -206,19 +204,13 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
         const data = event.payload;
         if (event.type === 'message') {
-            // AUTORIZAÇÃO BEM SUCEDIDA
             if (data?.msg_type === 'authorize') {
                 setIsConnected(true); 
                 setStatus({ message: `Conectado - ${data.authorize.is_virtual ? 'Demo' : 'Real'}`, color: 'bg-green-500' });
                 if (data.authorize.balance) setAccountBalance(data.authorize.balance);
-                
-                // INSCREVE PARA RECEBER ATUALIZAÇÕES DE SALDO EM TEMPO REAL
                 sendMessageRef.current({ balance: 1, subscribe: 1 });
-                
-                // Inscreve nos ticks do ativo atual
                 sendMessageRef.current({ ticks: asset, subscribe: 1 });
             } 
-            // ATUALIZAÇÃO DE SALDO EM TEMPO REAL
             else if (data?.msg_type === 'balance') {
                 if (data.balance?.balance !== undefined) {
                     setAccountBalance(data.balance.balance);
