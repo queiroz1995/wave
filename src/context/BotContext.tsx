@@ -184,10 +184,24 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         const lastDigit = parseInt(String(tick.quote).replace(/[^\d.]/g, '').slice(-1));
         if (isNaN(lastDigit)) return;
+
+        // Atualiza estado local
         setLastDigits(prev => [lastDigit, ...prev].slice(0, 250));
         setLastTickEpoch(tick.epoch);
         setChartData(prev => [...prev, { time: new Date(tick.epoch * 1000).toLocaleTimeString('pt-BR', { hour12: false }), price: parseFloat(tick.quote) }].slice(-50));
-    }, [setLastDigits, setLastTickEpoch, setChartData, setMarketPulse]);
+
+        // SALVA NO SUPABASE (COLETA 24H)
+        // Usamos upsert para evitar duplicatas caso vários usuários estejam online
+        supabase.from('ticks').upsert({
+            symbol: tick.symbol,
+            epoch: tick.epoch,
+            digit: lastDigit,
+            type: 'live'
+        }, { onConflict: 'symbol,epoch' }).then(({ error }) => {
+            if (error) console.warn("[Supabase] Erro ao salvar tick:", error.message);
+        });
+
+    }, [asset, setLastDigits, setLastTickEpoch, setChartData, setMarketPulse]);
 
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
         const data = event.payload;
@@ -198,13 +212,13 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setStatus({ message: `Conectado - ${data.authorize.is_virtual ? 'Demo' : 'Real'}`, color: 'bg-green-500' });
                 if (data.authorize.balance) setAccountBalance(data.authorize.balance);
                 
-                // INSCREVE PARA RECEBER ATUALIZAÇÕES DE SALDO EM TEMPO REAL (MUITO IMPORTANTE)
+                // INSCREVE PARA RECEBER ATUALIZAÇÕES DE SALDO EM TEMPO REAL
                 sendMessageRef.current({ balance: 1, subscribe: 1 });
                 
                 // Inscreve nos ticks do ativo atual
                 sendMessageRef.current({ ticks: asset, subscribe: 1 });
             } 
-            // ATUALIZAÇÃO DE SALDO EM TEMPO REAL (ASSIM QUE GANHA)
+            // ATUALIZAÇÃO DE SALDO EM TEMPO REAL
             else if (data?.msg_type === 'balance') {
                 if (data.balance?.balance !== undefined) {
                     setAccountBalance(data.balance.balance);
@@ -223,7 +237,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 const poc = data.proposal_open_contract;
                 if (poc?.is_sold) {
                     setLastCompletedContract(poc);
-                    // O saldo será atualizado automaticamente via mensagem 'balance'
                 }
             }
         }
