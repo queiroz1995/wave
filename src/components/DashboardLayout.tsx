@@ -11,7 +11,6 @@ import { SequenceAnalyzer } from '@/components/bot/SequenceAnalyzer';
 import { ClosedHistory } from '@/components/bot/ClosedHistory';
 import { Cataloger } from '@/components/bot/Cataloger';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FunctionGuideModal } from '@/components/bot/FunctionGuideModal';
 import { Separator } from '@/components/ui/separator';
 import { SettingsSheet } from '@/components/bot/SettingsSheet';
@@ -60,7 +59,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                     </h1>
                 </div>
                 <div className="flex items-center gap-2 sm:gap-4">
-                    {/* Stats hidden on mobile, shown in GamePanel */}
                     <div className="hidden lg:flex items-center gap-3 sm:gap-4 rounded-md border p-2 px-3 bg-background/50">
                         <div className="text-center">
                             <p className="text-xs text-muted-foreground">LUCRO</p>
@@ -86,26 +84,14 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             </header>
             
             <main className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 flex-grow">
-                {/* Coluna Principal (Conexão, Display, Painel de Jogo) */}
                 <div className="lg:col-span-2 space-y-4 sm:space-y-6">
                     {children}
                 </div>
 
-                {/* Coluna de Logs/Análise (Ocupa a largura total no mobile) */}
                 <div className="lg:col-span-1 min-h-[400px] lg:h-[calc(100dvh-150px)]">
                     {isMobile ? (
                         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full flex flex-col">
-                            <Select value={activeTab} onValueChange={setActiveTab}>
-                                <SelectTrigger className="w-full mb-2">
-                                    <SelectValue placeholder="Selecione uma visualização" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {tabs.map(tab => (
-                                        <SelectItem key={tab.value} value={tab.value}>{tab.label}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <div className="flex-grow mt-2 min-h-0">
+                            <div className="flex-grow min-h-0">
                                 {renderTabContent()}
                             </div>
                         </Tabs>
