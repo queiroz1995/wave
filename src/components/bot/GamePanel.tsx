@@ -5,10 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Target, Activity, Plus, Minus } from 'lucide-react';
+import { Target, Activity, Plus, Minus, ChevronDown } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AVAILABLE_ASSETS } from '@/hooks/bot/useBotState';
 
 export const GamePanel: React.FC = () => {
     const {
@@ -21,8 +23,10 @@ export const GamePanel: React.FC = () => {
         isManualGaleActive,
         manualGaleLevel,
         martingaleFactor,
-        digitTradeMode,
+        digitTradeMode, setDigitTradeMode,
         digitPrediction,
+        overUnderDirection, setOverUnderDirection,
+        asset, setAsset,
         totalProfit,
         lastDigits,
         virtualTargetLosses, setVirtualTargetLosses,
@@ -67,7 +71,6 @@ export const GamePanel: React.FC = () => {
         setInitialStake(next.toFixed(2));
     };
 
-    // Calcula o valor real que será apostado (considerando gale manual se ativo)
     const currentActiveStake = useMemo(() => {
         const baseStake = parseFloat(initialStake) || 0.35;
         if (isManualGaleActive && manualGaleLevel > 0) {
@@ -98,6 +101,36 @@ export const GamePanel: React.FC = () => {
         <Card className="bg-card/80 backdrop-blur-sm relative overflow-hidden">
             <div className={cn("absolute top-0 left-0 w-full h-1 transition-colors duration-500", pulseConfig.bg.replace('/20', ''))} />
             <CardContent className="pt-4 space-y-4">
+                
+                {/* Seletores Rápidos de Ativo e Modo */}
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                    <div className="space-y-1">
+                        <Label className="text-[10px] font-black text-muted-foreground uppercase">Ativo</Label>
+                        <Select value={asset} onValueChange={setAsset}>
+                            <SelectTrigger className="h-8 text-xs font-bold">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {AVAILABLE_ASSETS.map(a => (
+                                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-1">
+                        <Label className="text-[10px] font-black text-muted-foreground uppercase">Modo</Label>
+                        <Select value={digitTradeMode} onValueChange={(v) => setDigitTradeMode(v as 'evenOdd' | 'overUnder')}>
+                            <SelectTrigger className="h-8 text-xs font-bold">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="evenOdd">Par/Ímpar</SelectItem>
+                                <SelectItem value="overUnder">Acima/Abaixo</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+
                 <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
                         <Activity className={cn("h-4 w-4", pulseConfig.color)} />
@@ -136,6 +169,21 @@ export const GamePanel: React.FC = () => {
                         ))}
                     </div>
                 </div>
+
+                {digitTradeMode === 'overUnder' && (
+                    <div className="space-y-1.5 pt-2 border-t">
+                        <Label className="text-[10px] font-black text-muted-foreground uppercase">Direção Alvo (Acima/Abaixo)</Label>
+                        <Select value={overUnderDirection} onValueChange={(v) => setOverUnderDirection(v as 'OVER' | 'UNDER')}>
+                            <SelectTrigger className="h-8 text-xs font-bold">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="OVER">Acima</SelectItem>
+                                <SelectItem value="UNDER">Abaixo</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
