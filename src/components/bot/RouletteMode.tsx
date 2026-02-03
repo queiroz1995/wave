@@ -6,7 +6,6 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Timer, Zap, Trophy, History } from 'lucide-react';
-import { Progress } from '@/components/ui/progress';
 
 export const RouletteMode = () => {
     const { 
@@ -56,7 +55,7 @@ export const RouletteMode = () => {
                     </div>
                     
                     <Badge variant={isBettingOpen ? "default" : "destructive"} className="px-4 py-1 uppercase font-bold animate-pulse">
-                        {isBettingOpen ? "Apostas Abertas" : "Apostas Encerradas"}
+                        {isBettingOpen ? "Apostas Abertas" : "Sorteando..."}
                     </Badge>
                 </div>
 
@@ -66,7 +65,7 @@ export const RouletteMode = () => {
                         <button
                             key={num}
                             onClick={() => toggleNumber(num)}
-                            disabled={!isBettingOpen || !isConnected}
+                            disabled={!isBettingOpen}
                             className={cn(
                                 "h-14 rounded-xl flex flex-col items-center justify-center transition-all border-2",
                                 selectedRouletteNumbers.includes(num) 
@@ -111,6 +110,11 @@ export const RouletteMode = () => {
                 </div>
 
                 <div className="text-center">
+                    {!isConnected && (
+                        <p className="text-[10px] text-yellow-500 font-bold mb-2">
+                            MODO SIMULAÇÃO: Conecte o Token para apostas reais.
+                        </p>
+                    )}
                     <p className="text-[10px] text-muted-foreground italic">
                         Ganho: 9x o valor apostado se acertar o dígito exato.
                     </p>
