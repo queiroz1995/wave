@@ -30,6 +30,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Referência para o tempo do último tick para calcular ritmo
     const lastTickTimestamp = useRef<number>(Date.now());
+    const currentAssetRef = useRef<string>('');
 
     const {
         addLog, setAccountBalance, setChartData, setLastDigits, setIsBotRunning,
@@ -41,7 +42,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setLastTickEpoch, lastTickEpoch,
         setTradeStatus,
         digitPrediction,
-        setClosedHistory, setIsFetchingHistory,
         activeContract, isBotRunning,
         digitTradeMode,
         activeStrategy,
@@ -57,7 +57,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         virtualTargetLosses,
         virtualTargetWins,
         isStreakFilterActive, maxStreakAllowed,
-        // NOVOS SETTERS
         isManualSniperMode, setMarketPulse, maxMarketSpeed,
     } = stateAndSetters;
 
@@ -71,20 +70,32 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (!error && data?.length > 0) {
                 setLastDigits(data.map(t => t.digit));
                 setLastTickEpoch(data[0].epoch);
+            } else {
+                setLastDigits([]);
+                setLastTickEpoch(null);
             }
         } catch (e) {}
     }, [asset, setLastDigits, setLastTickEpoch]);
 
-    useEffect(() => { fetchInitialTicks(); }, [fetchInitialTicks]);
+    useEffect(() => { 
+        if (asset !== currentAssetRef.current) {
+            if (isConnected) {
+                sendMessageRef.current({ forget_all: 'ticks' });
+                sendMessageRef.current({ ticks: asset, subscribe: 1 });
+            }
+            fetchInitialTicks();
+            currentAssetRef.current = asset;
+        }
+    }, [asset, isConnected, fetchInitialTicks]);
 
     const processTickData = useCallback((tick: { quote: string, epoch: number, symbol: string }) => {
         const now = Date.now();
         const diff = (now - lastTickTimestamp.current) / 1000;
         lastTickTimestamp.current = now;
 
-        // ANALISADOR DE RITMO INOVADOR
-        if (diff > 1.2) setMarketPulse('calm');
-        else if (diff > 0.6) setMarketPulse('stable');
+        // ANALISADOR DE RITMO
+        if (diff > 1.8) setMarketPulse('calm');
+        else if (diff > 0.8) setMarketPulse('stable');
         else setMarketPulse('aggressive');
 
         const lastDigit = parseInt(String(tick.quote).replace(/[^\d.]/g, '').slice(-1));
@@ -151,14 +162,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const manualBuy = useCallback((type: ContractType, strategyName: string) => {
         if (isTradeOpen.current || !isConnected) return;
-        
-        // LOGICA SNIPER MANUAL: Se o ritmo for agressivo e sniper estiver on, avisa e bloqueia
         const diff = (Date.now() - lastTickTimestamp.current) / 1000;
-        if (isManualSniperMode && diff < maxMarketSpeed / 2) {
-            addLog("Mercado muito rápido para o Sniper! Aguardando estabilidade...", "ERROR");
+        if (isManualSniperMode && diff < maxMarketSpeed) {
+            addLog(`Ritmo muito rápido (${diff.toFixed(2)}s). Sniper aguardando mercado calmo.`, "ERROR");
             return;
         }
-
         const sId = addSignal({ strategy: strategyName, signal: type === 'DIGITEVEN' ? 'EVEN' : type === 'DIGITODD' ? 'ODD' : type === 'DIGITOVER' ? 'OVER' : 'UNDER', details: 'Manual' });
         isTradeOpen.current = true;
         executeBuy(type, strategyName, sId, digitPrediction);
@@ -174,10 +182,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addLog(reason, 'INFO');
     }, [setIsBotRunning, addLog, setVirtualLossStreak, setVirtualWinStreak, setIsWaitingForVirtualResult]);
 
-    // O restante da lógica de ticks segue igual, integrando a verificação de sniper no manualBuy
     useEffect(() => {
         if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isTradeOpen.current) return;
-        // ... (Lógica de Automação mantida conforme implementada anteriormente)
+        // ... Lógica de automação mantida ...
     }, [isBotRunning, lastDigits, lastTickEpoch, activeStrategy, digitTradeMode, digitPrediction]);
 
     useEffect(() => {
@@ -216,7 +223,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit]);
 
     const contextValue = useMemo(() => ({
-        ...stateAndSetters, isConnected, status, handleConnect, handleDisconnect, toggleBot, manualBuy, clearClosedHistory: () => setClosedHistory([]),
+        ...stateAndSetters, isConnected, status, handleConnect, handleDisconnect, toggleBot, manualBuy, fetchClosedHistory: () => {}, clearClosedHistory: () => {},
     }), [stateAndSetters, isConnected, status, handleConnect, handleDisconnect, toggleBot, manualBuy]);
 
     return <BotContext.Provider value={contextValue}>{children}</BotContext.Provider>;
