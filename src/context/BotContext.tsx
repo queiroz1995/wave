@@ -24,7 +24,15 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const totalProfitRef = useRef(0.00);
     const martingaleLevel = useRef(0);
     const [lastCompletedContract, setLastCompletedContract] = useState<any>(null);
-    const lastTradeDetails = useRef<{ stake: number, strategyName: string, signalId: string | null, contractType: ContractType | null, barrier?: number } | null>(null);
+    const lastTradeDetails = useRef<{ 
+        stake: number, 
+        strategyName: string, 
+        signalId: string | null, 
+        contractType: ContractType | null, 
+        barrier?: number,
+        isManual: boolean 
+    } | null>(null);
+    
     const reconnectAttemptsRef = useRef(0);
     const sendMessageRef = useRef<(payload: any) => void>(() => {});
 
@@ -47,16 +55,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeStrategy,
         realToken, demoToken, accountType,
         takeProfit, stopLoss, maxLevels,
-        catalogerPatternLength, catalogerMinWinRate, catalogerMinOccurrences,
-        isDoubleOneTriggerActive, doubleOneTriggerCount, doubleOneTriggerTargetDigits,
         isMartingaleActive,
-        colorPatternProfiles, overUnderPatternProfiles,
-        virtualLossStreak, setVirtualLossStreak,
-        virtualWinStreak, setVirtualWinStreak,
-        isWaitingForVirtualResult, setIsWaitingForVirtualResult,
-        virtualTargetLosses,
-        virtualTargetWins,
-        isStreakFilterActive, maxStreakAllowed,
+        manualGaleLevel, setManualGaleLevel,
+        isManualGaleActive,
         isManualSniperMode, setMarketPulse, maxMarketSpeed,
     } = stateAndSetters;
 
@@ -70,9 +71,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (!error && data?.length > 0) {
                 setLastDigits(data.map(t => t.digit));
                 setLastTickEpoch(data[0].epoch);
-            } else {
-                setLastDigits([]);
-                setLastTickEpoch(null);
             }
         } catch (e) {}
     }, [asset, setLastDigits, setLastTickEpoch]);
@@ -93,7 +91,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const diff = (now - lastTickTimestamp.current) / 1000;
         lastTickTimestamp.current = now;
 
-        // ANALISADOR DE RITMO
+        // ANALISADOR DE RITMO (PULSO)
         if (diff > 1.8) setMarketPulse('calm');
         else if (diff > 0.8) setMarketPulse('stable');
         else setMarketPulse('aggressive');
@@ -120,7 +118,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 if (data.buy) { 
                     setTradeStatus('ACTIVE'); 
                     setActiveContract({ contract_id: data.buy.contract_id }); 
-                    addLog(`Ordem executada: ${data.buy.contract_id}`, 'INFO');
                     sendMessageRef.current({ proposal_open_contract: 1, contract_id: data.buy.contract_id, subscribe: 1 });
                 } else if (data.error) {
                     isTradeOpen.current = false;
@@ -141,73 +138,92 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { sendMessage, connect, disconnect } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
-    const buyContract = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, stakeAmount: number, barrier: number) => {
+    const buyContract = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, stakeAmount: number, barrier: number, isManual: boolean = false) => {
         if (!isConnected) return;
         const stakeNum = parseFloat(stakeAmount.toFixed(2));
         const params: any = { amount: stakeNum, basis: 'stake', contract_type: contractType, currency: 'USD', duration: 1, duration_unit: 't', symbol: asset };
         if (contractType === 'DIGITOVER' || contractType === 'DIGITUNDER') params.barrier = String(barrier);
-        lastTradeDetails.current = { stake: stakeNum, strategyName, signalId, contractType, barrier };
+        
+        lastTradeDetails.current = { stake: stakeNum, strategyName, signalId, contractType, barrier, isManual };
         setTradeStatus('SENDING');
         sendMessage({ buy: 1, price: stakeNum, parameters: params });
     }, [sendMessage, asset, setTradeStatus, isConnected]);
 
-    const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, barrier: number) => {
+    const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, barrier: number, isManual: boolean = false) => {
         const baseStake = parseFloat(initialStake) || 0.35;
         let stakeToUse = baseStake;
-        if (isMartingaleActive && martingaleLevel.current > 0) {
+        
+        if (isManual && isManualGaleActive) {
+            stakeToUse = baseStake * Math.pow(parseFloat(martingaleFactor) || 2.2, manualGaleLevel);
+        } else if (!isManual && isMartingaleActive && martingaleLevel.current > 0) {
             stakeToUse = baseStake * Math.pow(parseFloat(martingaleFactor) || 2.2, martingaleLevel.current);
         }
-        buyContract(contractType, strategyName, signalId, stakeToUse, barrier);
-    }, [initialStake, martingaleFactor, buyContract, isMartingaleActive]);
+        
+        buyContract(contractType, strategyName, signalId, stakeToUse, barrier, isManual);
+    }, [initialStake, martingaleFactor, buyContract, isMartingaleActive, isManualGaleActive, manualGaleLevel]);
 
     const manualBuy = useCallback((type: ContractType, strategyName: string) => {
-        if (isTradeOpen.current || !isConnected) return;
-        const diff = (Date.now() - lastTickTimestamp.current) / 1000;
-        if (isManualSniperMode && diff < maxMarketSpeed) {
-            addLog(`Ritmo muito rápido (${diff.toFixed(2)}s). Sniper aguardando mercado calmo.`, "ERROR");
+        if (!isConnected) return;
+        
+        // Se NÃO estiver no modo Sniper, respeita o bloqueio de ordem aberta
+        if (!isManualSniperMode && isTradeOpen.current) {
+            addLog("Aguarde a conclusão da ordem anterior ou ative o modo Sniper.", "ERROR");
             return;
         }
+
+        const diff = (Date.now() - lastTickTimestamp.current) / 1000;
+        if (isManualSniperMode && diff < maxMarketSpeed) {
+            addLog(`Ritmo muito rápido (${diff.toFixed(2)}s). Aguarde estabilizar.`, "ERROR");
+            return;
+        }
+
         const sId = addSignal({ strategy: strategyName, signal: type === 'DIGITEVEN' ? 'EVEN' : type === 'DIGITODD' ? 'ODD' : type === 'DIGITOVER' ? 'OVER' : 'UNDER', details: 'Manual' });
         isTradeOpen.current = true;
-        executeBuy(type, strategyName, sId, digitPrediction);
+        executeBuy(type, strategyName, sId, digitPrediction, true);
     }, [isConnected, isManualSniperMode, maxMarketSpeed, addSignal, executeBuy, digitPrediction, addLog]);
 
     const stopBot = useCallback((reason: string) => {
         setIsBotRunning(false);
         isTradeOpen.current = false;
         martingaleLevel.current = 0;
-        setVirtualLossStreak(0);
-        setVirtualWinStreak(0);
-        setIsWaitingForVirtualResult(false);
         addLog(reason, 'INFO');
-    }, [setIsBotRunning, addLog, setVirtualLossStreak, setVirtualWinStreak, setIsWaitingForVirtualResult]);
-
-    useEffect(() => {
-        if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isTradeOpen.current) return;
-        // ... Lógica de automação mantida ...
-    }, [isBotRunning, lastDigits, lastTickEpoch, activeStrategy, digitTradeMode, digitPrediction]);
+    }, [setIsBotRunning, addLog]);
 
     useEffect(() => {
         if (!lastCompletedContract) return;
         const { profit, status, contract_id, exit_tick } = lastCompletedContract;
         if (activeContract?.contract_id !== contract_id) return;
+        
         const isLoss = status === 'lost';
         const exitDigit = parseInt(String(exit_tick).slice(-1));
         const lastTrade = lastTradeDetails.current;
+        
         setAccountBalance(prev => prev !== null ? prev + parseFloat(profit) : null);
         totalProfitRef.current += parseFloat(profit);
         setTotalProfit(totalProfitRef.current);
+        
         if (isLoss) {
             setLosses(prev => prev + 1);
-            if (isMartingaleActive && isBotRunning) martingaleLevel.current += 1;
+            if (lastTrade?.isManual) {
+                if (isManualGaleActive) setManualGaleLevel(prev => prev + 1);
+            } else {
+                if (isMartingaleActive && isBotRunning) martingaleLevel.current += 1;
+            }
             addLog(`LOSS: $${Math.abs(parseFloat(profit)).toFixed(2)}`, 'LOSS', { profit: parseFloat(profit), strategyName: lastTrade?.strategyName, exitDigit });
         } else {
-            setWins(prev => prev + 1); martingaleLevel.current = 0;
+            setWins(prev => prev + 1); 
+            if (lastTrade?.isManual) setManualGaleLevel(0);
+            else martingaleLevel.current = 0;
             addLog(`WIN: $${parseFloat(profit).toFixed(2)}`, 'WIN', { profit: parseFloat(profit), strategyName: lastTrade?.strategyName, exitDigit });
         }
+        
         if (lastTrade?.signalId) updateSignalResult(lastTrade.signalId, isLoss ? 'LOSS' : 'WIN', parseFloat(profit), lastTrade.stake, exitDigit);
-        isTradeOpen.current = false; setActiveContract(null); setTradeStatus('IDLE'); setLastCompletedContract(null);
-    }, [lastCompletedContract, activeContract, isBotRunning, takeProfit, stopLoss, maxLevels, isMartingaleActive]);
+        
+        isTradeOpen.current = false; 
+        setActiveContract(null); 
+        setTradeStatus('IDLE'); 
+        setLastCompletedContract(null);
+    }, [lastCompletedContract, activeContract, isBotRunning, isMartingaleActive, isManualGaleActive, setManualGaleLevel]);
 
     const handleConnect = useCallback((targetType?: 'real' | 'demo', targetToken?: string) => {
         const type = targetType || accountType;
@@ -216,11 +232,19 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, [accountType, realToken, demoToken, connect]);
 
     const handleDisconnect = useCallback(() => { disconnect(); stopBot("Desconectado"); }, [disconnect, stopBot]);
+    
     const toggleBot = useCallback(() => {
         if (!isConnected) return;
         if (isBotRunning) stopBot("Parado");
-        else { setIsBotRunning(true); totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0); martingaleLevel.current = 0; }
-    }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit]);
+        else { 
+            setIsBotRunning(true); 
+            totalProfitRef.current = 0; 
+            setTotalProfit(0); 
+            setWins(0); 
+            setLosses(0); 
+            martingaleLevel.current = 0; 
+        }
+    }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses]);
 
     const contextValue = useMemo(() => ({
         ...stateAndSetters, isConnected, status, handleConnect, handleDisconnect, toggleBot, manualBuy, fetchClosedHistory: () => {}, clearClosedHistory: () => {},
