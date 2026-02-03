@@ -50,7 +50,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [isConnected, setIsConnected] = useState(false);
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
 
-    // FUNÇÃO PARA EXECUTAR COMPRA NA DERIV
+    // FUNÇÃO PARA EXECUTAR COMPRA NA DERIV (ENTRADA REAL)
     const executeTrade = useCallback((contractType: ContractType, prediction?: number, stake?: number, strategyName: string = 'Manual') => {
         if (!isConnected) {
             toast.error("Conecte-se antes de operar!");
@@ -58,10 +58,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         const amount = stake || parseFloat(initialStake) || 0.35;
+        
+        // Estrutura oficial para comando de compra imediata
         const proposal = {
             buy: 1,
             price: amount,
-            subscribe: 1,
             parameters: {
                 amount: amount,
                 basis: 'stake',
@@ -74,7 +75,13 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
         };
 
-        addLog(`Iniciando ${strategyName}: ${contractType} com $${amount.toFixed(2)}`, 'TRADE', { stake: amount, strategyName });
+        addLog(`Enviando Ordem Real: ${contractType} (${prediction ?? ''}) | $${amount.toFixed(2)}`, 'TRADE', { 
+            stake: amount, 
+            strategyName,
+            contractType,
+            barrier: prediction
+        });
+        
         sendMessageRef.current(proposal);
     }, [isConnected, initialStake, asset, duration, addLog]);
 
@@ -109,9 +116,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setLastSelectedRouletteNumbers(selectedRouletteNumbers);
         }
 
-        // Se estiver conectado, tenta fazer as apostas reais de Match
+        // SE ESTIVER CONECTADO, EXECUTA AS ENTRADAS REAIS NA CORRETORA (DIGITMATCH)
         if (isConnected && selectedRouletteNumbers.length > 0) {
             selectedRouletteNumbers.forEach((num: number) => {
+                // Aposta no dígito exato (Digit Match) paga aprox. 9x
                 executeTrade('DIGITMATCH' as any, num, undefined, 'Roleta');
             });
         }
@@ -130,14 +138,14 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     setTotalProfit(totalProfitRef.current);
                     setWins(prev => prev + 1);
                     toast.success(`ROLETA: VITÓRIA! Dígito ${resultDigit}`, { description: `Lucro: +$${winAmount.toFixed(2)}` });
-                    addLog(`VITÓRIA ROLETA: Dígito ${resultDigit}`, 'WIN', { profit: winAmount });
+                    addLog(`VITÓRIA ROLETA: Dígito ${resultDigit}`, 'WIN', { profit: winAmount, exitDigit: resultDigit });
                 } else {
                     const totalLoss = stake * selectedRouletteNumbers.length;
                     totalProfitRef.current -= totalLoss;
                     setTotalProfit(totalProfitRef.current);
                     setLosses(prev => prev + 1);
                     toast.error(`ROLETA: DERROTA. Dígito ${resultDigit}`, { description: `Prejuízo: -$${totalLoss.toFixed(2)}` });
-                    addLog(`DERROTA ROLETA: Dígito ${resultDigit}`, 'LOSS', { profit: -totalLoss });
+                    addLog(`DERROTA ROLETA: Dígito ${resultDigit}`, 'LOSS', { profit: -totalLoss, exitDigit: resultDigit });
                 }
             }
             setSelectedRouletteNumbers([]); 
@@ -184,29 +192,42 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
         const data = event.payload;
         if (event.type === 'message') {
+            // AUTORIZAÇÃO BEM SUCEDIDA
             if (data?.msg_type === 'authorize') {
                 setIsConnected(true); 
                 setStatus({ message: `Conectado - ${data.authorize.is_virtual ? 'Demo' : 'Real'}`, color: 'bg-green-500' });
                 if (data.authorize.balance) setAccountBalance(data.authorize.balance);
+                
+                // INSCREVE PARA RECEBER ATUALIZAÇÕES DE SALDO EM TEMPO REAL (MUITO IMPORTANTE)
+                sendMessageRef.current({ balance: 1, subscribe: 1 });
+                
+                // Inscreve nos ticks do ativo atual
                 sendMessageRef.current({ ticks: asset, subscribe: 1 });
-            } else if (data?.msg_type === 'tick') {
+            } 
+            // ATUALIZAÇÃO DE SALDO EM TEMPO REAL (ASSIM QUE GANHA)
+            else if (data?.msg_type === 'balance') {
+                if (data.balance?.balance !== undefined) {
+                    setAccountBalance(data.balance.balance);
+                }
+            }
+            else if (data?.msg_type === 'tick') {
                 if (data.tick?.symbol === asset) processTickData(data.tick);
             } else if (data?.msg_type === 'buy') {
                 if (data.buy) { 
                     setTradeStatus('ACTIVE'); 
                     setActiveContract({ contract_id: data.buy.contract_id }); 
+                } else if (data.error) {
+                    addLog(`Erro na Compra: ${data.error.message}`, 'ERROR');
                 }
             } else if (data?.msg_type === 'proposal_open_contract') {
                 const poc = data.proposal_open_contract;
                 if (poc?.is_sold) {
                     setLastCompletedContract(poc);
-                    if (poc.status === 'won') {
-                        setAccountBalance(poc.balance_after);
-                    }
+                    // O saldo será atualizado automaticamente via mensagem 'balance'
                 }
             }
         }
-    }, [asset, processTickData, setAccountBalance, setActiveContract, setTradeStatus]);
+    }, [asset, processTickData, setAccountBalance, setActiveContract, setTradeStatus, addLog]);
 
     const ws = useTradingWebSocketManager({ isConnected, status, setIsConnected, setStatus, setAccountBalance, onMessage: handleWebSocketMessage, reconnectAttemptsRef });
     const { sendMessage, connect, disconnect } = ws;
