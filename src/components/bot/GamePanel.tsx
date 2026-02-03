@@ -6,44 +6,39 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Target, ShieldAlert, Trophy, Activity, Crosshair, History } from 'lucide-react';
+import { Target, ShieldAlert, Trophy, Activity, History, Zap } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
 import { cn } from '@/lib/utils';
-import { Slider } from '@/components/ui/slider';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Switch } from '@/components/ui/switch';
 
 export const GamePanel: React.FC = () => {
     const {
         initialStake, setInitialStake,
-        duration, setDuration,
         toggleBot, isBotRunning,
         isConnected,
         manualBuy,
         isManualMode,
         currentSignal,
-        currentSignalDetails,
         isManualGaleActive,
         manualGaleLevel,
         martingaleFactor,
         digitTradeMode,
         digitPrediction,
         totalProfit,
-        wins,
-        losses,
+        lastDigits,
         virtualTargetLosses, setVirtualTargetLosses,
         virtualTargetWins, setVirtualTargetWins,
-        // NOVOS ESTADOS
         isManualSniperMode, setIsManualSniperMode,
         marketPulse,
-        lastDigits,
-        analyzerWindowSize,
     } = useBotContext();
 
-    // CÁLCULO DE SEQUÊNCIAS PARA O PAINEL MANUAL
-    const streakInfo = useMemo(() => {
-        const digits = (lastDigits || []).slice(0, 100); // Focado em 100 rodadas
-        if (digits.length === 0) return { maxE: 0, maxO: 0, activeC: 0, activeT: null };
+    // CÁLCULO DE SEQUÊNCIAS E MAPA DE 16 DÍGITOS
+    const sniperData = useMemo(() => {
+        const digits = (lastDigits || []).slice(0, 100);
+        const last16 = (lastDigits || []).slice(0, 16); // MAPA DE 16 DÍGITOS
+
+        if (digits.length === 0) return { maxE: 0, maxO: 0, actC: 0, actT: null, last16: [] };
 
         let maxE = 0; let maxO = 0; let curC = 0; let curT: 'E' | 'O' | null = null;
 
@@ -59,14 +54,13 @@ export const GamePanel: React.FC = () => {
         if (curT === 'E') maxE = Math.max(maxE, curC);
         if (curT === 'O') maxO = Math.max(maxO, curC);
 
-        // Sequência Atual
         let actC = 1; const actT = digits[0] % 2 === 0 ? 'E' : 'O';
         for (let i = 1; i < digits.length; i++) {
             if ((digits[i] % 2 === 0 ? 'E' : 'O') === actT) actC++;
             else break;
         }
 
-        return { maxE, maxO, actC, actT };
+        return { maxE, maxO, actC, actT, last16 };
     }, [lastDigits]);
 
     const handleStakeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -93,7 +87,6 @@ export const GamePanel: React.FC = () => {
     const signalColor = isUpSignal ? 'text-green-500' : isDownSignal ? 'text-red-500' : 'text-muted-foreground';
     const signalBg = currentSignal ? (isUpSignal ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30') : 'bg-muted/50 border-border';
     
-    // Configurações do Pulso do Mercado
     const pulseConfig = {
         calm: { label: 'CALMO', color: 'text-blue-500', bg: 'bg-blue-500/20' },
         stable: { label: 'ESTÁVEL', color: 'text-green-500', bg: 'bg-green-500/20' },
@@ -116,15 +109,40 @@ export const GamePanel: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                {/* MAPA SNIPER DE 16 DÍGITOS */}
+                <div className="space-y-1.5">
+                    <div className="flex items-center justify-between px-1">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
+                            <Zap className="h-3 w-3 text-yellow-500" /> Mapa Sniper (16s)
+                        </span>
+                        <span className="text-[9px] text-muted-foreground italic">Esquerda = Recente</span>
+                    </div>
+                    <div className="grid grid-cols-8 gap-1">
+                        {sniperData.last16.map((digit, i) => (
+                            <div 
+                                key={i} 
+                                className={cn(
+                                    "h-6 flex items-center justify-center text-[10px] font-black text-white rounded-[4px] border border-white/5",
+                                    digit % 2 === 0 ? (digit === 0 ? "bg-blue-600" : "bg-green-600") : "bg-red-600",
+                                    i === 0 && "ring-2 ring-primary ring-offset-1 ring-offset-background"
+                                )}
+                            >
+                                {digit}
+                            </div>
+                        ))}
+                        {Array.from({ length: 16 - sniperData.last16.length }).map((_, i) => (
+                            <div key={`empty-${i}`} className="h-6 bg-muted/20 border border-dashed rounded-[4px]" />
+                        ))}
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 pt-2">
                     <div className="space-y-1">
                         <div className="flex justify-between items-center px-1">
                             <Label htmlFor="initialStake" className="text-sm">Stake ($)</Label>
-                            <div className="flex items-center gap-2 text-xs">
-                                <span className={cn('font-bold', totalProfit > 0 ? 'text-green-500' : totalProfit < 0 ? 'text-red-500' : '')}>
-                                    ${totalProfit.toFixed(2)}
-                                </span>
-                            </div>
+                            <span className={cn('text-xs font-bold', totalProfit > 0 ? 'text-green-500' : totalProfit < 0 ? 'text-red-500' : '')}>
+                                ${totalProfit.toFixed(2)}
+                            </span>
                         </div>
                         <Input id="initialStake" value={initialStake} onChange={handleStakeChange} className="text-center text-sm font-bold h-9" />
                     </div>
@@ -143,19 +161,18 @@ export const GamePanel: React.FC = () => {
 
                 {isManualMode && (
                     <div className="space-y-2 pt-2 border-t">
-                        {/* MINI PAINEL DE SEQUÊNCIAS - PERTO DOS BOTÕES */}
                         <div className="flex justify-between items-center bg-muted/30 p-1.5 rounded-md border border-border/50">
                             <div className="flex gap-2">
-                                <Badge variant="outline" className="text-[9px] bg-green-500/10 text-green-500 border-green-500/20">Max E: {streakInfo.maxE}x</Badge>
-                                <Badge variant="outline" className="text-[9px] bg-red-500/10 text-red-500 border-red-500/20">Max O: {streakInfo.maxO}x</Badge>
+                                <Badge variant="outline" className="text-[9px] bg-green-500/10 text-green-500 border-green-500/20">Max E: {sniperData.maxE}x</Badge>
+                                <Badge variant="outline" className="text-[9px] bg-red-500/10 text-red-500 border-red-500/20">Max O: {sniperData.maxO}x</Badge>
                             </div>
                             <div className="flex items-center gap-1.5">
                                 <span className="text-[9px] text-muted-foreground font-bold uppercase">Atual:</span>
                                 <span className={cn(
                                     "text-xs font-black",
-                                    streakInfo.actT === 'E' ? "text-green-500" : "text-red-500"
+                                    sniperData.actT === 'E' ? "text-green-500" : "text-red-500"
                                 )}>
-                                    {streakInfo.actC}x {streakInfo.actT === 'E' ? 'P' : 'I'}
+                                    {sniperData.actC}x {sniperData.actT === 'E' ? 'P' : 'I'}
                                 </span>
                             </div>
                         </div>
