@@ -56,7 +56,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return;
         }
 
-        const amount = stake || parseFloat(initialStake);
+        const amount = stake || parseFloat(initialStake) || 0.35;
         const proposal = {
             buy: 1,
             price: amount,
@@ -78,8 +78,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, [isConnected, initialStake, asset, duration, addLog]);
 
     // APOSTA MANUAL DO PAINEL PRINCIPAL
-    const manualBuy = useCallback((type: ContractType, strategy: string) => {
-        executeTrade(type, undefined, undefined, strategy);
+    const manualBuy = useCallback((type: ContractType, strategy: string, customStake?: number) => {
+        executeTrade(type, undefined, customStake, strategy);
     }, [executeTrade]);
 
     // LÓGICA DO TEMPORIZADOR DA ROLETA (16s)

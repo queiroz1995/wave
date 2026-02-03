@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Target, ShieldAlert, Trophy, Activity, Zap, Plus, Minus } from 'lucide-react';
+import { Target, Activity, Plus, Minus } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -35,6 +34,7 @@ export const GamePanel: React.FC = () => {
         const digits = (lastDigits || []).slice(0, 100);
         const last16 = (lastDigits || []).slice(0, 16);
         if (digits.length === 0) return { maxE: 0, maxO: 0, actC: 0, actT: null, last16: [] };
+        
         let maxE = 0; let maxO = 0; let curC = 0; let curT: 'E' | 'O' | null = null;
         digits.forEach((d) => {
             const t = d % 2 === 0 ? 'E' : 'O';
@@ -45,8 +45,7 @@ export const GamePanel: React.FC = () => {
                 curT = t; curC = 1;
             }
         });
-        if (curT === 'E') maxE = Math.max(maxE, curC);
-        if (curT === 'O') maxO = Math.max(maxO, curC);
+        
         let actC = 1; const actT = digits[0] % 2 === 0 ? 'E' : 'O';
         for (let i = 1; i < digits.length; i++) {
             if ((digits[i] % 2 === 0 ? 'E' : 'O') === actT) actC++;
@@ -56,7 +55,10 @@ export const GamePanel: React.FC = () => {
     }, [lastDigits]);
 
     const handleStakeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setInitialStake(e.target.value.replace(',', '.'));
+        const val = e.target.value.replace(',', '.');
+        if (/^\d*\.?\d*$/.test(val)) {
+            setInitialStake(val);
+        }
     };
 
     const adjustStake = (amount: number) => {
@@ -65,7 +67,8 @@ export const GamePanel: React.FC = () => {
         setInitialStake(next.toFixed(2));
     };
 
-    const nextManualStake = useMemo(() => {
+    // Calcula o valor real que será apostado (considerando gale manual se ativo)
+    const currentActiveStake = useMemo(() => {
         const baseStake = parseFloat(initialStake) || 0.35;
         if (isManualGaleActive && manualGaleLevel > 0) {
             const mgFactor = parseFloat(martingaleFactor) || 2.2;
@@ -91,12 +94,10 @@ export const GamePanel: React.FC = () => {
         aggressive: { label: 'AGRESSIVO', color: 'text-red-500', bg: 'bg-red-500/20' },
     }[marketPulse as 'calm' | 'stable' | 'aggressive'] || { label: '...', color: 'text-muted-foreground', bg: 'bg-muted' };
 
-    const quickStakes = [1, 5, 10, 50];
-
     return (
         <Card className="bg-card/80 backdrop-blur-sm relative overflow-hidden">
             <div className={cn("absolute top-0 left-0 w-full h-1 transition-colors duration-500", pulseConfig.bg.replace('/20', ''))} />
-            <CardContent className="pt-4 space-y-3">
+            <CardContent className="pt-4 space-y-4">
                 <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
                         <Activity className={cn("h-4 w-4", pulseConfig.color)} />
@@ -110,25 +111,27 @@ export const GamePanel: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="space-y-1.5">
-                    <div className="grid grid-cols-8 gap-1">
-                        {streakData.last16.map((digit, i) => (
-                            <div key={i} className={cn("h-6 flex items-center justify-center text-[10px] font-black text-white rounded-[4px] border border-white/5", digit % 2 === 0 ? (digit === 0 ? "bg-blue-600" : "bg-green-600") : "bg-red-600", i === 0 && "ring-2 ring-primary ring-offset-1")}>{digit}</div>
-                        ))}
-                    </div>
+                <div className="grid grid-cols-8 gap-1">
+                    {streakData.last16.map((digit, i) => (
+                        <div key={i} className={cn("h-6 flex items-center justify-center text-[10px] font-black text-white rounded-[4px]", digit % 2 === 0 ? (digit === 0 ? "bg-blue-600" : "bg-green-600") : "bg-red-600", i === 0 && "ring-2 ring-primary ring-offset-1")}>{digit}</div>
+                    ))}
                 </div>
 
                 <div className="space-y-2 pt-2 border-t">
                     <Label className="text-xs font-bold uppercase text-muted-foreground">Valor da Entrada (Stake)</Label>
                     <div className="flex items-center gap-2">
-                        <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={() => adjustStake(-1)}><Minus className="h-4 w-4" /></Button>
-                        <Input id="initialStake" value={initialStake} onChange={handleStakeChange} className="text-center text-lg font-black h-9 border-primary/30" />
-                        <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={() => adjustStake(1)}><Plus className="h-4 w-4" /></Button>
+                        <Button variant="outline" size="icon" className="h-10 w-10 shrink-0" onClick={() => adjustStake(-1)}><Minus className="h-4 w-4" /></Button>
+                        <Input 
+                            value={initialStake} 
+                            onChange={handleStakeChange} 
+                            className="text-center text-xl font-black h-10 border-primary/40 bg-background/50" 
+                        />
+                        <Button variant="outline" size="icon" className="h-10 w-10 shrink-0" onClick={() => adjustStake(1)}><Plus className="h-4 w-4" /></Button>
                     </div>
                     <div className="grid grid-cols-4 gap-2">
-                        {quickStakes.map(val => (
-                            <Button key={val} variant="secondary" size="sm" className="h-7 text-[10px] font-bold" onClick={() => setInitialStake(val.toFixed(2))}>
-                                +${val}
+                        {[0.35, 1, 5, 10].map(val => (
+                            <Button key={val} variant="secondary" size="sm" className="h-8 text-[10px] font-extrabold" onClick={() => setInitialStake(val.toFixed(2))}>
+                                ${val}
                             </Button>
                         ))}
                     </div>
@@ -153,13 +156,21 @@ export const GamePanel: React.FC = () => {
                                 <p className={cn("text-sm font-black tracking-widest", signalColor)}>{signalText}</p>
                             </div>
                             <div className="grid grid-cols-2 gap-2">
-                                <Button onClick={() => manualBuy(digitTradeMode === 'evenOdd' ? 'DIGITEVEN' : 'DIGITOVER', 'Manual')} disabled={!isConnected} className="h-full py-2 bg-green-600 hover:bg-green-700 text-white font-black flex-col border-b-4 border-green-800 active:border-b-0 active:translate-y-1 transition-all">
+                                <Button 
+                                    onClick={() => manualBuy(digitTradeMode === 'evenOdd' ? 'DIGITEVEN' : 'DIGITOVER', 'Manual', currentActiveStake)} 
+                                    disabled={!isConnected} 
+                                    className="h-full py-2 bg-green-600 hover:bg-green-700 text-white font-black flex-col border-b-4 border-green-800 active:border-b-0 active:translate-y-1 transition-all"
+                                >
                                     <span className="text-xs">{digitTradeMode === 'evenOdd' ? 'PAR' : 'ACIMA'}</span>
-                                    <span className="text-[9px] opacity-80">${nextManualStake.toFixed(2)}</span>
+                                    <span className="text-[9px] opacity-80">${currentActiveStake.toFixed(2)}</span>
                                 </Button>
-                                <Button onClick={() => manualBuy(digitTradeMode === 'evenOdd' ? 'DIGITODD' : 'DIGITUNDER', 'Manual')} disabled={!isConnected} className="h-full py-2 bg-red-600 hover:bg-red-700 text-white font-black flex-col border-b-4 border-red-800 active:border-b-0 active:translate-y-1 transition-all">
+                                <Button 
+                                    onClick={() => manualBuy(digitTradeMode === 'evenOdd' ? 'DIGITODD' : 'DIGITUNDER', 'Manual', currentActiveStake)} 
+                                    disabled={!isConnected} 
+                                    className="h-full py-2 bg-red-600 hover:bg-red-700 text-white font-black flex-col border-b-4 border-red-800 active:border-b-0 active:translate-y-1 transition-all"
+                                >
                                     <span className="text-xs">{digitTradeMode === 'evenOdd' ? 'ÍMPAR' : 'ABAIXO'}</span>
-                                    <span className="text-[9px] opacity-80">${nextManualStake.toFixed(2)}</span>
+                                    <span className="text-[9px] opacity-80">${currentActiveStake.toFixed(2)}</span>
                                 </Button>
                             </div>
                         </div>
@@ -169,7 +180,15 @@ export const GamePanel: React.FC = () => {
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <Button onClick={toggleBot} disabled={!isConnected} size="sm" className={cn("w-full transition-all text-xs font-bold h-9 uppercase tracking-widest", isBotRunning ? "bg-yellow-600 hover:bg-yellow-700 shadow-[0_0_15px_rgba(202,138,4,0.3)]" : "bg-primary hover:bg-primary/90")}>
+                            <Button 
+                                onClick={toggleBot} 
+                                disabled={!isConnected} 
+                                size="sm" 
+                                className={cn(
+                                    "w-full transition-all text-xs font-bold h-10 uppercase tracking-widest", 
+                                    isBotRunning ? "bg-yellow-600 hover:bg-yellow-700 shadow-[0_0_15px_rgba(202,138,4,0.3)]" : "bg-primary hover:bg-primary/90"
+                                )}
+                            >
                                 {isBotRunning ? 'Parar Automação' : 'Iniciar Automação'}
                             </Button>
                         </TooltipTrigger>
