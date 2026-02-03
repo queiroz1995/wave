@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Power, PowerOff, DollarSign, RotateCcw } from 'lucide-react';
+import { Power, PowerOff, DollarSign } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
 
 export const ConnectionPanel: React.FC = () => {
@@ -17,23 +17,13 @@ export const ConnectionPanel: React.FC = () => {
         handleConnect, handleDisconnect,
         isConnected, status,
         accountBalance,
-        addLog,
     } = useBotContext();
 
     const currentToken = accountType === 'real' ? realToken : demoToken;
 
     const handleAccountTypeChange = (value: 'real' | 'demo') => {
         setAccountType(value); 
-        const tokenToUse = value === 'real' ? realToken : demoToken;
-        handleConnect(value, tokenToUse);
-    };
-
-    const handleSynchronize = () => {
-        if (!currentToken) {
-            addLog("Token de acesso vazio. Por favor, insira o token antes de sincronizar.", 'ERROR');
-            return;
-        }
-        handleConnect();
+        // Apenas troca o tipo, a conexão é feita no botão "Conectar"
     };
 
     return (
@@ -65,7 +55,7 @@ export const ConnectionPanel: React.FC = () => {
                     <Button 
                         onClick={isConnected ? handleDisconnect : () => handleConnect(accountType, currentToken)} 
                         variant={isConnected ? "destructive" : "default"}
-                        className="flex-1"
+                        className="flex-1 font-bold"
                     >
                         {isConnected ? (
                             <>
@@ -75,28 +65,16 @@ export const ConnectionPanel: React.FC = () => {
                         ) : (
                             <>
                                 <Power className="h-4 w-4 mr-2" />
-                                <span>Conectar</span>
+                                <span>Conectar Conta</span>
                             </>
                         )}
                     </Button>
-                    
-                    {!isConnected && (
-                        <Button 
-                            onClick={handleSynchronize} 
-                            variant="outline"
-                            size="icon"
-                            className="flex-shrink-0"
-                        >
-                            <RotateCcw className="h-4 w-4" />
-                            <span className="sr-only">Sincronizar</span>
-                        </Button>
-                    )}
                 </div>
                 
                 {isConnected && (
-                    <div className="text-center pt-4 border-t">
-                        <Label>Saldo da Conta</Label>
-                        <p className="text-2xl font-bold text-primary flex items-center justify-center gap-2">
+                    <div className="text-center pt-4 border-t border-primary/10">
+                        <Label className="text-xs text-muted-foreground uppercase font-bold">Saldo da Conta</Label>
+                        <p className="text-2xl font-black text-primary flex items-center justify-center gap-2">
                             <DollarSign className="h-6 w-6" />
                             {accountBalance?.toFixed(2) || '0.00'}
                         </p>
@@ -104,8 +82,8 @@ export const ConnectionPanel: React.FC = () => {
                 )}
 
                 <div className="flex items-center justify-center space-x-2 pt-2 text-sm">
-                    <span className={`h-3 w-3 rounded-full ${status.color} transition-all animate-pulse`}></span>
-                    <span>{status.message}</span>
+                    <span className={`h-2 w-2 rounded-full ${status.color} transition-all animate-pulse`}></span>
+                    <span className="font-medium text-muted-foreground">{status.message}</span>
                 </div>
             </CardContent>
         </Card>
