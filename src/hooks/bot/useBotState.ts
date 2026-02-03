@@ -79,11 +79,12 @@ const DEFAULTS = {
     maxStreakAllowed: 2,
     marketPulse: 'stable' as 'calm' | 'stable' | 'aggressive',
     // ROULETTE STATES
-    isRouletteMode: true, // Sempre True agora
+    isRouletteMode: true,
     rouletteTimer: 16,
     isRouletteSpinning: false,
     rouletteHistory: [] as number[],
     selectedRouletteNumbers: [] as number[],
+    lastSelectedRouletteNumbers: [] as number[],
 };
 
 const getInitialState = () => {
@@ -166,11 +167,12 @@ export const useBotState = () => {
     const [marketPulse, setMarketPulse] = useState<'calm' | 'stable' | 'aggressive'>(initialState.marketPulse);
 
     // ROULETTE STATES
-    const [isRouletteMode, setIsRouletteMode] = useState(true); // Sempre True
+    const [isRouletteMode, setIsRouletteMode] = useState(true);
     const [rouletteTimer, setRouletteTimer] = useState(initialState.rouletteTimer);
     const [isRouletteSpinning, setIsRouletteSpinning] = useState(initialState.isRouletteSpinning);
     const [rouletteHistory, setRouletteHistory] = useState<number[]>(initialState.rouletteHistory);
     const [selectedRouletteNumbers, setSelectedRouletteNumbers] = useState<number[]>(initialState.selectedRouletteNumbers);
+    const [lastSelectedRouletteNumbers, setLastSelectedRouletteNumbers] = useState<number[]>(initialState.lastSelectedRouletteNumbers);
 
     const [isBotRunning, setIsBotRunning] = useState(false);
     const [manualGaleLevel, setManualGaleLevel] = useState(0);
@@ -281,5 +283,6 @@ export const useBotState = () => {
         rouletteTimer, setRouletteTimer,
         isRouletteSpinning, setIsRouletteSpinning,
         selectedRouletteNumbers, setSelectedRouletteNumbers,
+        lastSelectedRouletteNumbers, setLastSelectedRouletteNumbers,
     };
 };

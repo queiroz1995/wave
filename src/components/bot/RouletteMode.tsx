@@ -8,12 +8,14 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Timer, Zap, Trophy, History, Plus, Minus } from 'lucide-react';
+import { Timer, Zap, Trophy, History, Plus, Minus, RotateCcw } from 'lucide-react';
+import { toast } from 'sonner';
 
 export const RouletteMode = () => {
     const { 
         rouletteTimer, isRouletteSpinning, rouletteHistory, 
         selectedRouletteNumbers, setSelectedRouletteNumbers,
+        lastSelectedRouletteNumbers,
         initialStake, setInitialStake, isConnected 
     } = useBotContext();
 
@@ -25,6 +27,19 @@ export const RouletteMode = () => {
         setSelectedRouletteNumbers((prev: number[]) => 
             prev.includes(num) ? prev.filter(n => n !== num) : [...prev, num]
         );
+    };
+
+    const handleRepeatBet = () => {
+        if (!isBettingOpen) {
+            toast.error("Apostas fechadas!");
+            return;
+        }
+        if (lastSelectedRouletteNumbers.length === 0) {
+            toast.info("Nenhuma aposta anterior para repetir.");
+            return;
+        }
+        setSelectedRouletteNumbers(lastSelectedRouletteNumbers);
+        toast.success("Aposta repetida!");
     };
 
     const handleStakeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -70,9 +85,22 @@ export const RouletteMode = () => {
                         </div>
                     </div>
                     
-                    <Badge variant={isBettingOpen ? "default" : "destructive"} className="px-4 py-1 uppercase font-bold animate-pulse">
-                        {isBettingOpen ? "Apostas Abertas" : "Sorteando..."}
-                    </Badge>
+                    <div className="flex gap-2">
+                        <Badge variant={isBettingOpen ? "default" : "destructive"} className="px-4 py-1 uppercase font-bold animate-pulse">
+                            {isBettingOpen ? "Apostas Abertas" : "Sorteando..."}
+                        </Badge>
+                        
+                        {isBettingOpen && lastSelectedRouletteNumbers.length > 0 && selectedRouletteNumbers.length === 0 && (
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={handleRepeatBet}
+                                className="h-6 text-[10px] font-black border-primary/50 text-primary hover:bg-primary/10"
+                            >
+                                <RotateCcw className="h-3 w-3 mr-1" /> REPETIR
+                            </Button>
+                        )}
+                    </div>
                 </div>
 
                 {/* Controle de Stake */}

@@ -43,6 +43,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsRouletteSpinning,
         setRouletteHistory,
         selectedRouletteNumbers, setSelectedRouletteNumbers,
+        setLastSelectedRouletteNumbers,
         duration,
     } = stateAndSetters;
 
@@ -103,6 +104,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsRouletteSpinning(true);
         const resultDigit = lastDigits[0];
         
+        // Se houver aposta, salva como a última
+        if (selectedRouletteNumbers.length > 0) {
+            setLastSelectedRouletteNumbers(selectedRouletteNumbers);
+        }
+
         // Se estiver conectado, tenta fazer as apostas reais de Match
         if (isConnected && selectedRouletteNumbers.length > 0) {
             selectedRouletteNumbers.forEach((num: number) => {
@@ -136,7 +142,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
             setSelectedRouletteNumbers([]); 
         }, 3000);
-    }, [lastDigits, selectedRouletteNumbers, initialStake, isConnected, executeTrade, addLog, setTotalProfit, setWins, setLosses, setSelectedRouletteNumbers]);
+    }, [lastDigits, selectedRouletteNumbers, initialStake, isConnected, executeTrade, addLog, setTotalProfit, setWins, setLosses, setSelectedRouletteNumbers, setLastSelectedRouletteNumbers]);
 
     const fetchInitialTicks = useCallback(async () => {
         if (!asset) return;
