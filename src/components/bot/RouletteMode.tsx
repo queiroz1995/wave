@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
@@ -8,19 +8,29 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Timer, Zap, Trophy, History, Plus, Minus, RotateCcw } from 'lucide-react';
+import { Timer, Zap, Trophy, History, Plus, Minus, RotateCcw, BarChart3 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export const RouletteMode = () => {
     const { 
         rouletteTimer, isRouletteSpinning, rouletteHistory, 
         selectedRouletteNumbers, setSelectedRouletteNumbers,
-        lastSelectedRouletteNumbers,
+        lastSelectedRouletteNumbers, lastDigits,
         initialStake, setInitialStake, isConnected 
     } = useBotContext();
 
     const isBettingOpen = rouletteTimer > 4;
     const progress = (rouletteTimer / 16) * 100;
+
+    // Calcula a porcentagem de cada dígito nos últimos 100 ticks
+    const stats = useMemo(() => {
+        const recent = lastDigits.slice(0, 100);
+        if (recent.length === 0) return Array(10).fill(0);
+        
+        const counts = Array(10).fill(0);
+        recent.forEach((d: number) => counts[d]++);
+        return counts.map(c => Math.round((c / recent.length) * 100));
+    }, [lastDigits]);
 
     const toggleNumber = (num: number) => {
         if (!isBettingOpen) return;
@@ -117,27 +127,40 @@ export const RouletteMode = () => {
                     </div>
                 </div>
 
-                {/* Grelha de Apostas 0-9 */}
-                <div className="grid grid-cols-5 gap-2">
-                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-                        <button
-                            key={num}
-                            onClick={() => toggleNumber(num)}
-                            disabled={!isBettingOpen}
-                            className={cn(
-                                "h-14 rounded-xl flex flex-col items-center justify-center transition-all border-2",
-                                selectedRouletteNumbers.includes(num) 
-                                    ? "border-primary bg-primary/20 scale-95" 
-                                    : "border-white/5 bg-muted/30 hover:bg-muted/50",
-                                !isBettingOpen && "opacity-50 grayscale"
-                            )}
-                        >
-                            <span className={cn("w-6 h-6 rounded-full text-[10px] flex items-center justify-center font-bold text-white mb-1", getDigitColor(num))}>
-                                {num}
-                            </span>
-                            <span className="text-[10px] font-black">${selectedRouletteNumbers.includes(num) ? initialStake : "0.00"}</span>
-                        </button>
-                    ))}
+                {/* Grelha de Apostas 0-9 com Porcentagens */}
+                <div className="space-y-2">
+                    <div className="flex items-center gap-1 mb-1">
+                        <BarChart3 className="h-3 w-3 text-primary" />
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase">Frequência (Últimos 100)</span>
+                    </div>
+                    <div className="grid grid-cols-5 gap-2">
+                        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                            <div key={num} className="flex flex-col gap-1">
+                                <span className={cn(
+                                    "text-[9px] text-center font-black",
+                                    stats[num] > 12 ? "text-primary" : stats[num] < 8 ? "text-muted-foreground/50" : "text-muted-foreground"
+                                )}>
+                                    {stats[num]}%
+                                </span>
+                                <button
+                                    onClick={() => toggleNumber(num)}
+                                    disabled={!isBettingOpen}
+                                    className={cn(
+                                        "h-14 rounded-xl flex flex-col items-center justify-center transition-all border-2",
+                                        selectedRouletteNumbers.includes(num) 
+                                            ? "border-primary bg-primary/20 scale-95" 
+                                            : "border-white/5 bg-muted/30 hover:bg-muted/50",
+                                        !isBettingOpen && "opacity-50 grayscale"
+                                    )}
+                                >
+                                    <span className={cn("w-6 h-6 rounded-full text-[10px] flex items-center justify-center font-bold text-white mb-1", getDigitColor(num))}>
+                                        {num}
+                                    </span>
+                                    <span className="text-[10px] font-black">${selectedRouletteNumbers.includes(num) ? initialStake : "0.00"}</span>
+                                </button>
+                            </div>
+                        ))}
+                    </div>
                 </div>
 
                 {/* Histórico de Resultados Recentes */}
