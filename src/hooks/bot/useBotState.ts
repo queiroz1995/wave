@@ -79,7 +79,7 @@ const DEFAULTS = {
     maxStreakAllowed: 2,
     marketPulse: 'stable' as 'calm' | 'stable' | 'aggressive',
     // ROULETTE STATES
-    isRouletteMode: true,
+    isRouletteMode: false, // Alterado para false
     rouletteTimer: 16,
     isRouletteSpinning: false,
     rouletteHistory: [] as number[],
@@ -277,9 +277,9 @@ export const useBotState = () => {
         addLog, clearLogs, addSignal, clearSignals, updateSignalResult,
         // ROULETTE
         isRouletteMode, setIsRouletteMode,
+        rouletteHistory, setRouletteHistory,
         rouletteTimer, setRouletteTimer,
         isRouletteSpinning, setIsRouletteSpinning,
-        rouletteHistory, setRouletteHistory,
         selectedRouletteNumbers, setSelectedRouletteNumbers,
     };
 };
