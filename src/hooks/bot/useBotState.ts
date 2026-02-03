@@ -46,7 +46,7 @@ const DEFAULTS = {
     analyzerMinWinRate: 75,
     analyzerAutoTrade: true,
     dynamicAnalysisWindow: 0,
-    analyzerWindowSize: 250,
+    analyzerWindowSize: 100, // Ajustado para 100 como padrão
     patternLengthForAnalysis: 3,
     catalogerPatternLength: 3,
     catalogerMinWinRate: 75,
@@ -183,7 +183,7 @@ export const useBotState = () => {
     const [closedHistory, setClosedHistory] = useState<any[]>([]);
     const [isFetchingHistory, setIsFetchingHistory] = useState(false);
 
-    // FUNÇÕES UTILITÁRIAS QUE ESTAVAM FALTANDO NO RETORNO
+    // FUNÇÕES UTILITÁRIAS
     const addLog = useCallback((message: string, type: LogType, details?: { stake?: number, profit?: number, strategyName?: string, exitDigit?: number, contractType?: ContractType, barrier?: number }) => {
         setLogs(prev => [...prev, { timestamp: new Date().toLocaleTimeString('pt-BR', { hour12: false }), message, type, ...details }].slice(-100));
     }, []);
