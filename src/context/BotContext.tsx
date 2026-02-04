@@ -39,6 +39,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setRouletteHistory,
         rouletteHistory,
         selectedRouletteNumbers, setSelectedRouletteNumbers,
+        selectedRouletteEven, setSelectedRouletteEven,
+        selectedRouletteOdd, setSelectedRouletteOdd,
         setLastSelectedRouletteNumbers,
         lastRouletteResult, setLastRouletteResult,
         addSignal, updateSignalResult,
@@ -52,30 +54,36 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, [lastDigits]);
 
     // 1. EXECUÇÃO DE APOSTAS
-    const executeTrade = useCallback((prediction: number, stake: number) => {
+    const executeTrade = useCallback((prediction: number | string, stake: number, type: 'DIGITMATCH' | 'DIGITEVEN' | 'DIGITODD' = 'DIGITMATCH') => {
         if (!isConnected) return;
 
+        const label = type === 'DIGITEVEN' ? 'PAR' : type === 'DIGITODD' ? 'ÍMPAR' : `Número ${prediction}`;
         const signalId = addSignal({
             strategy: "Roleta",
-            signal: "ODD", 
-            details: `Aposta Número ${prediction}`,
+            signal: type === 'DIGITEVEN' ? 'EVEN' : type === 'DIGITODD' ? 'ODD' : 'ODD', 
+            details: `Aposta ${label}`,
             stake: stake
         });
+
+        const params: any = {
+            amount: stake,
+            basis: 'stake',
+            contract_type: type,
+            currency: 'USD',
+            duration: 1,
+            duration_unit: 't',
+            symbol: asset,
+        };
+
+        if (type === 'DIGITMATCH') {
+            params.barrier = String(prediction);
+        }
 
         sendMessageRef.current({
             buy: 1,
             price: stake,
             subscribe: 1,
-            parameters: {
-                amount: stake,
-                basis: 'stake',
-                contract_type: 'DIGITMATCH',
-                currency: 'USD',
-                duration: 1,
-                duration_unit: 't',
-                symbol: asset,
-                barrier: String(prediction)
-            },
+            parameters: params,
             passthrough: { signalId }
         });
     }, [isConnected, asset, addSignal]);
@@ -91,32 +99,73 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setLastRouletteResult(resultDigit);
         setRouletteHistory((prev: number[]) => [resultDigit, ...prev].slice(0, 100));
         
-        const currentBets = selectedRouletteNumbers;
-        
-        if (currentBets.length > 0) {
-            const stakePerNumber = parseFloat(initialStake);
-            const isWinner = currentBets.includes(resultDigit);
-            
-            if (isWinner) {
-                const profit = stakePerNumber * 8; 
-                totalProfitRef.current += profit;
-                setTotalProfit(totalProfitRef.current);
-                setWins(prev => prev + 1);
-                addLog(`VITÓRIA! O número foi ${resultDigit}`, "WIN", { profit, strategyName: "Roleta" });
-                toast.success(`VITÓRIA! O número foi ${resultDigit}`, { duration: 5000 });
-            } else {
-                const totalLost = stakePerNumber * currentBets.length;
-                totalProfitRef.current -= totalLost;
-                setTotalProfit(totalProfitRef.current);
-                setLosses(prev => prev + 1);
-                addLog(`DERROTA. O número foi ${resultDigit}`, "LOSS", { profit: -totalLost, strategyName: "Roleta" });
-            }
+        const currentNumbers = selectedRouletteNumbers;
+        const currentEven = selectedRouletteEven;
+        const currentOdd = selectedRouletteOdd;
+        const stakeAmount = parseFloat(initialStake);
+        const isResultEven = resultDigit % 2 === 0;
 
-            setLastSelectedRouletteNumbers([...currentBets]);
-            setSelectedRouletteNumbers([]); 
+        let roundProfit = 0;
+        let roundWins = 0;
+        let roundLosses = 0;
+
+        // Processar Números Individuais (8x lucro / 9x retorno)
+        if (currentNumbers.length > 0) {
+            const isWinner = currentNumbers.includes(resultDigit);
+            if (isWinner) {
+                const profit = stakeAmount * 8; 
+                roundProfit += profit;
+                roundWins++;
+            } else {
+                const totalLost = stakeAmount * currentNumbers.length;
+                roundProfit -= totalLost;
+                roundLosses++;
+            }
         }
+
+        // Processar Aposta Par (Lucro de ~0.96x na Deriv, mas vamos simplificar no log)
+        if (currentEven) {
+            if (isResultEven) {
+                const profit = stakeAmount * 0.96;
+                roundProfit += profit;
+                roundWins++;
+            } else {
+                roundProfit -= stakeAmount;
+                roundLosses++;
+            }
+        }
+
+        // Processar Aposta Ímpar
+        if (currentOdd) {
+            if (!isResultEven) {
+                const profit = stakeAmount * 0.96;
+                roundProfit += profit;
+                roundWins++;
+            } else {
+                roundProfit -= stakeAmount;
+                roundLosses++;
+            }
+        }
+
+        if (roundWins > 0 || roundLosses > 0) {
+            totalProfitRef.current += roundProfit;
+            setTotalProfit(totalProfitRef.current);
+            if (roundProfit > 0) {
+                setWins(prev => prev + 1);
+                addLog(`RESULTADO: O número foi ${resultDigit}. Lucro: $${roundProfit.toFixed(2)}`, "WIN", { profit: roundProfit, strategyName: "Roleta" });
+                toast.success(`RODADA CONCLUÍDA!`, { description: `Número: ${resultDigit} | Lucro: $${roundProfit.toFixed(2)}` });
+            } else {
+                setLosses(prev => prev + 1);
+                addLog(`RESULTADO: O número foi ${resultDigit}. Prejuízo: $${Math.abs(roundProfit).toFixed(2)}`, "LOSS", { profit: roundProfit, strategyName: "Roleta" });
+            }
+        }
+
+        // Resetar apostas
+        setSelectedRouletteNumbers([]);
+        setSelectedRouletteEven(false);
+        setSelectedRouletteOdd(false);
         hasTradedCurrentRoundRef.current = false;
-    }, [selectedRouletteNumbers, initialStake, setTotalProfit, setWins, setLosses, setSelectedRouletteNumbers, setLastSelectedRouletteNumbers, addLog, setRouletteHistory, setLastRouletteResult]);
+    }, [selectedRouletteNumbers, selectedRouletteEven, selectedRouletteOdd, initialStake, setTotalProfit, setWins, setLosses, setSelectedRouletteNumbers, setSelectedRouletteEven, setSelectedRouletteOdd, addLog, setRouletteHistory, setLastRouletteResult]);
 
     // 3. CRONÔMETRO CENTRALIZADO
     useEffect(() => {
@@ -138,10 +187,17 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
 
             if (remaining === 5 && !hasTradedCurrentRoundRef.current) {
-                if (isConnected && selectedRouletteNumbers.length > 0) {
-                    const stakePerNumber = parseFloat(initialStake);
-                    selectedRouletteNumbers.forEach(num => executeTrade(num, stakePerNumber));
-                    hasTradedCurrentRoundRef.current = true;
+                if (isConnected) {
+                    const stakeAmount = parseFloat(initialStake);
+                    // Executar apostas de números
+                    selectedRouletteNumbers.forEach(num => executeTrade(num, stakeAmount, 'DIGITMATCH'));
+                    // Executar apostas externas
+                    if (selectedRouletteEven) executeTrade('even', stakeAmount, 'DIGITEVEN');
+                    if (selectedRouletteOdd) executeTrade('odd', stakeAmount, 'DIGITODD');
+                    
+                    if (selectedRouletteNumbers.length > 0 || selectedRouletteEven || selectedRouletteOdd) {
+                        hasTradedCurrentRoundRef.current = true;
+                    }
                 }
             }
 
@@ -155,7 +211,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [isRouletteMode, isConnected, selectedRouletteNumbers, initialStake, executeTrade, processRouletteResult, setRouletteTimer, setIsRouletteSpinning, setLastRouletteResult]);
+    }, [isRouletteMode, isConnected, selectedRouletteNumbers, selectedRouletteEven, selectedRouletteOdd, initialStake, executeTrade, processRouletteResult, setRouletteTimer, setIsRouletteSpinning, setLastRouletteResult]);
 
     // 4. WEBSOCKET FEED
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
@@ -186,7 +242,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     if (signalId) updateSignalResult(signalId, profit > 0 ? 'WIN' : 'LOSS', profit, parseFloat(contract.buy_price));
                 }
             } else if (data?.error) {
-                // Tratamento especial para erro de permissão (Trade Scope)
                 if (data.error.code === 'PermissionDenied' || data.error.message.includes('trade scope')) {
                     addLog("ERRO DE TOKEN: Seu token não tem permissão para operar. Crie um novo com a opção 'Trade' marcada.", "ERROR");
                     toast.error("Erro de Permissão", { description: "Gere um novo token na Deriv com a opção 'Trade' (Negociar) marcada." });

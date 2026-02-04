@@ -12,6 +12,8 @@ export const RouletteMode = () => {
     const { 
         rouletteTimer, isRouletteSpinning, rouletteHistory, 
         selectedRouletteNumbers, setSelectedRouletteNumbers,
+        selectedRouletteEven, setSelectedRouletteEven,
+        selectedRouletteOdd, setSelectedRouletteOdd,
         lastRouletteResult, initialStake, setInitialStake, isConnected 
     } = useBotContext();
 
@@ -38,6 +40,16 @@ export const RouletteMode = () => {
         setSelectedRouletteNumbers((prev: number[]) => 
             prev.includes(num) ? prev.filter(n => n !== num) : [...prev, num]
         );
+    };
+
+    const toggleEven = () => {
+        if (!isBettingOpen) return;
+        setSelectedRouletteEven((prev: boolean) => !prev);
+    };
+
+    const toggleOdd = () => {
+        if (!isBettingOpen) return;
+        setSelectedRouletteOdd((prev: boolean) => !prev);
     };
 
     const adjustStake = (amount: number) => {
@@ -128,7 +140,7 @@ export const RouletteMode = () => {
                     <div className="flex items-center gap-3">
                         <Button variant="outline" size="icon" className="h-12 w-12 shrink-0 border-white/10" onClick={() => adjustStake(-0.5)}><Minus className="h-5 w-5" /></Button>
                         <div className="flex-1 text-center bg-muted/30 rounded-xl py-2 border border-white/5 shadow-inner">
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Entrada por Número</p>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Entrada por Seleção</p>
                             <p className="text-2xl font-black">${initialStake}</p>
                         </div>
                         <Button variant="outline" size="icon" className="h-12 w-12 shrink-0 border-white/10" onClick={() => adjustStake(0.5)}><Plus className="h-5 w-5" /></Button>
@@ -136,29 +148,63 @@ export const RouletteMode = () => {
                 </div>
 
                 {/* MESA DE APOSTAS */}
-                <div className="grid grid-cols-5 gap-2">
-                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                <div className="space-y-4">
+                    <div className="grid grid-cols-5 gap-2">
+                        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                            <button
+                                key={num}
+                                onClick={() => toggleNumber(num)}
+                                disabled={!isBettingOpen}
+                                className={cn(
+                                    "h-16 rounded-xl flex flex-col items-center justify-center transition-all border-2",
+                                    selectedRouletteNumbers.includes(num) 
+                                        ? "border-primary bg-primary/20 shadow-[0_0_15px_rgba(59,130,246,0.2)]" 
+                                        : "border-white/5 bg-muted/20 hover:bg-muted/40",
+                                    !isBettingOpen && "opacity-50 grayscale-[0.5]"
+                                )}
+                            >
+                                <span className={cn(
+                                    "w-6 h-6 rounded-full text-[10px] flex items-center justify-center font-black text-white mb-1 shadow-md", 
+                                    getDigitColor(num)
+                                )}>
+                                    {num}
+                                </span>
+                                <span className="text-[9px] font-black text-primary">{stats[num]}%</span>
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* APOSTAS EXTERNAS: PAR / ÍMPAR */}
+                    <div className="grid grid-cols-2 gap-4">
                         <button
-                            key={num}
-                            onClick={() => toggleNumber(num)}
+                            onClick={toggleEven}
                             disabled={!isBettingOpen}
                             className={cn(
-                                "h-20 rounded-2xl flex flex-col items-center justify-center transition-all border-2",
-                                selectedRouletteNumbers.includes(num) 
-                                    ? "border-primary bg-primary/20 shadow-[0_0_15px_rgba(59,130,246,0.2)]" 
+                                "h-14 rounded-2xl flex items-center justify-center gap-3 transition-all border-2 font-black uppercase tracking-widest text-sm",
+                                selectedRouletteEven 
+                                    ? "border-emerald-500 bg-emerald-500/20 text-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)]" 
                                     : "border-white/5 bg-muted/20 hover:bg-muted/40",
                                 !isBettingOpen && "opacity-50 grayscale-[0.5]"
                             )}
                         >
-                            <span className={cn(
-                                "w-7 h-7 rounded-full text-xs flex items-center justify-center font-black text-white mb-1 shadow-md", 
-                                getDigitColor(num)
-                            )}>
-                                {num}
-                            </span>
-                            <span className="text-[10px] font-black text-primary">{stats[num]}%</span>
+                            <div className="w-3 h-3 rounded-full bg-emerald-500" />
+                            PAR
                         </button>
-                    ))}
+                        <button
+                            onClick={toggleOdd}
+                            disabled={!isBettingOpen}
+                            className={cn(
+                                "h-14 rounded-2xl flex items-center justify-center gap-3 transition-all border-2 font-black uppercase tracking-widest text-sm",
+                                selectedRouletteOdd 
+                                    ? "border-rose-500 bg-rose-500/20 text-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.2)]" 
+                                    : "border-white/5 bg-muted/20 hover:bg-muted/40",
+                                !isBettingOpen && "opacity-50 grayscale-[0.5]"
+                            )}
+                        >
+                            <div className="w-3 h-3 rounded-full bg-rose-500" />
+                            ÍMPAR
+                        </button>
+                    </div>
                 </div>
 
                 <div className="text-center pt-2">

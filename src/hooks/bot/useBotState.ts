@@ -84,6 +84,8 @@ const DEFAULTS = {
     isRouletteSpinning: false,
     rouletteHistory: [] as number[],
     selectedRouletteNumbers: [] as number[],
+    selectedRouletteEven: false,
+    selectedRouletteOdd: false,
     lastSelectedRouletteNumbers: [] as number[],
     lastRouletteResult: null as number | null,
 };
@@ -173,6 +175,8 @@ export const useBotState = () => {
     const [isRouletteSpinning, setIsRouletteSpinning] = useState(initialState.isRouletteSpinning);
     const [rouletteHistory, setRouletteHistory] = useState<number[]>(initialState.rouletteHistory);
     const [selectedRouletteNumbers, setSelectedRouletteNumbers] = useState<number[]>(initialState.selectedRouletteNumbers);
+    const [selectedRouletteEven, setSelectedRouletteEven] = useState(initialState.selectedRouletteEven);
+    const [selectedRouletteOdd, setSelectedRouletteOdd] = useState(initialState.selectedRouletteOdd);
     const [lastSelectedRouletteNumbers, setLastSelectedRouletteNumbers] = useState<number[]>(initialState.lastSelectedRouletteNumbers);
     const [lastRouletteResult, setLastRouletteResult] = useState<number | null>(initialState.lastRouletteResult);
 
@@ -285,6 +289,8 @@ export const useBotState = () => {
         rouletteTimer, setRouletteTimer,
         isRouletteSpinning, setIsRouletteSpinning,
         selectedRouletteNumbers, setSelectedRouletteNumbers,
+        selectedRouletteEven, setSelectedRouletteEven,
+        selectedRouletteOdd, setSelectedRouletteOdd,
         lastSelectedRouletteNumbers, setLastSelectedRouletteNumbers,
         lastRouletteResult, setLastRouletteResult,
     };
