@@ -6,20 +6,19 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Plus, Minus, History, Activity } from 'lucide-react';
+import { Plus, Minus, History } from 'lucide-react';
 
 export const RouletteMode = () => {
     const { 
         rouletteTimer, isRouletteSpinning, rouletteHistory, 
         selectedRouletteNumbers, setSelectedRouletteNumbers,
-        lastDigits, initialStake, setInitialStake, isConnected,
-        totalProfit
+        lastDigits, initialStake, setInitialStake, isConnected 
     } = useBotContext();
 
     const isBettingOpen = rouletteTimer > 4;
     const progress = (rouletteTimer / 16) * 100;
 
-    // Estatísticas para os botões da roleta
+    // Estatísticas baseadas no histórico de 50 resultados
     const stats = useMemo(() => {
         const data = rouletteHistory.length > 0 ? rouletteHistory : lastDigits.slice(0, 50);
         const counts = Array(10).fill(0);
@@ -27,9 +26,6 @@ export const RouletteMode = () => {
         const total = data.length || 1;
         return counts.map(c => Math.round((c / total) * 100));
     }, [lastDigits, rouletteHistory]);
-
-    // Grade de 16 números (Ticks em tempo real - ONDE ERA)
-    const last16Ticks = useMemo(() => lastDigits.slice(0, 16), [lastDigits]);
 
     const toggleNumber = (num: number) => {
         if (!isBettingOpen) return;
@@ -50,49 +46,36 @@ export const RouletteMode = () => {
         return "bg-rose-600";
     };
 
+    // Pega os últimos 8 para a barra rápida
+    const recentStrip = rouletteHistory.slice(0, 8);
+
     return (
         <Card className="bg-card/80 backdrop-blur-sm overflow-hidden border-primary/20 h-full">
             <CardContent className="p-6 space-y-6">
                 
-                {/* CABEÇALHO DE STATUS (LUCRO E RITMO) */}
-                <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2">
-                        <Activity className="h-4 w-4 text-primary animate-pulse" />
-                        <span className="text-[10px] font-bold uppercase text-muted-foreground">Mercado em Tempo Real</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold text-muted-foreground">LUCRO:</span>
-                        <span className={cn('text-xs font-black', totalProfit > 0 ? 'text-green-500' : totalProfit < 0 ? 'text-red-500' : 'text-muted-foreground')}>
-                            ${totalProfit.toFixed(2)}
-                        </span>
-                    </div>
-                </div>
-
-                {/* A GRADE DE NÚMEROS (ONDE ERA) */}
+                {/* BARRA DE ÚLTIMOS RESULTADOS (NOVO) */}
                 <div className="space-y-2">
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
-                        <History className="h-3 w-3" /> Tendência (Últimos 16 Ticks)
-                    </p>
-                    <div className="grid grid-cols-8 gap-1">
-                        {last16Ticks.map((digit: number, i: number) => (
+                    <div className="flex items-center justify-between">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
+                            <History className="h-3 w-3" /> Recentes
+                        </p>
+                    </div>
+                    <div className="flex gap-1.5 overflow-hidden">
+                        {recentStrip.map((digit: number, i: number) => (
                             <div 
                                 key={i} 
                                 className={cn(
-                                    "h-7 flex items-center justify-center text-[11px] font-black text-white rounded-[4px] shadow-sm transition-all",
-                                    getDigitColor(digit),
-                                    i === 0 && "ring-2 ring-primary ring-offset-1 scale-105 z-10"
+                                    "w-8 h-8 rounded-md flex items-center justify-center text-xs font-black text-white shrink-0 animate-in fade-in slide-in-from-right-2",
+                                    getDigitColor(digit)
                                 )}
                             >
                                 {digit}
                             </div>
                         ))}
-                        {last16Ticks.length === 0 && (
-                            <div className="col-span-8 h-7 bg-muted/20 rounded-[4px] animate-pulse" />
-                        )}
+                        {recentStrip.length === 0 && <p className="text-[10px] text-muted-foreground italic">Aguardando sorteio...</p>}
                     </div>
                 </div>
 
-                {/* CRONÔMETRO DA ROLETA */}
                 <div className="flex flex-col items-center justify-center space-y-4 pt-2 border-t border-white/5">
                     <div className="relative w-32 h-32 flex items-center justify-center">
                         <svg className="absolute inset-0 w-full h-full -rotate-90">
@@ -116,7 +99,6 @@ export const RouletteMode = () => {
                     </Badge>
                 </div>
 
-                {/* CONTROLE DE STAKE */}
                 <div className="space-y-4 pt-2 border-t border-white/5">
                     <div className="flex items-center gap-2">
                         <Button variant="outline" size="icon" className="h-10 w-10 shrink-0" onClick={() => adjustStake(-0.5)}><Minus className="h-4 w-4" /></Button>
@@ -128,7 +110,6 @@ export const RouletteMode = () => {
                     </div>
                 </div>
 
-                {/* TECLADO DA ROLETA */}
                 <div className="grid grid-cols-5 gap-2">
                     {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                         <button
@@ -149,6 +130,19 @@ export const RouletteMode = () => {
                             <span className="text-[9px] font-bold text-muted-foreground">{stats[num]}%</span>
                         </button>
                     ))}
+                </div>
+
+                <div className="text-center">
+                    {!isConnected ? (
+                        <div className="p-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                            <p className="text-[10px] text-yellow-500 font-bold uppercase">Modo Simulação</p>
+                            <p className="text-[9px] text-muted-foreground mt-1">Conecte seu Token para apostas automáticas.</p>
+                        </div>
+                    ) : (
+                        <div className="p-2 rounded-lg bg-green-500/10 border border-green-500/20">
+                            <p className="text-[10px] text-green-500 font-bold uppercase">Monitorando Apostas</p>
+                        </div>
+                    )}
                 </div>
             </CardContent>
         </Card>
