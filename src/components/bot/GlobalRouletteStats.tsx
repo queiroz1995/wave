@@ -2,8 +2,8 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart3, TrendingUp } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { TrendingUp } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 
@@ -61,13 +61,7 @@ export const GlobalRouletteStats = () => {
 
     return (
         <Card className="bg-card/80 backdrop-blur-sm border-primary/20">
-            <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-bold flex items-center gap-2">
-                    <BarChart3 className="h-4 w-4 text-primary" />
-                    Estatísticas Globais (Real-Time)
-                </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 pt-4">
                 <div className="grid grid-cols-3 gap-2">
                     {hotNumbers.map((item, i) => (
                         <div key={i} className="bg-muted/30 p-2 rounded-lg text-center border border-white/5">
@@ -84,7 +78,7 @@ export const GlobalRouletteStats = () => {
 
                 <div className="space-y-2">
                     <p className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
-                        <TrendingUp className="h-3 w-3" /> Distribuição Geral
+                        <TrendingUp className="h-3 w-3" /> Distribuição Geral (Real-Time)
                     </p>
                     <div className="space-y-1.5">
                         {globalStats.map((count, num) => {
