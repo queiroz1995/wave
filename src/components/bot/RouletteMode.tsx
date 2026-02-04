@@ -18,14 +18,14 @@ export const RouletteMode = () => {
     const isBettingOpen = rouletteTimer > 4;
     const progress = (rouletteTimer / 16) * 100;
 
-    // Estatísticas baseadas no histórico de 50 resultados
+    // Estatísticas baseadas no histórico de resultados sorteados
     const stats = useMemo(() => {
-        const data = rouletteHistory.length > 0 ? rouletteHistory : lastDigits.slice(0, 50);
+        const data = rouletteHistory;
         const counts = Array(10).fill(0);
         data.forEach((d: number) => counts[d]++);
         const total = data.length || 1;
         return counts.map(c => Math.round((c / total) * 100));
-    }, [lastDigits, rouletteHistory]);
+    }, [rouletteHistory]);
 
     const toggleNumber = (num: number) => {
         if (!isBettingOpen) return;
@@ -46,37 +46,40 @@ export const RouletteMode = () => {
         return "bg-rose-600";
     };
 
-    // Pega os últimos 10 resultados da roleta, ou os últimos dígitos do mercado se a roleta estiver vazia
+    // Pega apenas os últimos 10 resultados oficiais da roleta
     const recentStrip = useMemo(() => {
-        if (rouletteHistory.length > 0) return rouletteHistory.slice(0, 10);
-        return lastDigits.slice(0, 10);
-    }, [rouletteHistory, lastDigits]);
+        return rouletteHistory.slice(0, 10);
+    }, [rouletteHistory]);
 
     return (
         <Card className="bg-card/80 backdrop-blur-sm overflow-hidden border-primary/20 h-full">
             <CardContent className="p-6 space-y-6">
                 
-                {/* BARRA DE ÚLTIMOS RESULTADOS */}
+                {/* BARRA DE ÚLTIMOS RESULTADOS (SOMENTE SORTEIOS) */}
                 <div className="space-y-2">
                     <div className="flex items-center justify-between">
                         <p className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
-                            <History className="h-3 w-3" /> Recentes
+                            <History className="h-3 w-3" /> Recentes (Sorteios)
                         </p>
                     </div>
-                    <div className="flex gap-1.5 overflow-hidden">
+                    <div className="flex gap-1.5 overflow-hidden min-h-[32px]">
                         {recentStrip.map((digit: number, i: number) => (
                             <div 
                                 key={i} 
                                 className={cn(
                                     "w-8 h-8 rounded-md flex items-center justify-center text-xs font-black text-white shrink-0 animate-in fade-in slide-in-from-right-2",
                                     getDigitColor(digit),
-                                    i === 0 && rouletteHistory.length > 0 && "ring-2 ring-white ring-offset-1 ring-offset-background"
+                                    i === 0 && "ring-2 ring-white ring-offset-1 ring-offset-background"
                                 )}
                             >
                                 {digit}
                             </div>
                         ))}
-                        {recentStrip.length === 0 && <p className="text-[10px] text-muted-foreground italic">Aguardando dados do mercado...</p>}
+                        {recentStrip.length === 0 && (
+                            <p className="text-[10px] text-muted-foreground italic flex items-center h-8">
+                                Aguardando primeiro sorteio...
+                            </p>
+                        )}
                     </div>
                 </div>
 
