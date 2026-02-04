@@ -94,7 +94,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const signalId = addSignal({
             strategy: "Roleta",
             signal: "ODD",
-            details: `Aposta no dígito ${prediction}`,
+            details: `Aposta em dígito`,
             stake: amount
         });
 
@@ -144,13 +144,13 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 totalProfitRef.current += profit;
                 setTotalProfit(totalProfitRef.current);
                 setWins(prev => prev + 1);
-                addLog(`Vitória! Sorteado: ${finalDigit}`, "WIN", { profit, exitDigit: finalDigit, strategyName: "Roleta" });
+                addLog(`Vitória!`, "WIN", { profit, strategyName: "Roleta" });
             } else {
                 const loss = (stakeVal * selectedRouletteNumbers.length);
                 totalProfitRef.current -= loss;
                 setTotalProfit(totalProfitRef.current);
                 setLosses(prev => prev + 1);
-                addLog(`Derrota. Sorteado: ${finalDigit}`, "LOSS", { profit: -loss, exitDigit: finalDigit, strategyName: "Roleta" });
+                addLog(`Derrota.`, "LOSS", { profit: -loss, strategyName: "Roleta" });
             }
 
             if (isConnected) {
@@ -158,7 +158,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
             setSelectedRouletteNumbers([]);
         } else {
-            addLog(`Sorteio realizado: ${finalDigit}`, "INFO");
+            addLog(`Giro finalizado.`, "INFO");
         }
     }, [selectedRouletteNumbers, isConnected, executeTrade, initialStake, setTotalProfit, setWins, setLosses, setSelectedRouletteNumbers, setLastSelectedRouletteNumbers, addLog, setRouletteHistory, setIsRouletteSpinning]);
 
@@ -199,8 +199,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     const profit = parseFloat(contract.profit);
                     const isWin = profit > 0;
                     const signalId = data.echo_req.passthrough?.signalId;
-                    const exitDigit = parseInt(String(contract.exit_tick_display_value).slice(-1));
-                    if (signalId) updateSignalResult(signalId, isWin ? 'WIN' : 'LOSS', profit, parseFloat(contract.buy_price), exitDigit);
+                    if (signalId) updateSignalResult(signalId, isWin ? 'WIN' : 'LOSS', profit, parseFloat(contract.buy_price));
                 }
             }
         }
