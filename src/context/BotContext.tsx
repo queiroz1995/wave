@@ -45,45 +45,38 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [isConnected, setIsConnected] = useState(false);
     const [status, setStatus] = useState({ message: 'Conectando...', color: 'bg-yellow-500' });
 
-    // Mantém o ref atualizado para uso em callbacks do timer
     useEffect(() => {
         lastDigitsRef.current = lastDigits;
     }, [lastDigits]);
 
-    // 1. SINCRONIZAÇÃO INICIAL E REALTIME (CORRIGIDO)
-    const initDatabaseSync = useCallback(async () => {
-        console.log("[Rico 2.0] Buscando histórico inicial...");
+    // 1. SINCRONIZAÇÃO COMPLETA COM O BANCO DE DADOS
+    const syncWithDatabase = useCallback(async () => {
+        console.log("[Banco] Buscando histórico de 50 giros...");
         
-        // Busca os 50 mais recentes
-        const { data: historyData, error } = await supabase
+        // Busca os 50 giros mais recentes já salvos
+        const { data, error } = await supabase
             .from('roulette_results')
             .select('number')
             .order('timestamp', { ascending: false })
             .limit(50);
 
-        if (!error && historyData && historyData.length > 0) {
-            const numbers = historyData.map(h => h.number);
+        if (!error && data) {
+            const numbers = data.map(item => item.number);
             setRouletteHistory(numbers);
-        } else {
-            console.log("[Rico 2.0] Banco vazio ou erro, usando dígitos da Deriv como base.");
-            // Fallback: se o banco estiver vazio, usa os dígitos que já temos da Deriv
-            if (lastDigitsRef.current.length > 0) {
-                setRouletteHistory(lastDigitsRef.current.slice(0, 50));
-            }
         }
 
-        // Inscreve no Realtime para atualizações imediatas
+        // Configura o Realtime para ouvir novos salvamentos
         const channel = supabase
-            .channel('db_roulette_sync')
+            .channel('roulette_realtime')
             .on(
                 'postgres_changes',
                 { event: 'INSERT', schema: 'public', table: 'roulette_results' },
                 (payload) => {
-                    const newDigit = payload.new.number;
+                    const newNumber = payload.new.number;
                     setRouletteHistory((prev: number[]) => {
-                        // Evita duplicatas se o insert local já tiver ocorrido
-                        if (prev[0] === newDigit) return prev;
-                        return [newDigit, ...prev].slice(0, 50);
+                        // Previne duplicidade caso a inserção local seja rápida
+                        if (prev[0] === newNumber) return prev;
+                        return [newNumber, ...prev].slice(0, 50);
                     });
                     setIsRouletteSpinning(false);
                 }
@@ -95,11 +88,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     useEffect(() => {
         let channel: any;
-        initDatabaseSync().then(c => channel = c);
+        syncWithDatabase().then(c => channel = c);
         return () => { if (channel) supabase.removeChannel(channel); };
-    }, [initDatabaseSync]);
+    }, [syncWithDatabase]);
 
-    // 2. LÓGICA DE TRADES
+    // 2. LÓGICA DE EXECUÇÃO DE TRADES
     const executeTrade = useCallback((contractType: ContractType, prediction?: number, stake?: number) => {
         if (!isConnected) return;
         const amount = stake || parseFloat(initialStake) || 0.35;
@@ -119,78 +112,68 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
     }, [isConnected, initialStake, asset, duration]);
 
-    // 3. FINALIZAÇÃO DO CICLO (Sorteio e Salvamento)
+    // 3. FINALIZAÇÃO DO CICLO (Sorteio e Salvamento no Banco)
     const handleRouletteCycleEnd = useCallback(async () => {
-        // Pega o último dígito gerado pela Deriv
         const resultDigit = lastDigitsRef.current[0];
         if (resultDigit === undefined) return;
 
-        console.log(`[Rico 2.0] Sorteado: ${resultDigit}. Salvando no banco...`);
-
-        // Atualiza localmente imediato para melhor UX
-        setRouletteHistory((prev: number[]) => [resultDigit, ...prev].slice(0, 50));
-        setIsRouletteSpinning(false);
-
-        // Salva no banco de dados
+        // SALVA NO BANCO (O Realtime atualizará o histórico para todos)
         try {
             await supabase.from('roulette_results').insert({ 
                 number: resultDigit, 
-                source: 'Rico 2.0 Auto' 
+                source: 'Rico 2.0 Bot' 
             });
         } catch (e) {
-            console.error("Erro ao salvar no Supabase:", e);
+            console.error("[Erro] Falha ao salvar no banco:", e);
+            // Fallback local caso o banco falhe
+            setRouletteHistory((prev: number[]) => [resultDigit, ...prev].slice(0, 50));
         }
 
-        // Lógica de apostas
+        // Processa apostas do usuário
         if (selectedRouletteNumbers.length > 0) {
             setLastSelectedRouletteNumbers(selectedRouletteNumbers);
             const isWinner = selectedRouletteNumbers.includes(resultDigit);
-            const stake = parseFloat(initialStake);
+            const stakeValue = parseFloat(initialStake);
             
             if (isWinner) {
-                // Cálculo simplificado de lucro
-                totalProfitRef.current += stake * 8; 
+                totalProfitRef.current += stakeValue * 8; 
                 setTotalProfit(totalProfitRef.current);
                 setWins(prev => prev + 1);
-                toast.success(`VITÓRIA! Sorteado: ${resultDigit}`, { icon: '🏆', duration: 4000 });
+                toast.success(`GANHOU! Sorteado: ${resultDigit}`, { icon: '💰' });
             } else {
-                totalProfitRef.current -= (stake * selectedRouletteNumbers.length);
+                totalProfitRef.current -= (stakeValue * selectedRouletteNumbers.length);
                 setTotalProfit(totalProfitRef.current);
                 setLosses(prev => prev + 1);
-                toast.error(`Derrota. Sorteado: ${resultDigit}`, { icon: '❌', duration: 4000 });
+                toast.error(`PERDEU. Sorteado: ${resultDigit}`, { icon: '📉' });
             }
 
             if (isConnected) {
-                // Se conectado, executa as ordens na corretora
                 selectedRouletteNumbers.forEach(num => executeTrade('DIGITMATCH' as any, num));
             }
             setSelectedRouletteNumbers([]);
         }
-    }, [selectedRouletteNumbers, isConnected, executeTrade, initialStake, setTotalProfit, setWins, setLosses, setSelectedRouletteNumbers, setLastSelectedRouletteNumbers, setIsRouletteSpinning, setRouletteHistory]);
+    }, [selectedRouletteNumbers, isConnected, executeTrade, initialStake, setTotalProfit, setWins, setLosses, setSelectedRouletteNumbers, setLastSelectedRouletteNumbers, setRouletteHistory]);
 
-    // 4. TEMPORIZADOR DA ROLETA
+    // 4. CRONÔMETRO DA ROLETA
     useEffect(() => {
         if (!isRouletteMode) return;
         const timer = setInterval(() => {
             setRouletteTimer((prev: number) => {
-                const nextValue = prev <= 1 ? 16 : prev - 1;
+                const next = prev <= 1 ? 16 : prev - 1;
                 
-                // Ativa animação nos 4 segundos finais
-                if (nextValue === 4) {
-                    setIsRouletteSpinning(true);
-                }
+                if (next === 4) setIsRouletteSpinning(true);
 
                 if (prev === 1) {
                     handleRouletteCycleEnd();
                 }
                 
-                return nextValue;
+                return next;
             });
         }, 1000);
         return () => clearInterval(timer);
     }, [isRouletteMode, handleRouletteCycleEnd, setRouletteTimer, setIsRouletteSpinning]);
 
-    // 5. WEBSOCKET (Deriv Feed)
+    // 5. CONEXÃO DERIV (DADOS EM TEMPO REAL)
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
         const data = event.payload;
         if (event.type === 'socket_ready') {
@@ -198,12 +181,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else if (event.type === 'message') {
             if (data?.msg_type === 'authorize') {
                 setIsConnected(true);
-                setStatus({ message: `Conectado: ${data.authorize.is_virtual ? 'Demo' : 'Real'}`, color: 'bg-green-500' });
+                setStatus({ message: `Online: ${data.authorize.is_virtual ? 'Demo' : 'Real'}`, color: 'bg-green-500' });
                 if (data.authorize.balance) setAccountBalance(data.authorize.balance);
                 sendMessageRef.current({ balance: 1, subscribe: 1 });
             } else if (data?.msg_type === 'tick' && data.tick?.symbol === asset) {
                 const digit = parseInt(String(data.tick.quote).slice(-1));
-                setLastDigits(prev => [digit, ...prev].slice(0, 250));
+                setLastDigits(prev => [digit, ...prev].slice(0, 100));
             } else if (data?.msg_type === 'balance') {
                 setAccountBalance(data.balance.balance);
             }
