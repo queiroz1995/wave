@@ -5,11 +5,8 @@ import { useBotContext } from '@/context/BotContext';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Timer, Zap, Trophy, History, Plus, Minus, RotateCcw, BarChart3, Globe } from 'lucide-react';
-import { toast } from 'sonner';
+import { Zap, History, Plus, Minus, Globe, BarChart3 } from 'lucide-react';
 
 export const RouletteMode = () => {
     const { 
@@ -22,26 +19,20 @@ export const RouletteMode = () => {
     const isBettingOpen = rouletteTimer > 4;
     const progress = (rouletteTimer / 16) * 100;
 
+    // Estatísticas baseadas nas 100 rodadas (ou nos últimos ticks se estiver vazio)
     const stats = useMemo(() => {
-        const recent = lastDigits.slice(0, 100);
-        if (recent.length === 0) return Array(10).fill(0);
-        
+        const data = rouletteHistory.length > 0 ? rouletteHistory : lastDigits.slice(0, 100);
         const counts = Array(10).fill(0);
-        recent.forEach((d: number) => counts[d]++);
-        return counts.map(c => Math.round((c / recent.length) * 100));
-    }, [lastDigits]);
+        data.forEach((d: number) => counts[d]++);
+        const total = data.length || 1;
+        return counts.map(c => Math.round((c / total) * 100));
+    }, [lastDigits, rouletteHistory]);
 
     const toggleNumber = (num: number) => {
         if (!isBettingOpen) return;
         setSelectedRouletteNumbers((prev: number[]) => 
             prev.includes(num) ? prev.filter(n => n !== num) : [...prev, num]
         );
-    };
-
-    const handleRepeatBet = () => {
-        if (!isBettingOpen) return;
-        if (lastSelectedRouletteNumbers.length === 0) return;
-        setSelectedRouletteNumbers(lastSelectedRouletteNumbers);
     };
 
     const adjustStake = (amount: number) => {
@@ -60,15 +51,13 @@ export const RouletteMode = () => {
         <Card className="bg-card/80 backdrop-blur-sm overflow-hidden border-primary/20">
             <CardContent className="p-6 space-y-6">
                 
-                {/* Status da Conexão de Dados */}
                 <div className="flex items-center justify-center gap-2 mb-2">
                     <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-500/10 border border-green-500/20">
                         <Globe className="h-3 w-3 text-green-500" />
-                        <span className="text-[10px] font-bold text-green-500 uppercase">Dados em Tempo Real (API Pública)</span>
+                        <span className="text-[10px] font-bold text-green-500 uppercase">Analise Real (Últimas 100 Rodadas)</span>
                     </div>
                 </div>
 
-                {/* Temporizador Central */}
                 <div className="flex flex-col items-center justify-center space-y-4">
                     <div className="relative w-32 h-32 flex items-center justify-center">
                         <svg className="absolute inset-0 w-full h-full -rotate-90">
@@ -87,15 +76,11 @@ export const RouletteMode = () => {
                             </p>
                         </div>
                     </div>
-                    
-                    <div className="flex gap-2">
-                        <Badge variant={isBettingOpen ? "default" : "secondary"} className="px-4 py-1 uppercase font-bold">
-                            {isBettingOpen ? "Apostas Abertas" : "Girando Roleta"}
-                        </Badge>
-                    </div>
+                    <Badge variant={isBettingOpen ? "default" : "secondary"} className="px-4 py-1 uppercase font-bold">
+                        {isBettingOpen ? "Apostas Abertas" : "Girando Roleta"}
+                    </Badge>
                 </div>
 
-                {/* Stake e Botões de Aposta */}
                 <div className="space-y-4 pt-2 border-t border-white/5">
                     <div className="flex items-center gap-2">
                         <Button variant="outline" size="icon" className="h-10 w-10 shrink-0" onClick={() => adjustStake(-0.5)}><Minus className="h-4 w-4" /></Button>
@@ -107,7 +92,7 @@ export const RouletteMode = () => {
                     </div>
                 </div>
 
-                {/* Grelha 0-9 */}
+                {/* Grelha 0-9 com Estatísticas Reais */}
                 <div className="grid grid-cols-5 gap-2">
                     {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                         <button
@@ -130,48 +115,47 @@ export const RouletteMode = () => {
                     ))}
                 </div>
 
-                {/* Histórico */}
+                {/* Histórico Completo (100 Rodadas) */}
                 <div className="space-y-3 pt-4 border-t border-white/5">
                     <div className="flex items-center justify-between">
                         <span className="text-[10px] font-black text-muted-foreground uppercase flex items-center gap-1">
-                            <History className="h-3 w-3" /> Resultados Recentes
+                            <History className="h-3 w-3" /> Histórico (100 Rodadas)
                         </span>
+                        <span className="text-[9px] font-bold text-primary">Total: {rouletteHistory.length}</span>
                     </div>
-                    <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-                        {isRouletteSpinning && (
-                            <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center animate-spin">
-                                <Zap className="h-5 w-5 text-primary" />
-                            </div>
-                        )}
-                        {rouletteHistory.slice(0, 10).map((digit, i) => (
-                            <div 
-                                key={i} 
-                                className={cn(
-                                    "w-10 h-10 min-w-[40px] rounded-lg flex items-center justify-center text-lg font-black text-white",
-                                    getDigitColor(digit)
-                                )}
-                            >
-                                {digit}
-                            </div>
-                        ))}
+                    
+                    {/* Container Rolável com Grid */}
+                    <div className="bg-muted/20 rounded-lg p-2 max-h-[160px] overflow-y-auto custom-scrollbar">
+                        <div className="grid grid-cols-10 gap-1.5">
+                            {isRouletteSpinning && (
+                                <div className="aspect-square rounded-md bg-primary/20 flex items-center justify-center animate-spin">
+                                    <Zap className="h-4 w-4 text-primary" />
+                                </div>
+                            )}
+                            {rouletteHistory.map((digit, i) => (
+                                <div 
+                                    key={i} 
+                                    className={cn(
+                                        "aspect-square rounded-md flex items-center justify-center text-xs font-black text-white",
+                                        getDigitColor(digit)
+                                    )}
+                                >
+                                    {digit}
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
 
                 <div className="text-center">
                     {!isConnected ? (
                         <div className="p-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
-                            <p className="text-[10px] text-yellow-500 font-bold uppercase">
-                                Modo Treinamento (Saldo Fictício)
-                            </p>
-                            <p className="text-[9px] text-muted-foreground mt-1">
-                                Os dados acima são REAIS, mas as apostas só serão feitas na sua conta após conectar o Token.
-                            </p>
+                            <p className="text-[10px] text-yellow-500 font-bold uppercase">Simulação: Dados Reais</p>
+                            <p className="text-[9px] text-muted-foreground mt-1">Conecte o Token para apostar automaticamente nestes números.</p>
                         </div>
                     ) : (
                         <div className="p-2 rounded-lg bg-green-500/10 border border-green-500/20">
-                            <p className="text-[10px] text-green-500 font-bold uppercase">
-                                Apostas Reais Ativadas
-                            </p>
+                            <p className="text-[10px] text-green-500 font-bold uppercase">Monitorando Apostas Reais</p>
                         </div>
                     )}
                 </div>
