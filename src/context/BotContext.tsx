@@ -52,12 +52,13 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, [lastDigits]);
 
     // 1. SINCRONIZAÇÃO INICIAL E REAL-TIME (SUB)
+    // Aumentado o limite para 200 resultados (cerca de 1 hora de histórico)
     const loadHistoryAndSubscribe = useCallback(async () => {
         const { data, error } = await supabase
             .from('roulette_results')
             .select('number')
             .order('timestamp', { ascending: false })
-            .limit(50);
+            .limit(200);
 
         if (!error && data) {
             setRouletteHistory(data.map(item => item.number));
@@ -71,9 +72,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 (payload) => {
                     const newNum = payload.new.number;
                     setRouletteHistory((prev: number[]) => {
-                        // Evita duplicatas visuais se o próprio dispositivo inseriu
                         if (prev[0] === newNum) return prev;
-                        return [newNum, ...prev].slice(0, 50);
+                        return [newNum, ...prev].slice(0, 200);
                     });
                     setIsRouletteSpinning(false);
                 }
@@ -121,21 +121,17 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // 3. FINALIZAÇÃO DO CICLO (SINCRONIZADA)
     const handleRouletteCycleEnd = useCallback(async (roundId: number) => {
-        // Garantir que processamos apenas uma vez por rodada
         if (lastProcessedRoundRef.current === roundId) return;
         lastProcessedRoundRef.current = roundId;
 
         const resultDigit = lastDigitsRef.current[0];
         if (resultDigit === undefined) return;
 
-        // Tenta inserir no banco. O banco vai propagar para todos via Subscription
-        // Se 100 pessoas estiverem online, todas tentarão, mas o Subscription unifica a visão.
         supabase.from('roulette_results').insert({ 
             number: resultDigit, 
             source: 'Sincronizado' 
         }).then();
 
-        // Processamento local de apostas (cada um processa seu próprio lucro/perda)
         if (selectedRouletteNumbers.length > 0) {
             setLastSelectedRouletteNumbers(selectedRouletteNumbers);
             const isWinner = selectedRouletteNumbers.includes(resultDigit);
@@ -174,16 +170,14 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             setRouletteTimer(remaining);
 
-            // Mudança de estados baseada no tempo global
             if (remaining <= 4) {
                 setIsRouletteSpinning(true);
             } else {
                 setIsRouletteSpinning(false);
             }
 
-            // Quando o contador chega no final (ou reseta)
             if (remaining === 16) {
-                handleRouletteCycleEnd(roundId - 1); // Processa a rodada que acabou de fechar
+                handleRouletteCycleEnd(roundId - 1);
             }
         }, 1000);
 
