@@ -95,16 +95,13 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             setRouletteTimer(remaining === 0 ? 16 : remaining);
 
-            // Fase de Giro
             if (remaining <= 4 && remaining >= 1) {
                 setIsRouletteSpinning(true);
             } else {
                 setIsRouletteSpinning(false);
             }
 
-            // MOMENTO DO SORTEIO (Fim do ciclo)
             if (remaining === 1) {
-                // Se não recebemos nenhum tick ainda, gera um aleatório para o jogo não ficar parado no zero
                 const winningDigit = hasReceivedFirstTick.current 
                     ? lastTickDigitRef.current 
                     : Math.floor(Math.random() * 10);
@@ -113,7 +110,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setRouletteHistory((prev: number[]) => [winningDigit, ...prev].slice(0, 50));
             }
 
-            // Envio das apostas (5s antes do fim)
             if (remaining === 5 && !hasTradedCurrentRoundRef.current) {
                 if (isConnected) {
                     const stakeAmount = parseFloat(initialStake);
@@ -138,7 +134,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             }
 
-            // Limpeza para nova rodada
             if (remaining === 13) {
                 setLastRouletteResult(null);
                 hasTradedCurrentRoundRef.current = false;
@@ -157,9 +152,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // 3. WEBSOCKET FEED
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
         const data = event.payload;
-        if (event.type === 'socket_ready') {
-            sendMessageRef.current({ ticks: asset, subscribe: 1 });
-        } else if (event.type === 'message') {
+        if (event.type === 'message') {
             if (data?.msg_type === 'authorize') {
                 setIsConnected(true);
                 setStatus({ message: `Conta Ativa`, color: 'bg-green-500' });
@@ -176,15 +169,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setAccountBalance(data.balance.balance);
             } else if (data?.msg_type === 'proposal_open_contract') {
                 const contract = data.proposal_open_contract;
-                
                 if (contract.is_sold) {
                     const profit = parseFloat(contract.profit);
                     const exitDigit = parseInt(contract.exit_tick_display_value.slice(-1));
                     const signalId = data.echo_req.passthrough?.signalId;
                     
-                    // Sincronização visual forçada pelo contrato
                     setLastRouletteResult(exitDigit);
-
                     totalProfitRef.current += profit;
                     setTotalProfit(totalProfitRef.current);
                     
@@ -201,7 +191,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     }
                 }
             } else if (data?.error) {
-                addLog(`Mensagem: ${data.error.message}`, "ERROR");
+                // Não mostra erro de subscrição duplicada no log visual se possível, mas mantém a mensagem de erro da Deriv se for outra coisa
+                if (!data.error.message.includes("already subscribed")) {
+                    addLog(`${data.error.message}`, "ERROR");
+                }
             }
         }
     }, [asset, setLastDigits, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, addLog, setLastRouletteResult]);
@@ -210,8 +203,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { sendMessage, connect, disconnect, isSocketOpen } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
+    // Único lugar que gerencia a inscrição de ticks
     useEffect(() => { 
-        if (asset !== currentAssetRef.current && isSocketOpen) {
+        if (isSocketOpen) {
             sendMessageRef.current({ forget_all: 'ticks' });
             sendMessageRef.current({ ticks: asset, subscribe: 1 });
             currentAssetRef.current = asset;
