@@ -46,14 +46,17 @@ export const RouletteMode = () => {
         return "bg-rose-600";
     };
 
-    // Pega os últimos 8 para a barra rápida
-    const recentStrip = rouletteHistory.slice(0, 8);
+    // Pega os últimos 10 resultados da roleta, ou os últimos dígitos do mercado se a roleta estiver vazia
+    const recentStrip = useMemo(() => {
+        if (rouletteHistory.length > 0) return rouletteHistory.slice(0, 10);
+        return lastDigits.slice(0, 10);
+    }, [rouletteHistory, lastDigits]);
 
     return (
         <Card className="bg-card/80 backdrop-blur-sm overflow-hidden border-primary/20 h-full">
             <CardContent className="p-6 space-y-6">
                 
-                {/* BARRA DE ÚLTIMOS RESULTADOS (NOVO) */}
+                {/* BARRA DE ÚLTIMOS RESULTADOS */}
                 <div className="space-y-2">
                     <div className="flex items-center justify-between">
                         <p className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
@@ -66,13 +69,14 @@ export const RouletteMode = () => {
                                 key={i} 
                                 className={cn(
                                     "w-8 h-8 rounded-md flex items-center justify-center text-xs font-black text-white shrink-0 animate-in fade-in slide-in-from-right-2",
-                                    getDigitColor(digit)
+                                    getDigitColor(digit),
+                                    i === 0 && rouletteHistory.length > 0 && "ring-2 ring-white ring-offset-1 ring-offset-background"
                                 )}
                             >
                                 {digit}
                             </div>
                         ))}
-                        {recentStrip.length === 0 && <p className="text-[10px] text-muted-foreground italic">Aguardando sorteio...</p>}
+                        {recentStrip.length === 0 && <p className="text-[10px] text-muted-foreground italic">Aguardando dados do mercado...</p>}
                     </div>
                 </div>
 
