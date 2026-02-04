@@ -51,7 +51,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         lastDigitsRef.current = lastDigits;
     }, [lastDigits]);
 
-    // 1. SINCRONIZAÇÃO DE HISTÓRICO E REAL-TIME (SUPABASE)
+    // 1. SINCRONIZAÇÃO DE HISTÓRICO
     const loadHistoryAndSubscribe = useCallback(async () => {
         const { data, error } = await supabase
             .from('roulette_results')
@@ -60,13 +60,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             .limit(50);
 
         if (!error && data) {
-            const dbNumbers = data.map(item => item.number);
-            setRouletteHistory((prev: number[]) => {
-                // Se o histórico local estiver vazio, usa o do banco
-                if (prev.length === 0) return dbNumbers;
-                // Caso contrário, apenas garante que não há duplicatas no topo
-                return prev.slice(0, 100);
-            });
+            setRouletteHistory(data.map(item => item.number));
         }
 
         const channel = supabase
@@ -80,13 +74,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         if (prev[0] === newNum) return prev;
                         return [newNum, ...prev].slice(0, 100);
                     });
-                    setIsRouletteSpinning(false);
                 }
             )
             .subscribe();
 
         return channel;
-    }, [setRouletteHistory, setIsRouletteSpinning]);
+    }, [setRouletteHistory]);
 
     useEffect(() => {
         let channel: any;
@@ -101,8 +94,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         
         const signalId = addSignal({
             strategy: "Roleta",
-            signal: "ODD", // Placeholder para o histórico
-            details: `Aposta no número ${prediction}`,
+            signal: "ODD",
+            details: `Aposta Número ${prediction}`,
             stake: amount
         });
 
@@ -124,99 +117,84 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
     }, [isConnected, initialStake, asset, duration, addSignal]);
 
-    // 3. PROCESSAMENTO DO RESULTADO DO SORTEIO
+    // 3. PROCESSAMENTO DO RESULTADO (MUITO MAIS ROBUSTO)
     const processRouletteResult = useCallback(async (roundId: number) => {
         if (lastProcessedRoundRef.current >= roundId) return;
         lastProcessedRoundRef.current = roundId;
 
-        // Pega o dígito mais recente do feed da Deriv
+        // Captura o número exato da Deriv
         const resultDigit = lastDigitsRef.current[0];
+        if (resultDigit === undefined) return;
+
+        // 1. Atualiza histórico local
+        setRouletteHistory((prev: number[]) => [resultDigit, ...prev].slice(0, 100));
         
-        if (resultDigit === undefined) {
-            console.warn("[Roulette] Sorteio falhou: Nenhum dígito recebido da Deriv.");
-            return;
-        }
-
-        console.log(`[Roulette] Sorteio Finalizado! Número: ${resultDigit}`);
-
-        // 1. Atualiza Localmente Imediatamente
-        setRouletteHistory((prev: number[]) => {
-            if (prev[0] === resultDigit) return prev;
-            return [resultDigit, ...prev].slice(0, 100);
-        });
-        setIsRouletteSpinning(false);
-
-        // 2. Registra no Banco de Dados (Global)
+        // 2. Registra no banco de dados global
         supabase.from('roulette_results').insert({ 
             number: resultDigit, 
-            source: 'Bot Sincronizado' 
-        }).then(({ error }) => {
-            if (error) console.error("[Roulette] Erro ao gravar no banco:", error);
-        });
+            source: 'Sistema Rico 2.0' 
+        }).then();
 
-        // 3. Processa Apostas do Usuário
+        // 3. Verifica ganhos do usuário
         if (selectedRouletteNumbers.length > 0) {
             const stakePerNumber = parseFloat(initialStake);
             const isWinner = selectedRouletteNumbers.includes(resultDigit);
             
             if (isWinner) {
-                const profit = stakePerNumber * 8; // Multiplicador padrão 9x (Lucro de 8x)
+                const profit = stakePerNumber * 8;
                 totalProfitRef.current += profit;
                 setTotalProfit(totalProfitRef.current);
                 setWins(prev => prev + 1);
-                addLog(`GANHOU! Número ${resultDigit} sorteado.`, "WIN", { profit, strategyName: "Roleta" });
-                toast.success(`VOCÊ GANHOU! Número ${resultDigit}`, { icon: '💰' });
+                addLog(`GANHOU! Número ${resultDigit}`, "WIN", { profit, strategyName: "Roleta" });
+                toast.success(`VITÓRIA! O número foi ${resultDigit}`, { duration: 5000 });
             } else {
                 const totalLost = stakePerNumber * selectedRouletteNumbers.length;
                 totalProfitRef.current -= totalLost;
                 setTotalProfit(totalProfitRef.current);
                 setLosses(prev => prev + 1);
-                addLog(`Perdeu. Número ${resultDigit} sorteado.`, "LOSS", { profit: -totalLost, strategyName: "Roleta" });
+                addLog(`DERROTA. Número ${resultDigit}`, "LOSS", { profit: -totalLost, strategyName: "Roleta" });
             }
 
-            // Se estiver conectado, envia as ordens reais para a Deriv para sincronizar saldo
+            // Sincroniza saldo se estiver conectado
             if (isConnected) {
-                selectedRouletteNumbers.forEach(num => {
-                    executeTrade('DIGITMATCH' as any, num, stakePerNumber);
-                });
+                selectedRouletteNumbers.forEach(num => executeTrade('DIGITMATCH' as any, num, stakePerNumber));
             }
 
-            // Guarda os números para referência e limpa a mesa
             setLastSelectedRouletteNumbers([...selectedRouletteNumbers]);
             setSelectedRouletteNumbers([]);
         }
-    }, [selectedRouletteNumbers, isConnected, executeTrade, initialStake, setTotalProfit, setWins, setLosses, setSelectedRouletteNumbers, setLastSelectedRouletteNumbers, addLog, setRouletteHistory, setIsRouletteSpinning]);
+    }, [selectedRouletteNumbers, isConnected, executeTrade, initialStake, setTotalProfit, setWins, setLosses, setSelectedRouletteNumbers, setLastSelectedRouletteNumbers, addLog, setRouletteHistory]);
 
-    // 4. CRONÔMETRO GLOBAL SINCRONIZADO (16 Segundos)
+    // 4. CRONÔMETRO SINCRONIZADO (16 Segundos)
     useEffect(() => {
         if (!isRouletteMode) return;
         
         const interval = setInterval(() => {
             const now = Date.now();
             const cycleMs = 16000;
-            const elapsedInCycle = now % cycleMs;
-            const remaining = Math.ceil((cycleMs - elapsedInCycle) / 1000);
+            const elapsed = now % cycleMs;
+            const remaining = Math.ceil((cycleMs - elapsed) / 1000);
             const currentRoundId = Math.floor(now / cycleMs);
 
             setRouletteTimer(remaining === 0 ? 16 : remaining);
 
-            // Fase de "Girando" (Últimos 4 segundos)
-            if (remaining <= 4 || remaining === 16) {
+            // Fase de Giro (4 segundos antes do fim)
+            if (remaining <= 4 && remaining >= 1) {
                 setIsRouletteSpinning(true);
             } else {
                 setIsRouletteSpinning(false);
             }
 
-            // No momento exato da virada (segundo 16/0), processa o resultado
-            if (remaining === 16 || remaining === 0) {
-                processRouletteResult(currentRoundId);
+            // No exato momento do sorteio (virada do ciclo)
+            if (remaining === 16) {
+                processRouletteResult(currentRoundId - 1);
             }
         }, 1000);
 
         return () => clearInterval(interval);
     }, [isRouletteMode, processRouletteResult, setRouletteTimer, setIsRouletteSpinning]);
 
-    // 5. WEBSOCKET FEED (DERIV)
+    // 5. WEBSOCKET FEED
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
         const data = event.payload;
         if (event.type === 'socket_ready') {
@@ -230,7 +208,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             } else if (data?.msg_type === 'tick' && data.tick?.symbol === asset) {
                 const quote = data.tick.quote.toString();
                 const digit = parseInt(quote.charAt(quote.length - 1));
-                setLastDigits(prev => [digit, ...prev].slice(0, 200));
+                setLastDigits(prev => [digit, ...prev].slice(0, 100));
             } else if (data?.msg_type === 'balance') {
                 setAccountBalance(data.balance.balance);
             } else if (data?.msg_type === 'proposal_open_contract') {
