@@ -5,7 +5,6 @@ import { useBotState } from '../hooks/bot/useBotState';
 import { useBotPersistence } from '../hooks/bot/useBotPersistence';
 import { useTradingWebSocketManager } from '../hooks/bot/useTradingWebSocketManager';
 import { ContractType } from '@/types/bot';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const BotContext = createContext<any>(undefined);
@@ -52,43 +51,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         lastDigitsRef.current = lastDigits;
     }, [lastDigits]);
 
-    // 1. SINCRONIZAÇÃO DE HISTÓRICO
-    const loadHistoryAndSubscribe = useCallback(async () => {
-        const { data, error } = await supabase
-            .from('roulette_results')
-            .select('number')
-            .order('timestamp', { ascending: false })
-            .limit(50);
-
-        if (!error && data) {
-            setRouletteHistory(data.map(item => item.number));
-        }
-
-        const channel = supabase
-            .channel('global_roulette_results')
-            .on(
-                'postgres_changes',
-                { event: 'INSERT', schema: 'public', table: 'roulette_results' },
-                (payload) => {
-                    const newNum = payload.new.number;
-                    setRouletteHistory((prev: number[]) => {
-                        if (prev[0] === newNum) return prev;
-                        return [newNum, ...prev].slice(0, 100);
-                    });
-                }
-            )
-            .subscribe();
-
-        return channel;
-    }, [setRouletteHistory]);
-
-    useEffect(() => {
-        let channel: any;
-        loadHistoryAndSubscribe().then(c => channel = c);
-        return () => { if (channel) supabase.removeChannel(channel); };
-    }, [loadHistoryAndSubscribe]);
-
-    // 2. EXECUÇÃO DE APOSTAS
+    // 1. EXECUÇÃO DE APOSTAS
     const executeTrade = useCallback((contractType: ContractType, prediction?: number, stake?: number) => {
         if (!isConnected) return;
         const amount = stake || parseFloat(initialStake) || 0.35;
@@ -118,26 +81,20 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
     }, [isConnected, initialStake, asset, duration, addSignal]);
 
-    // 3. PROCESSAMENTO DO RESULTADO (MUITO MAIS ROBUSTO)
+    // 2. PROCESSAMENTO DO RESULTADO (APENAS LOCAL)
     const processRouletteResult = useCallback(async (roundId: number) => {
         if (lastProcessedRoundRef.current >= roundId) return;
         lastProcessedRoundRef.current = roundId;
 
-        // Captura o número exato da Deriv
+        // Captura o número exato que chegou da corretora no SEU computador
         const resultDigit = lastDigitsRef.current[0];
         if (resultDigit === undefined) return;
 
-        // 1. Atualiza histórico local e o estado de exibição fixa
+        // 1. Atualiza histórico e resultado fixo (Tudo apenas no seu navegador)
         setLastRouletteResult(resultDigit);
         setRouletteHistory((prev: number[]) => [resultDigit, ...prev].slice(0, 100));
         
-        // 2. Registra no banco de dados global
-        supabase.from('roulette_results').insert({ 
-            number: resultDigit, 
-            source: 'Sistema Rico 2.0' 
-        }).then();
-
-        // 3. Verifica ganhos do usuário
+        // 2. Verifica ganhos
         if (selectedRouletteNumbers.length > 0) {
             const stakePerNumber = parseFloat(initialStake);
             const isWinner = selectedRouletteNumbers.includes(resultDigit);
@@ -157,7 +114,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 addLog(`DERROTA. Número ${resultDigit}`, "LOSS", { profit: -totalLost, strategyName: "Roleta" });
             }
 
-            // Sincroniza saldo se estiver conectado
+            // Envia para a Deriv se estiver conectado
             if (isConnected) {
                 selectedRouletteNumbers.forEach(num => executeTrade('DIGITMATCH' as any, num, stakePerNumber));
             }
@@ -167,7 +124,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     }, [selectedRouletteNumbers, isConnected, executeTrade, initialStake, setTotalProfit, setWins, setLosses, setSelectedRouletteNumbers, setLastSelectedRouletteNumbers, addLog, setRouletteHistory, setLastRouletteResult]);
 
-    // 4. CRONÔMETRO SINCRONIZADO (16 Segundos)
+    // 3. CRONÔMETRO INDIVIDUAL
     useEffect(() => {
         if (!isRouletteMode) return;
         
@@ -180,19 +137,16 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             setRouletteTimer(remaining === 0 ? 16 : remaining);
 
-            // Fase de Giro (4 segundos antes do fim)
             if (remaining <= 4 && remaining >= 1) {
                 setIsRouletteSpinning(true);
             } else {
                 setIsRouletteSpinning(false);
             }
 
-            // Limpa o resultado fixo após 5 segundos do novo ciclo
             if (remaining === 11) {
                 setLastRouletteResult(null);
             }
 
-            // No exato momento do sorteio (virada do ciclo)
             if (remaining === 16) {
                 processRouletteResult(currentRoundId - 1);
             }
@@ -201,7 +155,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return () => clearInterval(interval);
     }, [isRouletteMode, processRouletteResult, setRouletteTimer, setIsRouletteSpinning, setLastRouletteResult]);
 
-    // 5. WEBSOCKET FEED
+    // 4. WEBSOCKET FEED
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
         const data = event.payload;
         if (event.type === 'socket_ready') {

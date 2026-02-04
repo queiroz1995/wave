@@ -5,7 +5,6 @@ import { useBotContext } from '@/context/BotContext';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { History, Zap } from 'lucide-react';
-import { GlobalRouletteStats } from './GlobalRouletteStats';
 
 export const RouletteHistory = () => {
     const { rouletteHistory, isRouletteSpinning } = useBotContext();
@@ -16,18 +15,15 @@ export const RouletteHistory = () => {
         return "bg-rose-600";
     };
 
-    // Mostra exatamente os 50 mais recentes que estão no estado (já filtrados no Context)
     const displayHistory = rouletteHistory.slice(0, 50);
 
     return (
         <div className="space-y-6">
-            <GlobalRouletteStats />
-            
             <Card className="bg-card/80 backdrop-blur-sm border-primary/20">
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
                         <History className="h-4 w-4 text-primary" />
-                        Histórico de Sorteios (Últimas 50 Rodadas)
+                        Seu Histórico de Sorteios
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -51,7 +47,7 @@ export const RouletteHistory = () => {
                             ))}
                             {displayHistory.length === 0 && (
                                 <div className="col-span-full py-10 text-center text-muted-foreground text-xs">
-                                    Buscando histórico de 50 resultados recentes...
+                                    Aguardando primeiros resultados...
                                 </div>
                             )}
                         </div>
