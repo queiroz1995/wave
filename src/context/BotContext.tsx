@@ -25,6 +25,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const sendMessageRef = useRef<(payload: any) => void>(() => {});
     const currentAssetRef = useRef<string>('');
     const lastDigitsRef = useRef<number[]>([]);
+    const lastProcessedRoundRef = useRef<number>(0);
 
     const {
         addLog, setAccountBalance, setLastDigits, setIsBotRunning,
@@ -50,7 +51,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         lastDigitsRef.current = lastDigits;
     }, [lastDigits]);
 
-    // 1. SINCRONIZAÇÃO INICIAL
+    // 1. SINCRONIZAÇÃO INICIAL E REAL-TIME (SUB)
     const loadHistoryAndSubscribe = useCallback(async () => {
         const { data, error } = await supabase
             .from('roulette_results')
@@ -70,15 +71,17 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 (payload) => {
                     const newNum = payload.new.number;
                     setRouletteHistory((prev: number[]) => {
+                        // Evita duplicatas visuais se o próprio dispositivo inseriu
                         if (prev[0] === newNum) return prev;
                         return [newNum, ...prev].slice(0, 50);
                     });
+                    setIsRouletteSpinning(false);
                 }
             )
             .subscribe();
 
         return channel;
-    }, [setRouletteHistory]);
+    }, [setRouletteHistory, setIsRouletteSpinning]);
 
     useEffect(() => {
         let channel: any;
@@ -116,27 +119,26 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
     }, [isConnected, initialStake, asset, duration, addSignal]);
 
-    // 3. SORTEIO E ATUALIZAÇÃO IMEDIATA
-    const handleRouletteCycleEnd = useCallback(async () => {
+    // 3. FINALIZAÇÃO DO CICLO (SINCRONIZADA)
+    const handleRouletteCycleEnd = useCallback(async (roundId: number) => {
+        // Garantir que processamos apenas uma vez por rodada
+        if (lastProcessedRoundRef.current === roundId) return;
+        lastProcessedRoundRef.current = roundId;
+
         const resultDigit = lastDigitsRef.current[0];
-        const finalDigit = resultDigit !== undefined ? resultDigit : lastDigitsRef.current[1];
-        
-        if (finalDigit === undefined) return;
+        if (resultDigit === undefined) return;
 
-        // ATUALIZA LOCALMENTE IMEDIATAMENTE (PARA APARECER NO "RECENTES" NA HORA)
-        setRouletteHistory((prev: number[]) => [finalDigit, ...prev].slice(0, 50));
-        setIsRouletteSpinning(false);
-
-        // SALVA NO BANCO (SILENCIOSAMENTE)
+        // Tenta inserir no banco. O banco vai propagar para todos via Subscription
+        // Se 100 pessoas estiverem online, todas tentarão, mas o Subscription unifica a visão.
         supabase.from('roulette_results').insert({ 
-            number: finalDigit, 
-            source: 'Rico 2.0 Engine' 
+            number: resultDigit, 
+            source: 'Sincronizado' 
         }).then();
 
-        // Processamento de apostas
+        // Processamento local de apostas (cada um processa seu próprio lucro/perda)
         if (selectedRouletteNumbers.length > 0) {
             setLastSelectedRouletteNumbers(selectedRouletteNumbers);
-            const isWinner = selectedRouletteNumbers.includes(finalDigit);
+            const isWinner = selectedRouletteNumbers.includes(resultDigit);
             const stakeVal = parseFloat(initialStake);
             
             if (isWinner) {
@@ -157,22 +159,34 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 selectedRouletteNumbers.forEach(num => executeTrade('DIGITMATCH' as any, num));
             }
             setSelectedRouletteNumbers([]);
-        } else {
-            addLog(`Giro finalizado.`, "INFO");
         }
-    }, [selectedRouletteNumbers, isConnected, executeTrade, initialStake, setTotalProfit, setWins, setLosses, setSelectedRouletteNumbers, setLastSelectedRouletteNumbers, addLog, setRouletteHistory, setIsRouletteSpinning]);
+    }, [selectedRouletteNumbers, isConnected, executeTrade, initialStake, setTotalProfit, setWins, setLosses, setSelectedRouletteNumbers, setLastSelectedRouletteNumbers, addLog]);
 
-    // 4. TIMER
+    // 4. TIMER GLOBAL SINCRONIZADO (Baseado no Timestamp)
     useEffect(() => {
         if (!isRouletteMode) return;
+        
         const interval = setInterval(() => {
-            setRouletteTimer((prev: number) => {
-                const next = prev <= 1 ? 16 : prev - 1;
-                if (next === 4) setIsRouletteSpinning(true);
-                if (prev === 1) handleRouletteCycleEnd();
-                return next;
-            });
+            const now = Math.floor(Date.now() / 1000);
+            const cycleSeconds = 16;
+            const remaining = cycleSeconds - (now % cycleSeconds);
+            const roundId = Math.floor(Date.now() / (cycleSeconds * 1000));
+
+            setRouletteTimer(remaining);
+
+            // Mudança de estados baseada no tempo global
+            if (remaining <= 4) {
+                setIsRouletteSpinning(true);
+            } else {
+                setIsRouletteSpinning(false);
+            }
+
+            // Quando o contador chega no final (ou reseta)
+            if (remaining === 16) {
+                handleRouletteCycleEnd(roundId - 1); // Processa a rodada que acabou de fechar
+            }
         }, 1000);
+
         return () => clearInterval(interval);
     }, [isRouletteMode, handleRouletteCycleEnd, setRouletteTimer, setIsRouletteSpinning]);
 
