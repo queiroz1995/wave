@@ -16,6 +16,9 @@ export const RouletteHistory = () => {
         return "bg-rose-600";
     };
 
+    // Mostra exatamente os 50 mais recentes que estão no estado (já filtrados no Context)
+    const displayHistory = rouletteHistory.slice(0, 50);
+
     return (
         <div className="space-y-6">
             <GlobalRouletteStats />
@@ -24,7 +27,7 @@ export const RouletteHistory = () => {
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
                         <History className="h-4 w-4 text-primary" />
-                        Histórico de Sorteios (Últimas 100 Rodadas)
+                        Histórico de Sorteios (Últimas 50 Rodadas)
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -35,7 +38,7 @@ export const RouletteHistory = () => {
                                     <Zap className="h-4 w-4 text-primary" />
                                 </div>
                             )}
-                            {rouletteHistory.map((digit: number, i: number) => (
+                            {displayHistory.map((digit: number, i: number) => (
                                 <div 
                                     key={i} 
                                     className={cn(
@@ -46,9 +49,9 @@ export const RouletteHistory = () => {
                                     {digit}
                                 </div>
                             ))}
-                            {rouletteHistory.length === 0 && (
+                            {displayHistory.length === 0 && (
                                 <div className="col-span-full py-10 text-center text-muted-foreground text-xs">
-                                    Nenhum resultado encontrado.
+                                    Buscando histórico de 50 resultados recentes...
                                 </div>
                             )}
                         </div>
