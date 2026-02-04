@@ -50,7 +50,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         lastDigitsRef.current = lastDigits;
     }, [lastDigits]);
 
-    // 1. SINCRONIZAÇÃO COMPLETA COM O SUPABASE
+    // 1. SINCRONIZAÇÃO INICIAL
     const loadHistoryAndSubscribe = useCallback(async () => {
         const { data, error } = await supabase
             .from('roulette_results')
@@ -73,13 +73,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         if (prev[0] === newNum) return prev;
                         return [newNum, ...prev].slice(0, 50);
                     });
-                    setIsRouletteSpinning(false);
                 }
             )
             .subscribe();
 
         return channel;
-    }, [setRouletteHistory, setIsRouletteSpinning]);
+    }, [setRouletteHistory]);
 
     useEffect(() => {
         let channel: any;
@@ -92,10 +91,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!isConnected) return;
         const amount = stake || parseFloat(initialStake) || 0.35;
         
-        // Adiciona um sinal de "aguardando" no histórico
         const signalId = addSignal({
             strategy: "Roleta",
-            signal: "ODD", // Placeholder, o tipo é match
+            signal: "ODD",
             details: `Aposta no dígito ${prediction}`,
             stake: amount
         });
@@ -103,7 +101,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sendMessageRef.current({
             buy: 1,
             price: amount,
-            subscribe: 1, // Inscreve para receber atualizações do contrato
+            subscribe: 1,
             parameters: {
                 amount: amount,
                 basis: 'stake',
@@ -114,56 +112,55 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 symbol: asset,
                 barrier: prediction !== undefined ? String(prediction) : undefined
             },
-            passthrough: { signalId } // Passa o ID para identificar no retorno
+            passthrough: { signalId }
         });
     }, [isConnected, initialStake, asset, duration, addSignal]);
 
-    // 3. SORTEIO E SALVAMENTO
+    // 3. SORTEIO E ATUALIZAÇÃO IMEDIATA
     const handleRouletteCycleEnd = useCallback(async () => {
         const resultDigit = lastDigitsRef.current[0];
         const finalDigit = resultDigit !== undefined ? resultDigit : lastDigitsRef.current[1];
         
-        if (finalDigit === undefined) {
-            addLog("Aguardando feed de dados para sorteio...", "INFO");
-            return;
-        }
+        if (finalDigit === undefined) return;
 
-        // SALVA NO BANCO
-        await supabase.from('roulette_results').insert({ 
+        // ATUALIZA LOCALMENTE IMEDIATAMENTE (PARA APARECER NO "RECENTES" NA HORA)
+        setRouletteHistory((prev: number[]) => [finalDigit, ...prev].slice(0, 50));
+        setIsRouletteSpinning(false);
+
+        // SALVA NO BANCO (SILENCIOSAMENTE)
+        supabase.from('roulette_results').insert({ 
             number: finalDigit, 
             source: 'Rico 2.0 Engine' 
-        });
+        }).then();
 
-        // Processamento visual de apostas
+        // Processamento de apostas
         if (selectedRouletteNumbers.length > 0) {
             setLastSelectedRouletteNumbers(selectedRouletteNumbers);
+            const isWinner = selectedRouletteNumbers.includes(finalDigit);
+            const stakeVal = parseFloat(initialStake);
             
-            // Executa as apostas reais na Deriv
+            if (isWinner) {
+                const profit = stakeVal * 8;
+                totalProfitRef.current += profit;
+                setTotalProfit(totalProfitRef.current);
+                setWins(prev => prev + 1);
+                addLog(`Vitória! Sorteado: ${finalDigit}`, "WIN", { profit, exitDigit: finalDigit, strategyName: "Roleta" });
+            } else {
+                const loss = (stakeVal * selectedRouletteNumbers.length);
+                totalProfitRef.current -= loss;
+                setTotalProfit(totalProfitRef.current);
+                setLosses(prev => prev + 1);
+                addLog(`Derrota. Sorteado: ${finalDigit}`, "LOSS", { profit: -loss, exitDigit: finalDigit, strategyName: "Roleta" });
+            }
+
             if (isConnected) {
                 selectedRouletteNumbers.forEach(num => executeTrade('DIGITMATCH' as any, num));
-            } else {
-                // Simulação se não estiver conectado
-                const isWinner = selectedRouletteNumbers.includes(finalDigit);
-                const stakeVal = parseFloat(initialStake);
-                if (isWinner) {
-                    const profit = stakeVal * 8;
-                    totalProfitRef.current += profit;
-                    setTotalProfit(totalProfitRef.current);
-                    setWins(prev => prev + 1);
-                    addLog(`[Simulação] Vitória! Sorteado: ${finalDigit}`, "WIN", { profit, exitDigit: finalDigit, strategyName: "Roleta" });
-                } else {
-                    const loss = stakeVal * selectedRouletteNumbers.length;
-                    totalProfitRef.current -= loss;
-                    setTotalProfit(totalProfitRef.current);
-                    setLosses(prev => prev + 1);
-                    addLog(`[Simulação] Derrota. Sorteado: ${finalDigit}`, "LOSS", { profit: -loss, exitDigit: finalDigit, strategyName: "Roleta" });
-                }
             }
             setSelectedRouletteNumbers([]);
         } else {
             addLog(`Sorteio realizado: ${finalDigit}`, "INFO");
         }
-    }, [selectedRouletteNumbers, isConnected, executeTrade, initialStake, setTotalProfit, setWins, setLosses, setSelectedRouletteNumbers, setLastSelectedRouletteNumbers, addLog]);
+    }, [selectedRouletteNumbers, isConnected, executeTrade, initialStake, setTotalProfit, setWins, setLosses, setSelectedRouletteNumbers, setLastSelectedRouletteNumbers, addLog, setRouletteHistory, setIsRouletteSpinning]);
 
     // 4. TIMER
     useEffect(() => {
@@ -189,7 +186,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setIsConnected(true);
                 setStatus({ message: `Ativo: ${data.authorize.is_virtual ? 'Demo' : 'Real'}`, color: 'bg-green-500' });
                 if (data.authorize.balance) setAccountBalance(data.authorize.balance);
-                addLog(`Conta autorizada: ${data.authorize.email}`, "INFO");
                 sendMessageRef.current({ balance: 1, subscribe: 1 });
             } else if (data?.msg_type === 'tick' && data.tick?.symbol === asset) {
                 const quote = data.tick.quote.toString();
@@ -198,33 +194,17 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             } else if (data?.msg_type === 'balance') {
                 setAccountBalance(data.balance.balance);
             } else if (data?.msg_type === 'proposal_open_contract') {
-                // TRATAMENTO DE RESULTADO DA APOSTA
                 const contract = data.proposal_open_contract;
                 if (contract.is_sold) {
                     const profit = parseFloat(contract.profit);
                     const isWin = profit > 0;
                     const signalId = data.echo_req.passthrough?.signalId;
                     const exitDigit = parseInt(String(contract.exit_tick_display_value).slice(-1));
-
-                    totalProfitRef.current += profit;
-                    setTotalProfit(totalProfitRef.current);
-
-                    if (isWin) {
-                        setWins(prev => prev + 1);
-                        addLog(`Aposta Vencida! Lucro: $${profit.toFixed(2)}`, "WIN", { profit, exitDigit, strategyName: "Roleta" });
-                        toast.success(`Aposta Vencida! +$${profit.toFixed(2)}`);
-                    } else {
-                        setLosses(prev => prev + 1);
-                        addLog(`Aposta Perdida. Payout: $${profit.toFixed(2)}`, "LOSS", { profit, exitDigit, strategyName: "Roleta" });
-                    }
-
-                    if (signalId) {
-                        updateSignalResult(signalId, isWin ? 'WIN' : 'LOSS', profit, parseFloat(contract.buy_price), exitDigit);
-                    }
+                    if (signalId) updateSignalResult(signalId, isWin ? 'WIN' : 'LOSS', profit, parseFloat(contract.buy_price), exitDigit);
                 }
             }
         }
-    }, [asset, setLastDigits, setAccountBalance, addLog, updateSignalResult, setTotalProfit, setWins, setLosses]);
+    }, [asset, setLastDigits, setAccountBalance, updateSignalResult]);
 
     const ws = useTradingWebSocketManager({ isConnected, status, setIsConnected, setStatus, setAccountBalance, onMessage: handleWebSocketMessage, reconnectAttemptsRef });
     const { sendMessage, connect, disconnect, isSocketOpen } = ws;
