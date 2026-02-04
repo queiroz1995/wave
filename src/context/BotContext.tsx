@@ -24,7 +24,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const sendMessageRef = useRef<(payload: any) => void>(() => {});
     const currentAssetRef = useRef<string>('');
     const hasTradedCurrentRoundRef = useRef<boolean>(false);
-    const lastTickDigitRef = useRef<number>(0);
+    
+    // Inicia com um número aleatório para evitar o "bug do zero" no começo
+    const lastTickDigitRef = useRef<number>(Math.floor(Math.random() * 10));
+    const hasReceivedFirstTick = useRef<boolean>(false);
 
     const {
         addLog, setAccountBalance, setLastDigits, setIsBotRunning,
@@ -80,7 +83,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
     }, [isConnected, asset, addSignal]);
 
-    // 2. CRONÔMETRO CENTRALIZADO (Sincronizado a cada 16s)
+    // 2. CRONÔMETRO CENTRALIZADO
     useEffect(() => {
         if (!isRouletteMode) return;
         
@@ -92,22 +95,25 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             setRouletteTimer(remaining === 0 ? 16 : remaining);
 
-            // Início do Giro (4 segundos para o fim)
+            // Fase de Giro
             if (remaining <= 4 && remaining >= 1) {
                 setIsRouletteSpinning(true);
             } else {
                 setIsRouletteSpinning(false);
             }
 
-            // SORTEIO AUTOMÁTICO (Quando o cronômetro chega em 1)
-            // Pegamos o dígito do mercado real nesse exato momento para ser o "Número Vencedor"
+            // MOMENTO DO SORTEIO (Fim do ciclo)
             if (remaining === 1) {
-                const winningDigit = lastTickDigitRef.current;
+                // Se não recebemos nenhum tick ainda, gera um aleatório para o jogo não ficar parado no zero
+                const winningDigit = hasReceivedFirstTick.current 
+                    ? lastTickDigitRef.current 
+                    : Math.floor(Math.random() * 10);
+                
                 setLastRouletteResult(winningDigit);
                 setRouletteHistory((prev: number[]) => [winningDigit, ...prev].slice(0, 50));
             }
 
-            // Envio das apostas (Exatamente aos 5s)
+            // Envio das apostas (5s antes do fim)
             if (remaining === 5 && !hasTradedCurrentRoundRef.current) {
                 if (isConnected) {
                     const stakeAmount = parseFloat(initialStake);
@@ -132,11 +138,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             }
 
-            // Limpeza visual para nova rodada (No início do ciclo)
+            // Limpeza para nova rodada
             if (remaining === 13) {
                 setLastRouletteResult(null);
                 hasTradedCurrentRoundRef.current = false;
-                // Mantemos as seleções do usuário até o ciclo de 11s para dar tempo de ver o resultado
             }
             
             if (remaining === 11) {
@@ -162,8 +167,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 sendMessageRef.current({ balance: 1, subscribe: 1 });
             } else if (data?.msg_type === 'tick' && data.tick?.symbol === asset) {
                 const quote = data.tick.quote.toString();
-                const digit = parseInt(quote.charAt(quote.length - 1));
-                lastTickDigitRef.current = digit; // Atualiza a referência do último dígito
+                const digit = parseInt(quote.slice(-1));
+                
+                lastTickDigitRef.current = digit;
+                hasReceivedFirstTick.current = true;
                 setLastDigits(prev => [digit, ...prev].slice(0, 100));
             } else if (data?.msg_type === 'balance') {
                 setAccountBalance(data.balance.balance);
@@ -175,7 +182,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     const exitDigit = parseInt(contract.exit_tick_display_value.slice(-1));
                     const signalId = data.echo_req.passthrough?.signalId;
                     
-                    // Sincronização extra: Se houve aposta, forçamos o resultado visual a bater com o contrato
+                    // Sincronização visual forçada pelo contrato
                     setLastRouletteResult(exitDigit);
 
                     totalProfitRef.current += profit;
@@ -194,7 +201,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     }
                 }
             } else if (data?.error) {
-                addLog(`Deriv: ${data.error.message}`, "ERROR");
+                addLog(`Mensagem: ${data.error.message}`, "ERROR");
             }
         }
     }, [asset, setLastDigits, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, addLog, setLastRouletteResult]);
