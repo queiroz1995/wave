@@ -49,40 +49,51 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         lastDigitsRef.current = lastDigits;
     }, [lastDigits]);
 
-    // BUSCA INICIAL DE 50 RESULTADOS DO BANCO
-    const fetchInitialHistory = useCallback(async () => {
-        console.log("[Roleta] Sincronizando 50 resultados recentes do banco...");
-        const { data, error } = await supabase
+    // 1. SINCRONIZAÇÃO INICIAL (BUSCA OS ÚLTIMOS 50 RESULTADOS)
+    const setupRealtimeSync = useCallback(async () => {
+        if (!asset) return;
+
+        console.log(`[Roleta] Buscando 50 últimos resultados para análise...`);
+        
+        const { data: historyData, error } = await supabase
             .from('roulette_results')
             .select('number')
             .order('timestamp', { ascending: false })
-            .limit(50);
+            .limit(50); // Ajustado para 50 resultados como solicitado
 
-        if (!error && data) {
-            setRouletteHistory(data.map(h => h.number));
-        } else if (error) {
+        if (error) {
             console.error("[Roleta] Erro ao buscar histórico:", error);
         }
-    }, [setRouletteHistory]);
 
-    useEffect(() => {
-        fetchInitialHistory();
-        
-        // Inscrição Realtime única para o histórico
+        if (historyData && historyData.length > 0) {
+            setRouletteHistory(historyData.map(h => h.number));
+        }
+
+        // Escuta novos sorteios em tempo real
         const channel = supabase
-            .channel('roulette-updates')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'roulette_results' }, (payload) => {
-                const newDigit = payload.new.number;
-                setRouletteHistory((prev: number[]) => [newDigit, ...prev].slice(0, 50));
-                setIsRouletteSpinning(false);
-            })
+            .channel('roulette-realtime-50')
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'roulette_results' },
+                (payload) => {
+                    const newDigit = payload.new.number;
+                    // Mantém o histórico em 50 itens
+                    setRouletteHistory((prev: number[]) => [newDigit, ...prev].slice(0, 50));
+                    setIsRouletteSpinning(false);
+                }
+            )
             .subscribe();
 
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [fetchInitialHistory, setRouletteHistory, setIsRouletteSpinning]);
+    }, [asset, setRouletteHistory, setIsRouletteSpinning]);
 
+    useEffect(() => {
+        setupRealtimeSync();
+    }, [setupRealtimeSync]);
+
+    // 2. LÓGICA DE TRADES
     const executeTrade = useCallback((contractType: ContractType, prediction?: number, stake?: number) => {
         if (!isConnected) return;
         const amount = stake || parseFloat(initialStake) || 0.35;
@@ -100,23 +111,27 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 barrier: prediction !== undefined ? String(prediction) : undefined
             }
         });
-        addLog(`Aposta: ${contractType} (${prediction ?? ''})`, 'TRADE');
+        addLog(`Aposta enviada: ${contractType} (${prediction ?? ''})`, 'TRADE');
     }, [isConnected, initialStake, asset, duration, addLog]);
 
+    // 3. FINALIZAÇÃO DO CICLO
     const handleRouletteCycleEnd = useCallback(async () => {
         const resultDigit = lastDigitsRef.current[0];
         if (resultDigit === undefined) return;
 
         setIsRouletteSpinning(true);
         
-        // Salva no banco para sincronizar (o Realtime atualizará o histórico de todos)
+        // Adiciona localmente para feedback imediato
+        setRouletteHistory((prev: number[]) => [resultDigit, ...prev].slice(0, 50));
+        
+        // Salva no banco para sincronizar todos os usuários
         try {
             await supabase.from('roulette_results').insert({ 
                 number: resultDigit, 
                 source: 'Rico 2.0 Auto' 
             });
         } catch (e) {
-            console.error("Erro ao salvar resultado:", e);
+            console.error("Erro ao sincronizar sorteio:", e);
         }
 
         setTimeout(() => setIsRouletteSpinning(false), 2000);
@@ -144,8 +159,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
             setSelectedRouletteNumbers([]);
         }
-    }, [selectedRouletteNumbers, isConnected, executeTrade, initialStake, setTotalProfit, setWins, setLosses, setSelectedRouletteNumbers, setLastSelectedRouletteNumbers, setIsRouletteSpinning]);
+    }, [selectedRouletteNumbers, isConnected, executeTrade, initialStake, setTotalProfit, setWins, setLosses, setSelectedRouletteNumbers, setLastSelectedRouletteNumbers, setIsRouletteSpinning, setRouletteHistory]);
 
+    // 4. TEMPORIZADOR
     useEffect(() => {
         if (!isRouletteMode) return;
         const timer = setInterval(() => {
@@ -160,6 +176,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return () => clearInterval(timer);
     }, [isRouletteMode, handleRouletteCycleEnd, setRouletteTimer]);
 
+    // 5. WEBSOCKET
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
         const data = event.payload;
         if (event.type === 'socket_ready') {
@@ -189,9 +206,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             sendMessageRef.current({ forget_all: 'ticks' });
             sendMessageRef.current({ ticks: asset, subscribe: 1 });
             currentAssetRef.current = asset;
-            fetchInitialHistory();
+            setupRealtimeSync();
         }
-    }, [asset, isSocketOpen, fetchInitialHistory]);
+    }, [asset, isSocketOpen, setupRealtimeSync]);
 
     const handleConnect = useCallback((targetType?: 'real' | 'demo', targetToken?: string) => {
         const type = targetType || accountType;
