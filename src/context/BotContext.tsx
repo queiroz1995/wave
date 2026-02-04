@@ -38,6 +38,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isRouletteMode, setRouletteTimer,
         setIsRouletteSpinning,
         setRouletteHistory,
+        rouletteHistory,
         selectedRouletteNumbers, setSelectedRouletteNumbers,
         setLastSelectedRouletteNumbers,
         duration,
@@ -51,17 +52,22 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         lastDigitsRef.current = lastDigits;
     }, [lastDigits]);
 
-    // 1. SINCRONIZAÇÃO INICIAL E REAL-TIME (SUB)
-    // Aumentado o limite para 200 resultados (cerca de 1 hora de histórico)
+    // 1. SINCRONIZAÇÃO INICIAL E REAL-TIME
     const loadHistoryAndSubscribe = useCallback(async () => {
+        // Busca histórico global do banco para complementar o local
         const { data, error } = await supabase
             .from('roulette_results')
             .select('number')
             .order('timestamp', { ascending: false })
-            .limit(200);
+            .limit(50);
 
         if (!error && data) {
-            setRouletteHistory(data.map(item => item.number));
+            const dbNumbers = data.map(item => item.number);
+            setRouletteHistory((prev: number[]) => {
+                // Mescla o histórico do banco com o local (priorizando o local se já houver dados)
+                const combined = prev.length > 0 ? prev : dbNumbers;
+                return combined.slice(0, 100);
+            });
         }
 
         const channel = supabase
@@ -73,7 +79,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     const newNum = payload.new.number;
                     setRouletteHistory((prev: number[]) => {
                         if (prev[0] === newNum) return prev;
-                        return [newNum, ...prev].slice(0, 200);
+                        return [newNum, ...prev].slice(0, 100);
                     });
                     setIsRouletteSpinning(false);
                 }
@@ -127,11 +133,20 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const resultDigit = lastDigitsRef.current[0];
         if (resultDigit === undefined) return;
 
+        // ATUALIZA LOCALMENTE NA HORA (Garante que o usuário veja o número imediatamente)
+        setRouletteHistory((prev: number[]) => {
+            if (prev[0] === resultDigit) return prev;
+            return [resultDigit, ...prev].slice(0, 100);
+        });
+        setIsRouletteSpinning(false);
+
+        // Tenta gravar no banco para sincronizar com outros dispositivos
         supabase.from('roulette_results').insert({ 
             number: resultDigit, 
             source: 'Sincronizado' 
         }).then();
 
+        // Processamento de apostas
         if (selectedRouletteNumbers.length > 0) {
             setLastSelectedRouletteNumbers(selectedRouletteNumbers);
             const isWinner = selectedRouletteNumbers.includes(resultDigit);
@@ -156,9 +171,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
             setSelectedRouletteNumbers([]);
         }
-    }, [selectedRouletteNumbers, isConnected, executeTrade, initialStake, setTotalProfit, setWins, setLosses, setSelectedRouletteNumbers, setLastSelectedRouletteNumbers, addLog]);
+    }, [selectedRouletteNumbers, isConnected, executeTrade, initialStake, setTotalProfit, setWins, setLosses, setSelectedRouletteNumbers, setLastSelectedRouletteNumbers, addLog, setRouletteHistory, setIsRouletteSpinning]);
 
-    // 4. TIMER GLOBAL SINCRONIZADO (Baseado no Timestamp)
+    // 4. TIMER GLOBAL SINCRONIZADO
     useEffect(() => {
         if (!isRouletteMode) return;
         
