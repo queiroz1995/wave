@@ -108,25 +108,31 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         let roundProfit = 0;
         let roundWins = 0;
         let roundLosses = 0;
+        let totalStakedThisRound = 0;
 
-        // Processar Números Individuais (8x lucro / 9x retorno)
+        // Cálculo Preciso para Números Individuais
         if (currentNumbers.length > 0) {
+            const totalNumbersStake = stakeAmount * currentNumbers.length;
+            totalStakedThisRound += totalNumbersStake;
+            
             const isWinner = currentNumbers.includes(resultDigit);
             if (isWinner) {
-                const profit = stakeAmount * 8; 
-                roundProfit += profit;
+                // Na Deriv, Digit Match paga 800% de lucro (9x o valor apostado)
+                const winReturn = stakeAmount * 9;
+                const netProfit = winReturn - totalNumbersStake;
+                roundProfit += netProfit;
                 roundWins++;
             } else {
-                const totalLost = stakeAmount * currentNumbers.length;
-                roundProfit -= totalLost;
+                roundProfit -= totalNumbersStake;
                 roundLosses++;
             }
         }
 
-        // Processar Aposta Par (Lucro de ~0.96x na Deriv, mas vamos simplificar no log)
+        // Cálculo Preciso para Par (Even)
         if (currentEven) {
+            totalStakedThisRound += stakeAmount;
             if (isResultEven) {
-                const profit = stakeAmount * 0.96;
+                const profit = stakeAmount * 0.96; // Lucro aproximado de 96%
                 roundProfit += profit;
                 roundWins++;
             } else {
@@ -135,8 +141,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
         }
 
-        // Processar Aposta Ímpar
+        // Cálculo Preciso para Ímpar (Odd)
         if (currentOdd) {
+            totalStakedThisRound += stakeAmount;
             if (!isResultEven) {
                 const profit = stakeAmount * 0.96;
                 roundProfit += profit;
@@ -147,20 +154,23 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
         }
 
-        if (roundWins > 0 || roundLosses > 0) {
+        // Atualização dos saldos globais se houve aposta
+        if (totalStakedThisRound > 0) {
             totalProfitRef.current += roundProfit;
             setTotalProfit(totalProfitRef.current);
+            
             if (roundProfit > 0) {
                 setWins(prev => prev + 1);
-                addLog(`RESULTADO: O número foi ${resultDigit}. Lucro: $${roundProfit.toFixed(2)}`, "WIN", { profit: roundProfit, strategyName: "Roleta" });
-                toast.success(`RODADA CONCLUÍDA!`, { description: `Número: ${resultDigit} | Lucro: $${roundProfit.toFixed(2)}` });
+                addLog(`RODADA: Número ${resultDigit}. Lucro Líquido: +$${roundProfit.toFixed(2)}`, "WIN", { profit: roundProfit, strategyName: "Roleta" });
+                toast.success(`VOCÊ GANHOU!`, { description: `Número: ${resultDigit} | Lucro: $${roundProfit.toFixed(2)}` });
             } else {
                 setLosses(prev => prev + 1);
-                addLog(`RESULTADO: O número foi ${resultDigit}. Prejuízo: $${Math.abs(roundProfit).toFixed(2)}`, "LOSS", { profit: roundProfit, strategyName: "Roleta" });
+                addLog(`RODADA: Número ${resultDigit}. Perda: -$${Math.abs(roundProfit).toFixed(2)}`, "LOSS", { profit: roundProfit, strategyName: "Roleta" });
+                // toast.error(`DERROTA`, { description: `Número: ${resultDigit} | Perda: $${Math.abs(roundProfit).toFixed(2)}` });
             }
         }
 
-        // Resetar apostas
+        // Limpar mesa para a próxima rodada
         setSelectedRouletteNumbers([]);
         setSelectedRouletteEven(false);
         setSelectedRouletteOdd(false);
