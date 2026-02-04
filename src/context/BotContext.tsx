@@ -23,24 +23,21 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const reconnectAttemptsRef = useRef(0);
     const sendMessageRef = useRef<(payload: any) => void>(() => {});
     const currentAssetRef = useRef<string>('');
-    const lastProcessedRoundRef = useRef<number>(0);
     const hasTradedCurrentRoundRef = useRef<boolean>(false);
 
     const {
         addLog, setAccountBalance, setLastDigits, setIsBotRunning,
         setTotalProfit, setWins, setLosses,
         asset, initialStake,
-        lastDigits,
         isBotRunning,
         accountType, realToken, demoToken,
         isRouletteMode, setRouletteTimer,
         setIsRouletteSpinning,
         setRouletteHistory,
-        rouletteHistory,
         selectedRouletteNumbers, setSelectedRouletteNumbers,
         selectedRouletteEven, setSelectedRouletteEven,
         selectedRouletteOdd, setSelectedRouletteOdd,
-        lastRouletteResult, setLastRouletteResult,
+        setLastRouletteResult,
         addSignal, updateSignalResult,
     } = stateAndSetters;
 
@@ -82,7 +79,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
     }, [isConnected, asset, addSignal]);
 
-    // 2. CRONÔMETRO CENTRALIZADO
+    // 2. CRONÔMETRO CENTRALIZADO (Sincronizado a cada 16s)
     useEffect(() => {
         if (!isRouletteMode) return;
         
@@ -94,40 +91,40 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             setRouletteTimer(remaining === 0 ? 16 : remaining);
 
-            // Animação de giro
+            // Giro da roleta (4s finais)
             if (remaining <= 4 && remaining >= 1) {
                 setIsRouletteSpinning(true);
             } else {
                 setIsRouletteSpinning(false);
             }
 
-            // Momento da Aposta (5 segundos restantes)
+            // Envio das apostas (Exatamente aos 5s)
             if (remaining === 5 && !hasTradedCurrentRoundRef.current) {
                 if (isConnected) {
                     const stakeAmount = parseFloat(initialStake);
-                    let sent = false;
+                    let hasBets = false;
 
                     if (selectedRouletteNumbers.length > 0) {
                         selectedRouletteNumbers.forEach(num => executeTrade(num, stakeAmount, 'DIGITMATCH'));
-                        sent = true;
+                        hasBets = true;
                     }
                     if (selectedRouletteEven) {
                         executeTrade('even', stakeAmount, 'DIGITEVEN');
-                        sent = true;
+                        hasBets = true;
                     }
                     if (selectedRouletteOdd) {
                         executeTrade('odd', stakeAmount, 'DIGITODD');
-                        sent = true;
+                        hasBets = true;
                     }
 
-                    if (sent) {
+                    if (hasBets) {
                         hasTradedCurrentRoundRef.current = true;
-                        addLog(`Apostas sincronizadas enviadas...`, "TRADE");
+                        addLog(`Apostas enviadas. Aguardando sorteio...`, "TRADE");
                     }
                 }
             }
 
-            // Limpeza visual para nova rodada
+            // Limpeza para nova rodada (Ao reiniciar o ciclo)
             if (remaining === 11) {
                 setLastRouletteResult(null);
                 setSelectedRouletteNumbers([]);
@@ -140,7 +137,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return () => clearInterval(interval);
     }, [isRouletteMode, isConnected, selectedRouletteNumbers, selectedRouletteEven, selectedRouletteOdd, initialStake, executeTrade, setRouletteTimer, setIsRouletteSpinning, setLastRouletteResult, addLog, setSelectedRouletteNumbers, setSelectedRouletteEven, setSelectedRouletteOdd]);
 
-    // 3. WEBSOCKET FEED (Sincronização Real)
+    // 3. WEBSOCKET FEED (Processamento de Resultados Reais)
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
         const data = event.payload;
         if (event.type === 'socket_ready') {
@@ -148,9 +145,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else if (event.type === 'message') {
             if (data?.msg_type === 'authorize') {
                 setIsConnected(true);
-                setStatus({ message: `Conta Ativa`, color: 'bg-green-500' });
+                setStatus({ message: `Ativo: ${data.authorize.is_virtual ? 'Demo' : 'Real'}`, color: 'bg-green-500' });
                 if (data.authorize.balance) setAccountBalance(data.authorize.balance);
                 sendMessageRef.current({ balance: 1, subscribe: 1 });
+                addLog(`Conexão estabelecida com sucesso.`, "INFO");
             } else if (data?.msg_type === 'tick' && data.tick?.symbol === asset) {
                 const quote = data.tick.quote.toString();
                 const digit = parseInt(quote.charAt(quote.length - 1));
@@ -160,26 +158,27 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             } else if (data?.msg_type === 'proposal_open_contract') {
                 const contract = data.proposal_open_contract;
                 
+                // Quando o contrato é vendido (finalizado)
                 if (contract.is_sold) {
                     const profit = parseFloat(contract.profit);
                     const exitDigit = parseInt(contract.exit_tick_display_value.slice(-1));
                     const signalId = data.echo_req.passthrough?.signalId;
                     
-                    // SINCRONIZAÇÃO VISUAL: O número que a Deriv sorteou vira o resultado da roleta
+                    // Sincroniza o visual da roleta com o dígito real da Deriv
                     setLastRouletteResult(exitDigit);
                     setRouletteHistory(prev => [exitDigit, ...prev].slice(0, 50));
 
-                    // Atualizar Lucro Real
+                    // Atualiza lucro acumulado (Leitura Real da API)
                     totalProfitRef.current += profit;
                     setTotalProfit(totalProfitRef.current);
                     
                     if (profit > 0) {
                         setWins(prev => prev + 1);
-                        const multiplier = contract.contract_type === 'DIGITMATCH' ? '9.00x' : '1.96x';
-                        addLog(`HIT! Número ${exitDigit} (${multiplier}). Lucro: +$${profit.toFixed(2)}`, "WIN", { profit, strategyName: "Roleta" });
+                        const mult = contract.contract_type === 'DIGITMATCH' ? '9.00x' : '1.96x';
+                        addLog(`GANHOU! Número ${exitDigit} (${mult}). Retorno: +$${profit.toFixed(2)}`, "WIN", { profit, strategyName: "Roleta" });
                     } else {
                         setLosses(prev => prev + 1);
-                        addLog(`MISS: Número ${exitDigit}. Perda: -$${Math.abs(profit).toFixed(2)}`, "LOSS", { profit, strategyName: "Roleta" });
+                        addLog(`PERDEU: Número ${exitDigit}. Custo: -$${Math.abs(profit).toFixed(2)}`, "LOSS", { profit, strategyName: "Roleta" });
                     }
 
                     if (signalId) {
@@ -187,7 +186,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     }
                 }
             } else if (data?.error) {
-                addLog(`Erro: ${data.error.message}`, "ERROR");
+                addLog(`Atenção: ${data.error.message}`, "ERROR");
             }
         }
     }, [asset, setLastDigits, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, addLog, setLastRouletteResult, setRouletteHistory]);
