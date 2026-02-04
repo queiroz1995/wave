@@ -32,7 +32,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTotalProfit, setWins, setLosses,
         asset, initialStake,
         lastDigits,
-        setLastTickEpoch,
         isBotRunning,
         accountType, realToken, demoToken,
         isRouletteMode, setRouletteTimer,
@@ -52,9 +51,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         lastDigitsRef.current = lastDigits;
     }, [lastDigits]);
 
-    // 1. SINCRONIZAÇÃO INICIAL E REAL-TIME
+    // 1. SINCRONIZAÇÃO DE HISTÓRICO E REAL-TIME (SUPABASE)
     const loadHistoryAndSubscribe = useCallback(async () => {
-        // Busca histórico global do banco para complementar o local
         const { data, error } = await supabase
             .from('roulette_results')
             .select('number')
@@ -64,9 +62,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!error && data) {
             const dbNumbers = data.map(item => item.number);
             setRouletteHistory((prev: number[]) => {
-                // Mescla o histórico do banco com o local (priorizando o local se já houver dados)
-                const combined = prev.length > 0 ? prev : dbNumbers;
-                return combined.slice(0, 100);
+                // Se o histórico local estiver vazio, usa o do banco
+                if (prev.length === 0) return dbNumbers;
+                // Caso contrário, apenas garante que não há duplicatas no topo
+                return prev.slice(0, 100);
             });
         }
 
@@ -95,15 +94,15 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return () => { if (channel) supabase.removeChannel(channel); };
     }, [loadHistoryAndSubscribe]);
 
-    // 2. EXECUÇÃO DE ORDENS
+    // 2. EXECUÇÃO DE APOSTAS
     const executeTrade = useCallback((contractType: ContractType, prediction?: number, stake?: number) => {
         if (!isConnected) return;
         const amount = stake || parseFloat(initialStake) || 0.35;
         
         const signalId = addSignal({
             strategy: "Roleta",
-            signal: "ODD",
-            details: `Aposta em dígito`,
+            signal: "ODD", // Placeholder para o histórico
+            details: `Aposta no número ${prediction}`,
             stake: amount
         });
 
@@ -125,81 +124,99 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
     }, [isConnected, initialStake, asset, duration, addSignal]);
 
-    // 3. FINALIZAÇÃO DO CICLO (SINCRONIZADA)
-    const handleRouletteCycleEnd = useCallback(async (roundId: number) => {
-        if (lastProcessedRoundRef.current === roundId) return;
+    // 3. PROCESSAMENTO DO RESULTADO DO SORTEIO
+    const processRouletteResult = useCallback(async (roundId: number) => {
+        if (lastProcessedRoundRef.current >= roundId) return;
         lastProcessedRoundRef.current = roundId;
 
+        // Pega o dígito mais recente do feed da Deriv
         const resultDigit = lastDigitsRef.current[0];
-        if (resultDigit === undefined) return;
+        
+        if (resultDigit === undefined) {
+            console.warn("[Roulette] Sorteio falhou: Nenhum dígito recebido da Deriv.");
+            return;
+        }
 
-        // ATUALIZA LOCALMENTE NA HORA (Garante que o usuário veja o número imediatamente)
+        console.log(`[Roulette] Sorteio Finalizado! Número: ${resultDigit}`);
+
+        // 1. Atualiza Localmente Imediatamente
         setRouletteHistory((prev: number[]) => {
             if (prev[0] === resultDigit) return prev;
             return [resultDigit, ...prev].slice(0, 100);
         });
         setIsRouletteSpinning(false);
 
-        // Tenta gravar no banco para sincronizar com outros dispositivos
+        // 2. Registra no Banco de Dados (Global)
         supabase.from('roulette_results').insert({ 
             number: resultDigit, 
-            source: 'Sincronizado' 
-        }).then();
+            source: 'Bot Sincronizado' 
+        }).then(({ error }) => {
+            if (error) console.error("[Roulette] Erro ao gravar no banco:", error);
+        });
 
-        // Processamento de apostas
+        // 3. Processa Apostas do Usuário
         if (selectedRouletteNumbers.length > 0) {
-            setLastSelectedRouletteNumbers(selectedRouletteNumbers);
+            const stakePerNumber = parseFloat(initialStake);
             const isWinner = selectedRouletteNumbers.includes(resultDigit);
-            const stakeVal = parseFloat(initialStake);
             
             if (isWinner) {
-                const profit = stakeVal * 8;
+                const profit = stakePerNumber * 8; // Multiplicador padrão 9x (Lucro de 8x)
                 totalProfitRef.current += profit;
                 setTotalProfit(totalProfitRef.current);
                 setWins(prev => prev + 1);
-                addLog(`Vitória!`, "WIN", { profit, strategyName: "Roleta" });
+                addLog(`GANHOU! Número ${resultDigit} sorteado.`, "WIN", { profit, strategyName: "Roleta" });
+                toast.success(`VOCÊ GANHOU! Número ${resultDigit}`, { icon: '💰' });
             } else {
-                const loss = (stakeVal * selectedRouletteNumbers.length);
-                totalProfitRef.current -= loss;
+                const totalLost = stakePerNumber * selectedRouletteNumbers.length;
+                totalProfitRef.current -= totalLost;
                 setTotalProfit(totalProfitRef.current);
                 setLosses(prev => prev + 1);
-                addLog(`Derrota.`, "LOSS", { profit: -loss, strategyName: "Roleta" });
+                addLog(`Perdeu. Número ${resultDigit} sorteado.`, "LOSS", { profit: -totalLost, strategyName: "Roleta" });
             }
 
+            // Se estiver conectado, envia as ordens reais para a Deriv para sincronizar saldo
             if (isConnected) {
-                selectedRouletteNumbers.forEach(num => executeTrade('DIGITMATCH' as any, num));
+                selectedRouletteNumbers.forEach(num => {
+                    executeTrade('DIGITMATCH' as any, num, stakePerNumber);
+                });
             }
+
+            // Guarda os números para referência e limpa a mesa
+            setLastSelectedRouletteNumbers([...selectedRouletteNumbers]);
             setSelectedRouletteNumbers([]);
         }
     }, [selectedRouletteNumbers, isConnected, executeTrade, initialStake, setTotalProfit, setWins, setLosses, setSelectedRouletteNumbers, setLastSelectedRouletteNumbers, addLog, setRouletteHistory, setIsRouletteSpinning]);
 
-    // 4. TIMER GLOBAL SINCRONIZADO
+    // 4. CRONÔMETRO GLOBAL SINCRONIZADO (16 Segundos)
     useEffect(() => {
         if (!isRouletteMode) return;
         
         const interval = setInterval(() => {
-            const now = Math.floor(Date.now() / 1000);
-            const cycleSeconds = 16;
-            const remaining = cycleSeconds - (now % cycleSeconds);
-            const roundId = Math.floor(Date.now() / (cycleSeconds * 1000));
+            const now = Date.now();
+            const cycleMs = 16000;
+            const elapsedInCycle = now % cycleMs;
+            const remaining = Math.ceil((cycleMs - elapsedInCycle) / 1000);
+            const currentRoundId = Math.floor(now / cycleMs);
 
-            setRouletteTimer(remaining);
+            setRouletteTimer(remaining === 0 ? 16 : remaining);
 
-            if (remaining <= 4) {
+            // Fase de "Girando" (Últimos 4 segundos)
+            if (remaining <= 4 || remaining === 16) {
                 setIsRouletteSpinning(true);
             } else {
                 setIsRouletteSpinning(false);
             }
 
-            if (remaining === 16) {
-                handleRouletteCycleEnd(roundId - 1);
+            // No momento exato da virada (segundo 16/0), processa o resultado
+            if (remaining === 16 || remaining === 0) {
+                processRouletteResult(currentRoundId);
             }
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [isRouletteMode, handleRouletteCycleEnd, setRouletteTimer, setIsRouletteSpinning]);
+    }, [isRouletteMode, processRouletteResult, setRouletteTimer, setIsRouletteSpinning]);
 
-    // 5. WEBSOCKET FEED
+    // 5. WEBSOCKET FEED (DERIV)
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
         const data = event.payload;
         if (event.type === 'socket_ready') {
@@ -207,7 +224,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else if (event.type === 'message') {
             if (data?.msg_type === 'authorize') {
                 setIsConnected(true);
-                setStatus({ message: `Ativo: ${data.authorize.is_virtual ? 'Demo' : 'Real'}`, color: 'bg-green-500' });
+                setStatus({ message: `Conta: ${data.authorize.is_virtual ? 'Demo' : 'Real'}`, color: 'bg-green-500' });
                 if (data.authorize.balance) setAccountBalance(data.authorize.balance);
                 sendMessageRef.current({ balance: 1, subscribe: 1 });
             } else if (data?.msg_type === 'tick' && data.tick?.symbol === asset) {
@@ -220,9 +237,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 const contract = data.proposal_open_contract;
                 if (contract.is_sold) {
                     const profit = parseFloat(contract.profit);
-                    const isWin = profit > 0;
                     const signalId = data.echo_req.passthrough?.signalId;
-                    if (signalId) updateSignalResult(signalId, isWin ? 'WIN' : 'LOSS', profit, parseFloat(contract.buy_price));
+                    if (signalId) updateSignalResult(signalId, profit > 0 ? 'WIN' : 'LOSS', profit, parseFloat(contract.buy_price));
                 }
             }
         }
