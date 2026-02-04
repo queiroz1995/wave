@@ -41,7 +41,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         selectedRouletteNumbers, setSelectedRouletteNumbers,
         setLastSelectedRouletteNumbers,
         lastRouletteResult, setLastRouletteResult,
-        duration,
         addSignal, updateSignalResult,
     } = stateAndSetters;
 
@@ -54,19 +53,14 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // 1. EXECUÇÃO DE APOSTAS
     const executeTrade = useCallback((prediction: number, stake: number) => {
-        if (!isConnected) {
-            console.warn("[Trading] Tentativa de trade sem conexão.");
-            return;
-        }
+        if (!isConnected) return;
 
         const signalId = addSignal({
             strategy: "Roleta",
-            signal: "ODD", // Placeholder para SignalEntry
+            signal: "ODD", 
             details: `Aposta Número ${prediction}`,
             stake: stake
         });
-
-        console.log(`[Trading] Enviando entrada na conta ${accountType}: Número ${prediction}, Stake $${stake}`);
 
         sendMessageRef.current({
             buy: 1,
@@ -84,9 +78,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             },
             passthrough: { signalId }
         });
-    }, [isConnected, asset, addSignal, accountType]);
+    }, [isConnected, asset, addSignal]);
 
-    // 2. PROCESSAMENTO DO RESULTADO (Sincronizado com o cronômetro)
+    // 2. PROCESSAMENTO DO RESULTADO
     const processRouletteResult = useCallback(async (roundId: number) => {
         if (lastProcessedRoundRef.current >= roundId) return;
         lastProcessedRoundRef.current = roundId;
@@ -97,8 +91,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setLastRouletteResult(resultDigit);
         setRouletteHistory((prev: number[]) => [resultDigit, ...prev].slice(0, 100));
         
-        // Verifica ganhos (apenas se houve aposta selecionada)
-        // Nota: lastSelectedRouletteNumbers contém o que foi apostado na rodada que acabou
         const currentBets = selectedRouletteNumbers;
         
         if (currentBets.length > 0) {
@@ -106,22 +98,22 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const isWinner = currentBets.includes(resultDigit);
             
             if (isWinner) {
-                const profit = stakePerNumber * 8; // Retorno líquido aproximado (8x para Match)
+                const profit = stakePerNumber * 8; 
                 totalProfitRef.current += profit;
                 setTotalProfit(totalProfitRef.current);
                 setWins(prev => prev + 1);
-                addLog(`GANHOU! Número ${resultDigit}`, "WIN", { profit, strategyName: "Roleta" });
+                addLog(`VITÓRIA! O número foi ${resultDigit}`, "WIN", { profit, strategyName: "Roleta" });
                 toast.success(`VITÓRIA! O número foi ${resultDigit}`, { duration: 5000 });
             } else {
                 const totalLost = stakePerNumber * currentBets.length;
                 totalProfitRef.current -= totalLost;
                 setTotalProfit(totalProfitRef.current);
                 setLosses(prev => prev + 1);
-                addLog(`DERROTA. Número ${resultDigit}`, "LOSS", { profit: -totalLost, strategyName: "Roleta" });
+                addLog(`DERROTA. O número foi ${resultDigit}`, "LOSS", { profit: -totalLost, strategyName: "Roleta" });
             }
 
             setLastSelectedRouletteNumbers([...currentBets]);
-            setSelectedRouletteNumbers([]); // Limpa para a próxima rodada
+            setSelectedRouletteNumbers([]); 
         }
         hasTradedCurrentRoundRef.current = false;
     }, [selectedRouletteNumbers, initialStake, setTotalProfit, setWins, setLosses, setSelectedRouletteNumbers, setLastSelectedRouletteNumbers, addLog, setRouletteHistory, setLastRouletteResult]);
@@ -139,36 +131,31 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             setRouletteTimer(remaining === 0 ? 16 : remaining);
 
-            // Fase de Giro
             if (remaining <= 4 && remaining >= 1) {
                 setIsRouletteSpinning(true);
             } else {
                 setIsRouletteSpinning(false);
             }
 
-            // Fechamento de Apostas e Disparo para a Corretora
             if (remaining === 5 && !hasTradedCurrentRoundRef.current) {
                 if (isConnected && selectedRouletteNumbers.length > 0) {
                     const stakePerNumber = parseFloat(initialStake);
                     selectedRouletteNumbers.forEach(num => executeTrade(num, stakePerNumber));
                     hasTradedCurrentRoundRef.current = true;
-                    toast.info(`Operações enviadas para conta ${accountType === 'real' ? 'REAL' : 'DEMO'}.`);
                 }
             }
 
-            // Limpa resultado anterior no início do período de apostas
             if (remaining === 11) {
                 setLastRouletteResult(null);
             }
 
-            // Fim do ciclo: Processa resultado local para o dashboard
             if (remaining === 16) {
                 processRouletteResult(currentRoundId - 1);
             }
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [isRouletteMode, isConnected, selectedRouletteNumbers, initialStake, executeTrade, accountType, processRouletteResult, setRouletteTimer, setIsRouletteSpinning, setLastRouletteResult]);
+    }, [isRouletteMode, isConnected, selectedRouletteNumbers, initialStake, executeTrade, processRouletteResult, setRouletteTimer, setIsRouletteSpinning, setLastRouletteResult]);
 
     // 4. WEBSOCKET FEED
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
@@ -184,7 +171,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 });
                 if (data.authorize.balance) setAccountBalance(data.authorize.balance);
                 sendMessageRef.current({ balance: 1, subscribe: 1 });
-                addLog(`Conectado com sucesso na conta ${data.authorize.is_virtual ? 'Demo' : 'Real'}.`, "INFO");
+                addLog(`Conta ${data.authorize.is_virtual ? 'Demo' : 'Real'} conectada.`, "INFO");
             } else if (data?.msg_type === 'tick' && data.tick?.symbol === asset) {
                 const quote = data.tick.quote.toString();
                 const digit = parseInt(quote.charAt(quote.length - 1));
@@ -199,7 +186,16 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     if (signalId) updateSignalResult(signalId, profit > 0 ? 'WIN' : 'LOSS', profit, parseFloat(contract.buy_price));
                 }
             } else if (data?.error) {
-                addLog(`Erro Deriv: ${data.error.message}`, "ERROR");
+                // Tratamento especial para erro de permissão (Trade Scope)
+                if (data.error.code === 'PermissionDenied' || data.error.message.includes('trade scope')) {
+                    addLog("ERRO DE TOKEN: Seu token não tem permissão para operar. Crie um novo com a opção 'Trade' marcada.", "ERROR");
+                    toast.error("Erro de Permissão", { description: "Gere um novo token na Deriv com a opção 'Trade' (Negociar) marcada." });
+                } else if (data.error.code === 'AlreadySubscribed') {
+                    // Ignora erro de inscrição duplicada
+                } else {
+                    addLog(`Erro Deriv: ${data.error.message}`, "ERROR");
+                }
+                
                 if (data.error.code === 'AuthorizationRequired') setIsConnected(false);
             }
         }
@@ -229,7 +225,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         status, 
         handleConnect, 
         handleDisconnect: disconnect, 
-        manualBuy: (type: ContractType) => {}, // Placeholder
+        manualBuy: (type: ContractType) => {}, 
         toggleBot: () => setIsBotRunning(!isBotRunning),
     }), [stateAndSetters, isConnected, status, handleConnect, disconnect, isBotRunning, setIsBotRunning]);
 
