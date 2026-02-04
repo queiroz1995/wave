@@ -6,13 +6,12 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Plus, Minus, History, RotateCcw } from 'lucide-react';
+import { Plus, Minus, History } from 'lucide-react';
 
 export const RouletteMode = () => {
     const { 
         rouletteTimer, isRouletteSpinning, rouletteHistory, 
         selectedRouletteNumbers, setSelectedRouletteNumbers,
-        lastSelectedRouletteNumbers,
         lastDigits, initialStake, setInitialStake, isConnected 
     } = useBotContext();
 
@@ -33,11 +32,6 @@ export const RouletteMode = () => {
         setSelectedRouletteNumbers((prev: number[]) => 
             prev.includes(num) ? prev.filter(n => n !== num) : [...prev, num]
         );
-    };
-
-    const repeatLastBet = () => {
-        if (!isBettingOpen || lastSelectedRouletteNumbers.length === 0) return;
-        setSelectedRouletteNumbers(lastSelectedRouletteNumbers);
     };
 
     const adjustStake = (amount: number) => {
@@ -118,17 +112,6 @@ export const RouletteMode = () => {
                         </div>
                         <Button variant="outline" size="icon" className="h-10 w-10 shrink-0" onClick={() => adjustStake(0.5)}><Plus className="h-4 w-4" /></Button>
                     </div>
-                    
-                    {/* BOTÃO REPETIR ENTRADA */}
-                    <Button 
-                        onClick={repeatLastBet} 
-                        disabled={!isBettingOpen || lastSelectedRouletteNumbers.length === 0}
-                        variant="secondary"
-                        className="w-full font-bold h-10 gap-2 border-b-2 border-muted-foreground/30 active:border-b-0 active:translate-y-0.5 transition-all"
-                    >
-                        <RotateCcw className="h-4 w-4" />
-                        Repetir Entrada Anterior
-                    </Button>
                 </div>
 
                 <div className="grid grid-cols-5 gap-2">
