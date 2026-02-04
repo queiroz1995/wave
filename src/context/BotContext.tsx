@@ -24,6 +24,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const sendMessageRef = useRef<(payload: any) => void>(() => {});
     const currentAssetRef = useRef<string>('');
     const hasTradedCurrentRoundRef = useRef<boolean>(false);
+    const lastTickDigitRef = useRef<number>(0);
 
     const {
         addLog, setAccountBalance, setLastDigits, setIsBotRunning,
@@ -91,11 +92,19 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             setRouletteTimer(remaining === 0 ? 16 : remaining);
 
-            // Giro da roleta (4s finais)
+            // Início do Giro (4 segundos para o fim)
             if (remaining <= 4 && remaining >= 1) {
                 setIsRouletteSpinning(true);
             } else {
                 setIsRouletteSpinning(false);
+            }
+
+            // SORTEIO AUTOMÁTICO (Quando o cronômetro chega em 1)
+            // Pegamos o dígito do mercado real nesse exato momento para ser o "Número Vencedor"
+            if (remaining === 1) {
+                const winningDigit = lastTickDigitRef.current;
+                setLastRouletteResult(winningDigit);
+                setRouletteHistory((prev: number[]) => [winningDigit, ...prev].slice(0, 50));
             }
 
             // Envio das apostas (Exatamente aos 5s)
@@ -119,25 +128,28 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
                     if (hasBets) {
                         hasTradedCurrentRoundRef.current = true;
-                        addLog(`Apostas enviadas. Aguardando sorteio...`, "TRADE");
                     }
                 }
             }
 
-            // Limpeza para nova rodada (Ao reiniciar o ciclo)
-            if (remaining === 11) {
+            // Limpeza visual para nova rodada (No início do ciclo)
+            if (remaining === 13) {
                 setLastRouletteResult(null);
+                hasTradedCurrentRoundRef.current = false;
+                // Mantemos as seleções do usuário até o ciclo de 11s para dar tempo de ver o resultado
+            }
+            
+            if (remaining === 11) {
                 setSelectedRouletteNumbers([]);
                 setSelectedRouletteEven(false);
                 setSelectedRouletteOdd(false);
-                hasTradedCurrentRoundRef.current = false;
             }
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [isRouletteMode, isConnected, selectedRouletteNumbers, selectedRouletteEven, selectedRouletteOdd, initialStake, executeTrade, setRouletteTimer, setIsRouletteSpinning, setLastRouletteResult, addLog, setSelectedRouletteNumbers, setSelectedRouletteEven, setSelectedRouletteOdd]);
+    }, [isRouletteMode, isConnected, selectedRouletteNumbers, selectedRouletteEven, selectedRouletteOdd, initialStake, executeTrade, setRouletteTimer, setIsRouletteSpinning, setLastRouletteResult, setRouletteHistory, setSelectedRouletteNumbers, setSelectedRouletteEven, setSelectedRouletteOdd]);
 
-    // 3. WEBSOCKET FEED (Processamento de Resultados Reais)
+    // 3. WEBSOCKET FEED
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
         const data = event.payload;
         if (event.type === 'socket_ready') {
@@ -145,40 +157,36 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else if (event.type === 'message') {
             if (data?.msg_type === 'authorize') {
                 setIsConnected(true);
-                setStatus({ message: `Ativo: ${data.authorize.is_virtual ? 'Demo' : 'Real'}`, color: 'bg-green-500' });
+                setStatus({ message: `Conta Ativa`, color: 'bg-green-500' });
                 if (data.authorize.balance) setAccountBalance(data.authorize.balance);
                 sendMessageRef.current({ balance: 1, subscribe: 1 });
-                addLog(`Conexão estabelecida com sucesso.`, "INFO");
             } else if (data?.msg_type === 'tick' && data.tick?.symbol === asset) {
                 const quote = data.tick.quote.toString();
                 const digit = parseInt(quote.charAt(quote.length - 1));
+                lastTickDigitRef.current = digit; // Atualiza a referência do último dígito
                 setLastDigits(prev => [digit, ...prev].slice(0, 100));
             } else if (data?.msg_type === 'balance') {
                 setAccountBalance(data.balance.balance);
             } else if (data?.msg_type === 'proposal_open_contract') {
                 const contract = data.proposal_open_contract;
                 
-                // Quando o contrato é vendido (finalizado)
                 if (contract.is_sold) {
                     const profit = parseFloat(contract.profit);
                     const exitDigit = parseInt(contract.exit_tick_display_value.slice(-1));
                     const signalId = data.echo_req.passthrough?.signalId;
                     
-                    // Sincroniza o visual da roleta com o dígito real da Deriv
+                    // Sincronização extra: Se houve aposta, forçamos o resultado visual a bater com o contrato
                     setLastRouletteResult(exitDigit);
-                    setRouletteHistory(prev => [exitDigit, ...prev].slice(0, 50));
 
-                    // Atualiza lucro acumulado (Leitura Real da API)
                     totalProfitRef.current += profit;
                     setTotalProfit(totalProfitRef.current);
                     
                     if (profit > 0) {
                         setWins(prev => prev + 1);
-                        const mult = contract.contract_type === 'DIGITMATCH' ? '9.00x' : '1.96x';
-                        addLog(`GANHOU! Número ${exitDigit} (${mult}). Retorno: +$${profit.toFixed(2)}`, "WIN", { profit, strategyName: "Roleta" });
+                        addLog(`VITÓRIA! Número ${exitDigit}. Lucro: +$${profit.toFixed(2)}`, "WIN", { profit, strategyName: "Roleta" });
                     } else {
                         setLosses(prev => prev + 1);
-                        addLog(`PERDEU: Número ${exitDigit}. Custo: -$${Math.abs(profit).toFixed(2)}`, "LOSS", { profit, strategyName: "Roleta" });
+                        addLog(`DERROTA: Número ${exitDigit}. Perda: -$${Math.abs(profit).toFixed(2)}`, "LOSS", { profit, strategyName: "Roleta" });
                     }
 
                     if (signalId) {
@@ -186,10 +194,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     }
                 }
             } else if (data?.error) {
-                addLog(`Atenção: ${data.error.message}`, "ERROR");
+                addLog(`Deriv: ${data.error.message}`, "ERROR");
             }
         }
-    }, [asset, setLastDigits, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, addLog, setLastRouletteResult, setRouletteHistory]);
+    }, [asset, setLastDigits, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, addLog, setLastRouletteResult]);
 
     const ws = useTradingWebSocketManager({ isConnected, status, setIsConnected, setStatus, setAccountBalance, onMessage: handleWebSocketMessage, reconnectAttemptsRef });
     const { sendMessage, connect, disconnect, isSocketOpen } = ws;
