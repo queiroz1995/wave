@@ -85,6 +85,7 @@ const DEFAULTS = {
     rouletteHistory: [] as number[],
     selectedRouletteNumbers: [] as number[],
     lastSelectedRouletteNumbers: [] as number[],
+    lastRouletteResult: null as number | null,
 };
 
 const getInitialState = () => {
@@ -173,6 +174,7 @@ export const useBotState = () => {
     const [rouletteHistory, setRouletteHistory] = useState<number[]>(initialState.rouletteHistory);
     const [selectedRouletteNumbers, setSelectedRouletteNumbers] = useState<number[]>(initialState.selectedRouletteNumbers);
     const [lastSelectedRouletteNumbers, setLastSelectedRouletteNumbers] = useState<number[]>(initialState.lastSelectedRouletteNumbers);
+    const [lastRouletteResult, setLastRouletteResult] = useState<number | null>(initialState.lastRouletteResult);
 
     const [isBotRunning, setIsBotRunning] = useState(false);
     const [manualGaleLevel, setManualGaleLevel] = useState(0);
@@ -284,5 +286,6 @@ export const useBotState = () => {
         isRouletteSpinning, setIsRouletteSpinning,
         selectedRouletteNumbers, setSelectedRouletteNumbers,
         lastSelectedRouletteNumbers, setLastSelectedRouletteNumbers,
+        lastRouletteResult, setLastRouletteResult,
     };
 };

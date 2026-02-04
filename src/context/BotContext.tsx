@@ -40,6 +40,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         rouletteHistory,
         selectedRouletteNumbers, setSelectedRouletteNumbers,
         setLastSelectedRouletteNumbers,
+        lastRouletteResult, setLastRouletteResult,
         duration,
         addSignal, updateSignalResult,
     } = stateAndSetters;
@@ -126,7 +127,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const resultDigit = lastDigitsRef.current[0];
         if (resultDigit === undefined) return;
 
-        // 1. Atualiza histórico local
+        // 1. Atualiza histórico local e o estado de exibição fixa
+        setLastRouletteResult(resultDigit);
         setRouletteHistory((prev: number[]) => [resultDigit, ...prev].slice(0, 100));
         
         // 2. Registra no banco de dados global
@@ -163,7 +165,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setLastSelectedRouletteNumbers([...selectedRouletteNumbers]);
             setSelectedRouletteNumbers([]);
         }
-    }, [selectedRouletteNumbers, isConnected, executeTrade, initialStake, setTotalProfit, setWins, setLosses, setSelectedRouletteNumbers, setLastSelectedRouletteNumbers, addLog, setRouletteHistory]);
+    }, [selectedRouletteNumbers, isConnected, executeTrade, initialStake, setTotalProfit, setWins, setLosses, setSelectedRouletteNumbers, setLastSelectedRouletteNumbers, addLog, setRouletteHistory, setLastRouletteResult]);
 
     // 4. CRONÔMETRO SINCRONIZADO (16 Segundos)
     useEffect(() => {
@@ -185,6 +187,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setIsRouletteSpinning(false);
             }
 
+            // Limpa o resultado fixo após 5 segundos do novo ciclo
+            if (remaining === 11) {
+                setLastRouletteResult(null);
+            }
+
             // No exato momento do sorteio (virada do ciclo)
             if (remaining === 16) {
                 processRouletteResult(currentRoundId - 1);
@@ -192,7 +199,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [isRouletteMode, processRouletteResult, setRouletteTimer, setIsRouletteSpinning]);
+    }, [isRouletteMode, processRouletteResult, setRouletteTimer, setIsRouletteSpinning, setLastRouletteResult]);
 
     // 5. WEBSOCKET FEED
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {

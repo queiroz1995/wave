@@ -12,15 +12,15 @@ export const RouletteMode = () => {
     const { 
         rouletteTimer, isRouletteSpinning, rouletteHistory, 
         selectedRouletteNumbers, setSelectedRouletteNumbers,
-        lastDigits, initialStake, setInitialStake, isConnected 
+        lastRouletteResult, initialStake, setInitialStake, isConnected 
     } = useBotContext();
 
     // Apostas abertas de 16 até 5 segundos
     const isBettingOpen = rouletteTimer >= 5;
     // Giro da roleta de 4 até 1 segundo
     const isSpinning = rouletteTimer <= 4 && rouletteTimer >= 1;
-    // Exibição do resultado quando o timer bate 16 (até 14 segundos do novo ciclo)
-    const isShowingResult = rouletteTimer >= 14 && rouletteTimer <= 16;
+    // Exibição do resultado agora depende do estado lastRouletteResult
+    const isShowingResult = lastRouletteResult !== null;
 
     const progress = (rouletteTimer / 16) * 100;
 
@@ -51,8 +51,6 @@ export const RouletteMode = () => {
         if (digit % 2 === 0) return "bg-emerald-600";
         return "bg-rose-600";
     };
-
-    const lastDrawnNumber = rouletteHistory[0];
 
     return (
         <Card className="bg-card/80 backdrop-blur-sm overflow-hidden border-primary/20 h-full">
@@ -100,13 +98,13 @@ export const RouletteMode = () => {
                         </svg>
                         
                         <div className="text-center z-10">
-                            {isShowingResult && lastDrawnNumber !== undefined ? (
+                            {isShowingResult ? (
                                 <div className="animate-in zoom-in duration-500">
                                     <div className={cn(
                                         "w-20 h-20 rounded-full flex items-center justify-center text-5xl font-black text-white mx-auto shadow-2xl scale-110",
-                                        getDigitColor(lastDrawnNumber)
+                                        getDigitColor(lastRouletteResult)
                                     )}>
-                                        {lastDrawnNumber}
+                                        {lastRouletteResult}
                                     </div>
                                     <p className="text-[10px] font-black text-primary uppercase mt-2 animate-pulse">Sorteado!</p>
                                 </div>
