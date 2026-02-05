@@ -191,6 +191,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     const profit = parseFloat(contract.profit);
                     const exitDigit = parseInt(contract.exit_tick_display_value.slice(-1));
                     const signalId = data.echo_req.passthrough?.signalId;
+                    const contractType = contract.contract_type as ContractType;
+                    const barrier = contract.barrier ? Number(contract.barrier) : undefined;
                     
                     // Sincronização visual forçada pelo contrato
                     setLastRouletteResult(exitDigit);
@@ -198,21 +200,26 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     totalProfitRef.current += profit;
                     setTotalProfit(totalProfitRef.current);
                     
-                    if (profit > 0) {
-                        setWins(prev => prev + 1);
-                        addLog(`VITÓRIA! Número ${exitDigit}. Lucro: +$${profit.toFixed(2)}`, "WIN", { profit, strategyName: "Roleta", exitDigit });
-                    } else {
-                        setLosses(prev => prev + 1);
-                        addLog(`DERROTA: Número ${exitDigit}. Perda: -$${Math.abs(profit).toFixed(2)}`, "LOSS", { profit, strategyName: "Roleta", exitDigit });
-                    }
+                    const resultType = profit > 0 ? "WIN" : "LOSS";
+                    const logMessage = resultType === 'WIN' 
+                        ? `VITÓRIA! Número ${exitDigit}. Lucro: +$${profit.toFixed(2)}`
+                        : `DERROTA: Número ${exitDigit}. Perda: -$${Math.abs(profit).toFixed(2)}`;
+
+                    addLog(logMessage, resultType, { 
+                        profit, 
+                        strategyName: "Roleta", 
+                        exitDigit, 
+                        contractType, 
+                        barrier 
+                    });
 
                     if (signalId) {
-                        updateSignalResult(signalId, profit > 0 ? 'WIN' : 'LOSS', profit, parseFloat(contract.buy_price), exitDigit);
+                        updateSignalResult(signalId, resultType, profit, parseFloat(contract.buy_price), exitDigit);
                     }
                 }
             } else if (data?.error) {
                 if (!data.error.message.includes("already subscribed")) {
-                    addLog(`Mensagem: ${data.error.message}`, "ERROR");
+                    addLog(`${data.error.message}`, "ERROR");
                 }
             }
         }

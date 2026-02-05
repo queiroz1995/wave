@@ -3,7 +3,7 @@
 import React from 'react';
 import { CheckCircle, XCircle, AlertTriangle, Info, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { LogEntry, LogType } from '@/types/bot';
+import { LogEntry, LogType, ContractType } from '@/types/bot';
 
 interface LogItemProps {
     log: LogEntry;
@@ -23,27 +23,27 @@ const logTypeConfig: Record<LogType, LogConfig> = {
     TRADE: { icon: Zap, color: 'text-cyan-400', bg: 'bg-cyan-400/10' },
 };
 
+const formatContractType = (type?: ContractType) => {
+    if (!type) return '';
+    switch (type) {
+        case 'DIGITODD': return 'Ímpar';
+        case 'DIGITEVEN': return 'Par';
+        case 'DIGITOVER': return 'Acima';
+        case 'DIGITUNDER': return 'Abaixo';
+        case 'DIGITMATCH': return 'Número';
+        default: return type;
+    }
+};
+
 const LogItem: React.FC<LogItemProps> = ({ log }) => {
     const config = logTypeConfig[log.type] || logTypeConfig.INFO;
     const Icon = config.icon;
 
     const isTradeResult = log.type === 'WIN' || log.type === 'LOSS';
-    const isTradeInitiation = log.type === 'TRADE';
     const profitColor = log.profit && log.profit > 0 ? 'text-green-500' : 'text-red-500';
     const profitSign = log.profit && log.profit >= 0 ? '+' : '';
 
     const cleanMessage = log.message.replace(/[\r\n]+/g, ' ').replace(/\s\s+/g, ' ').trim();
-
-    const formatContractType = (type?: string) => {
-        if (!type) return '';
-        switch (type) {
-            case 'DIGITODD': return 'Ímpar';
-            case 'DIGITEVEN': return 'Par';
-            case 'DIGITOVER': return 'Acima';
-            case 'DIGITUNDER': return 'Abaixo';
-            default: return type;
-        }
-    };
 
     return (
         <div className={cn(
@@ -69,8 +69,14 @@ const LogItem: React.FC<LogItemProps> = ({ log }) => {
                                 </span>
                             </p>
                             <p className="text-[10px] text-muted-foreground/80 mt-1">
-                                {log.strategyName && (
-                                    <>Estratégia: <span className="font-semibold text-primary/80">{log.strategyName}</span></>
+                                {log.contractType && (
+                                    <>Aposta: <span className="font-semibold text-primary/80">{formatContractType(log.contractType)}</span></>
+                                )}
+                                {log.contractType === 'DIGITMATCH' && log.barrier !== undefined && (
+                                    <span className="ml-2">Alvo: <span className="font-semibold text-primary/80">{log.barrier}</span></span>
+                                )}
+                                {log.exitDigit !== undefined && (
+                                    <span className="ml-2">Resultado: <span className="font-semibold text-primary/80">{log.exitDigit}</span></span>
                                 )}
                             </p>
                         </div>
