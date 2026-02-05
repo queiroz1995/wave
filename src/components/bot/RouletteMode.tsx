@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Plus, Minus, History, Zap } from 'lucide-react';
+import { Plus, Minus, History, Zap, ShoppingCart } from 'lucide-react';
 
 export const RouletteMode = () => {
     const { 
@@ -17,15 +17,13 @@ export const RouletteMode = () => {
         lastRouletteResult, initialStake, setInitialStake, isConnected 
     } = useBotContext();
 
-    // Apostas abertas de 16 até 5 segundos
     const isBettingOpen = rouletteTimer >= 5;
-    // Giro da roleta de 4 até 1 segundo
     const isSpinning = rouletteTimer <= 4 && rouletteTimer >= 1;
-    // Exibição do resultado agora depende do estado lastRouletteResult
     const isShowingResult = lastRouletteResult !== null;
 
     const progress = (rouletteTimer / 16) * 100;
 
+    // Estatísticas de frequência
     const stats = useMemo(() => {
         const counts = Array(10).fill(0);
         rouletteHistory.forEach((d: number) => {
@@ -34,6 +32,16 @@ export const RouletteMode = () => {
         const total = rouletteHistory.length || 1;
         return counts.map(c => Math.round((c / total) * 100));
     }, [rouletteHistory]);
+
+    // CÁLCULO TOTAL DA APOSTA
+    const totalStakeCalculation = useMemo(() => {
+        const stake = parseFloat(initialStake) || 0;
+        const count = selectedRouletteNumbers.length + (selectedRouletteEven ? 1 : 0) + (selectedRouletteOdd ? 1 : 0);
+        return {
+            count,
+            total: (count * stake).toFixed(2)
+        };
+    }, [selectedRouletteNumbers, selectedRouletteEven, selectedRouletteOdd, initialStake]);
 
     const toggleNumber = (num: number) => {
         if (!isBettingOpen) return;
@@ -88,12 +96,10 @@ export const RouletteMode = () => {
                                 {digit}
                             </div>
                         ))}
-                        {rouletteHistory.length === 0 && (
-                            <p className="text-[10px] text-muted-foreground italic h-8 flex items-center">Sincronizando...</p>
-                        )}
                     </div>
                 </div>
 
+                {/* CRONÔMETRO E STATUS */}
                 <div className="flex flex-col items-center justify-center space-y-4 pt-4 border-t border-white/5">
                     <div className="relative w-40 h-40 flex items-center justify-center">
                         <svg className="absolute inset-0 w-full h-full -rotate-90">
@@ -135,13 +141,28 @@ export const RouletteMode = () => {
                     </Badge>
                 </div>
 
-                {/* VALOR DA APOSTA */}
-                <div className="space-y-4 pt-4 border-t border-white/5">
+                {/* PAINEL DE CONTABILIZAÇÃO EM TEMPO REAL */}
+                <div className={cn(
+                    "p-3 rounded-xl border transition-all duration-300 flex items-center justify-between",
+                    totalStakeCalculation.count > 0 ? "bg-primary/10 border-primary/40 scale-100" : "bg-muted/20 border-white/5 opacity-50 scale-95"
+                )}>
+                    <div className="flex items-center gap-2">
+                        <ShoppingCart className={cn("h-4 w-4", totalStakeCalculation.count > 0 ? "text-primary" : "text-muted-foreground")} />
+                        <span className="text-[10px] font-black uppercase text-muted-foreground">Resumo da Rodada</span>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-[9px] font-bold text-muted-foreground uppercase">{totalStakeCalculation.count} seleções</p>
+                        <p className="text-lg font-black text-primary">${totalStakeCalculation.total}</p>
+                    </div>
+                </div>
+
+                {/* VALOR DA ENTRADA POR SELEÇÃO */}
+                <div className="space-y-4 pt-2">
                     <div className="flex items-center gap-3">
                         <Button variant="outline" size="icon" className="h-12 w-12 shrink-0 border-white/10" onClick={() => adjustStake(-0.5)}><Minus className="h-5 w-5" /></Button>
-                        <div className="flex-1 text-center bg-muted/30 rounded-xl py-2 border border-white/5 shadow-inner">
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Entrada por Seleção</p>
-                            <p className="text-2xl font-black">${initialStake}</p>
+                        <div className="flex-1 text-center bg-muted/30 rounded-xl py-2 border border-white/5">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Aposta Unitária</p>
+                            <p className="text-xl font-black">${initialStake}</p>
                         </div>
                         <Button variant="outline" size="icon" className="h-12 w-12 shrink-0 border-white/10" onClick={() => adjustStake(0.5)}><Plus className="h-5 w-5" /></Button>
                     </div>
@@ -160,11 +181,11 @@ export const RouletteMode = () => {
                                     selectedRouletteNumbers.includes(num) 
                                         ? "border-primary bg-primary/20 shadow-[0_0_15px_rgba(59,130,246,0.2)]" 
                                         : "border-white/5 bg-muted/20 hover:bg-muted/40",
-                                    !isBettingOpen && "opacity-50 grayscale-[0.5]"
+                                    !isBettingOpen && "opacity-50"
                                 )}
                             >
                                 <span className={cn(
-                                    "w-6 h-6 rounded-full text-[10px] flex items-center justify-center font-black text-white mb-1 shadow-md", 
+                                    "w-6 h-6 rounded-full text-[10px] flex items-center justify-center font-black text-white mb-1", 
                                     getDigitColor(num)
                                 )}>
                                     {num}
@@ -174,17 +195,16 @@ export const RouletteMode = () => {
                         ))}
                     </div>
 
-                    {/* APOSTAS EXTERNAS: PAR / ÍMPAR */}
                     <div className="grid grid-cols-2 gap-4">
                         <button
                             onClick={toggleEven}
                             disabled={!isBettingOpen}
                             className={cn(
-                                "h-14 rounded-2xl flex items-center justify-center gap-3 transition-all border-2 font-black uppercase tracking-widest text-sm",
+                                "h-14 rounded-2xl flex items-center justify-center gap-3 transition-all border-2 font-black uppercase text-sm",
                                 selectedRouletteEven 
                                     ? "border-emerald-500 bg-emerald-500/20 text-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)]" 
                                     : "border-white/5 bg-muted/20 hover:bg-muted/40",
-                                !isBettingOpen && "opacity-50 grayscale-[0.5]"
+                                !isBettingOpen && "opacity-50"
                             )}
                         >
                             <div className="w-3 h-3 rounded-full bg-emerald-500" />
@@ -194,11 +214,11 @@ export const RouletteMode = () => {
                             onClick={toggleOdd}
                             disabled={!isBettingOpen}
                             className={cn(
-                                "h-14 rounded-2xl flex items-center justify-center gap-3 transition-all border-2 font-black uppercase tracking-widest text-sm",
+                                "h-14 rounded-2xl flex items-center justify-center gap-3 transition-all border-2 font-black uppercase text-sm",
                                 selectedRouletteOdd 
                                     ? "border-rose-500 bg-rose-500/20 text-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.2)]" 
                                     : "border-white/5 bg-muted/20 hover:bg-muted/40",
-                                !isBettingOpen && "opacity-50 grayscale-[0.5]"
+                                !isBettingOpen && "opacity-50"
                             )}
                         >
                             <div className="w-3 h-3 rounded-full bg-rose-500" />
@@ -211,12 +231,11 @@ export const RouletteMode = () => {
                     {!isConnected ? (
                         <div className="p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
                             <p className="text-[10px] text-yellow-500 font-black uppercase tracking-wider">Modo Treino</p>
-                            <p className="text-[10px] text-muted-foreground mt-1">Conecte sua conta para ganhos reais.</p>
                         </div>
                     ) : (
                         <div className="p-3 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center justify-center gap-2">
                             <Zap className="h-3 w-3 text-green-500 fill-green-500" />
-                            <p className="text-[10px] text-green-500 font-black uppercase tracking-wider">Operações Sincronizadas</p>
+                            <p className="text-[10px] text-green-500 font-black uppercase tracking-wider">Conta Conectada</p>
                         </div>
                     )}
                 </div>
