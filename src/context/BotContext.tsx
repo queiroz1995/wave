@@ -52,10 +52,18 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const executeTrade = useCallback((prediction: number | string, stake: number, type: 'DIGITMATCH' | 'DIGITEVEN' | 'DIGITODD' = 'DIGITMATCH') => {
         if (!isConnected) return;
 
-        const label = type === 'DIGITEVEN' ? 'PAR' : type === 'DIGITODD' ? 'ÍMPAR' : `Número ${prediction}`;
+        const contractType: ContractType = 
+            type === 'DIGITEVEN' ? 'DIGITEVEN' : 
+            type === 'DIGITODD' ? 'DIGITODD' : 
+            'DIGITMATCH';
+
+        const label = contractType === 'DIGITEVEN' ? 'PAR' : 
+                      contractType === 'DIGITODD' ? 'ÍMPAR' : 
+                      `Número ${prediction}`;
+
         const signalId = addSignal({
             strategy: "Roleta",
-            signal: type === 'DIGITEVEN' ? 'EVEN' : type === 'DIGITODD' ? 'ODD' : 'ODD', 
+            signal: contractType === 'DIGITEVEN' ? 'EVEN' : contractType === 'DIGITODD' ? 'ODD' : 'ODD', 
             details: `Aposta ${label}`,
             stake: stake
         });
@@ -63,14 +71,14 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const params: any = {
             amount: stake,
             basis: 'stake',
-            contract_type: type,
+            contract_type: contractType,
             currency: 'USD',
             duration: 1,
             duration_unit: 't',
             symbol: asset,
         };
 
-        if (type === 'DIGITMATCH') {
+        if (contractType === 'DIGITMATCH') {
             params.barrier = String(prediction);
         }
 
@@ -81,7 +89,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             parameters: params,
             passthrough: { signalId }
         });
-    }, [isConnected, asset, addSignal]);
+        
+        addLog(`[Aposta] Enviando ${label} ($${stake.toFixed(2)})`, "TRADE", { stake, contractType, barrier: contractType === 'DIGITMATCH' ? Number(prediction) : undefined });
+
+    }, [isConnected, asset, addSignal, addLog]);
 
     // 2. CRONÔMETRO CENTRALIZADO
     useEffect(() => {
@@ -110,19 +121,25 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setRouletteHistory((prev: number[]) => [winningDigit, ...prev].slice(0, 50));
             }
 
+            // Envio das apostas (5s antes do fim)
             if (remaining === 5 && !hasTradedCurrentRoundRef.current) {
                 if (isConnected) {
                     const stakeAmount = parseFloat(initialStake);
                     let hasBets = false;
 
+                    // 1. Apostas em números específicos (DIGITMATCH)
                     if (selectedRouletteNumbers.length > 0) {
                         selectedRouletteNumbers.forEach(num => executeTrade(num, stakeAmount, 'DIGITMATCH'));
                         hasBets = true;
                     }
+                    
+                    // 2. Apostas em Par (DIGITEVEN)
                     if (selectedRouletteEven) {
                         executeTrade('even', stakeAmount, 'DIGITEVEN');
                         hasBets = true;
                     }
+                    
+                    // 3. Apostas em Ímpar (DIGITODD)
                     if (selectedRouletteOdd) {
                         executeTrade('odd', stakeAmount, 'DIGITODD');
                         hasBets = true;
@@ -169,21 +186,24 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setAccountBalance(data.balance.balance);
             } else if (data?.msg_type === 'proposal_open_contract') {
                 const contract = data.proposal_open_contract;
+                
                 if (contract.is_sold) {
                     const profit = parseFloat(contract.profit);
                     const exitDigit = parseInt(contract.exit_tick_display_value.slice(-1));
                     const signalId = data.echo_req.passthrough?.signalId;
                     
+                    // Sincronização visual forçada pelo contrato
                     setLastRouletteResult(exitDigit);
+
                     totalProfitRef.current += profit;
                     setTotalProfit(totalProfitRef.current);
                     
                     if (profit > 0) {
                         setWins(prev => prev + 1);
-                        addLog(`VITÓRIA! Número ${exitDigit}. Lucro: +$${profit.toFixed(2)}`, "WIN", { profit, strategyName: "Roleta" });
+                        addLog(`VITÓRIA! Número ${exitDigit}. Lucro: +$${profit.toFixed(2)}`, "WIN", { profit, strategyName: "Roleta", exitDigit });
                     } else {
                         setLosses(prev => prev + 1);
-                        addLog(`DERROTA: Número ${exitDigit}. Perda: -$${Math.abs(profit).toFixed(2)}`, "LOSS", { profit, strategyName: "Roleta" });
+                        addLog(`DERROTA: Número ${exitDigit}. Perda: -$${Math.abs(profit).toFixed(2)}`, "LOSS", { profit, strategyName: "Roleta", exitDigit });
                     }
 
                     if (signalId) {
@@ -191,9 +211,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     }
                 }
             } else if (data?.error) {
-                // Não mostra erro de subscrição duplicada no log visual se possível, mas mantém a mensagem de erro da Deriv se for outra coisa
                 if (!data.error.message.includes("already subscribed")) {
-                    addLog(`${data.error.message}`, "ERROR");
+                    addLog(`Mensagem: ${data.error.message}`, "ERROR");
                 }
             }
         }
@@ -203,9 +222,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { sendMessage, connect, disconnect, isSocketOpen } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
-    // Único lugar que gerencia a inscrição de ticks
     useEffect(() => { 
-        if (isSocketOpen) {
+        if (asset !== currentAssetRef.current && isSocketOpen) {
             sendMessageRef.current({ forget_all: 'ticks' });
             sendMessageRef.current({ ticks: asset, subscribe: 1 });
             currentAssetRef.current = asset;
