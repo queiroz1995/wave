@@ -200,7 +200,15 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     totalProfitRef.current += profit;
                     setTotalProfit(totalProfitRef.current);
                     
-                    const resultType = profit > 0 ? "WIN" : "LOSS";
+                    // Determina o resultado usando o status do contrato
+                    const resultType = contract.status === 'won' ? "WIN" : "LOSS";
+
+                    if (resultType === 'WIN') {
+                        setWins(prev => prev + 1);
+                    } else {
+                        setLosses(prev => prev + 1);
+                    }
+
                     const logMessage = resultType === 'WIN' 
                         ? `VITÓRIA! Número ${exitDigit}. Lucro: +$${profit.toFixed(2)}`
                         : `DERROTA: Número ${exitDigit}. Perda: -$${Math.abs(profit).toFixed(2)}`;
@@ -219,7 +227,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             } else if (data?.error) {
                 if (!data.error.message.includes("already subscribed")) {
-                    addLog(`${data.error.message}`, "ERROR");
+                    addLog(`Mensagem: ${data.error.message}`, "ERROR");
                 }
             }
         }
