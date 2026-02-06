@@ -156,15 +156,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 hasTradedCurrentRoundRef.current = false;
             }
             
-            if (remaining === 11) {
-                setSelectedRouletteNumbers([]);
-                setSelectedRouletteEven(false);
-                setSelectedRouletteOdd(false);
-            }
+            // REMOVIDO: Limpeza automática das seleções (selectedRouletteNumbers, selectedRouletteEven, selectedRouletteOdd)
+            // Agora as seleções persistem até serem desmarcadas manualmente.
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [isRouletteMode, isConnected, selectedRouletteNumbers, selectedRouletteEven, selectedRouletteOdd, initialStake, executeTrade, setRouletteTimer, setIsRouletteSpinning, setLastRouletteResult, setRouletteHistory, setSelectedRouletteNumbers, setSelectedRouletteEven, setSelectedRouletteOdd]);
+    }, [isRouletteMode, isConnected, selectedRouletteNumbers, selectedRouletteEven, selectedRouletteOdd, initialStake, executeTrade, setRouletteTimer, setIsRouletteSpinning, setLastRouletteResult, setRouletteHistory]);
 
     // 3. WEBSOCKET FEED
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
