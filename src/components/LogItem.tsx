@@ -35,6 +35,11 @@ const formatContractType = (type?: ContractType) => {
     }
 };
 
+const getDigitParity = (digit: number) => {
+    if (digit === 0) return 'Par (0)';
+    return digit % 2 === 0 ? 'Par' : 'Ímpar';
+};
+
 const LogItem: React.FC<LogItemProps> = ({ log }) => {
     const config = logTypeConfig[log.type] || logTypeConfig.INFO;
     const Icon = config.icon;
@@ -55,34 +60,40 @@ const LogItem: React.FC<LogItemProps> = ({ log }) => {
             </div>
             
             <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 min-h-[16px]">
-                    <span className="text-muted-foreground/70 text-[10px] min-w-[55px] font-mono flex-shrink-0">
-                        {log.timestamp}
-                    </span>
-                    
-                    {isTradeResult ? (
-                        <div className="flex flex-col">
+                <div className="flex flex-col min-h-[16px]">
+                    <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground/70 text-[10px] min-w-[55px] font-mono flex-shrink-0">
+                            {log.timestamp}
+                        </span>
+                        
+                        {isTradeResult ? (
                             <p className="font-bold text-sm">
                                 <span className={cn("mr-2", config!.color)}>{log.type === 'WIN' ? 'VITÓRIA' : 'DERROTA'}</span>
                                 <span className={cn("font-extrabold", profitColor)}>
                                     {profitSign}{log.profit?.toFixed(2)}
                                 </span>
                             </p>
-                            <p className="text-[10px] text-muted-foreground/80 mt-1">
-                                {log.contractType && (
-                                    <>Aposta: <span className="font-semibold text-primary/80">{formatContractType(log.contractType)}</span></>
-                                )}
-                                {log.contractType === 'DIGITMATCH' && log.barrier !== undefined && (
-                                    <span className="ml-2">Alvo: <span className="font-semibold text-primary/80">{log.barrier}</span></span>
-                                )}
-                                {log.exitDigit !== undefined && (
-                                    <span className="ml-2">Resultado: <span className="font-semibold text-primary/80">{log.exitDigit}</span></span>
-                                )}
+                        ) : (
+                            <p className="text-foreground/90 truncate whitespace-nowrap text-[11px]" title={cleanMessage}>
+                                {cleanMessage}
                             </p>
-                        </div>
-                    ) : (
-                        <p className="text-foreground/90 truncate whitespace-nowrap text-[11px]" title={cleanMessage}>
-                            {cleanMessage}
+                        )}
+                    </div>
+                    
+                    {isTradeResult && (
+                        <p className="text-[10px] text-muted-foreground/80 mt-0.5">
+                            {log.contractType && (
+                                <>Aposta: <span className="font-semibold text-primary/80">{formatContractType(log.contractType)}</span></>
+                            )}
+                            {log.contractType === 'DIGITMATCH' && log.barrier !== undefined && (
+                                <span className="ml-2">Alvo: <span className="font-semibold text-primary/80">{log.barrier}</span></span>
+                            )}
+                            {log.exitDigit !== undefined && (
+                                <span className="ml-2">
+                                    Resultado: <span className="font-semibold text-primary/80">{log.exitDigit}</span>
+                                    {log.contractType === 'DIGITEVEN' || log.contractType === 'DIGITODD' ? ` (${getDigitParity(log.exitDigit)})` : ''}
+                                </span>
+                            )}
                         </p>
                     )}
                 </div>
