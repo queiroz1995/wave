@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart } from 'lucide-react';
+import { toast } from "sonner";
 
 const Login = () => {
   const { session, loading } = useAuth();
@@ -19,21 +20,34 @@ const Login = () => {
     }
   }, [session, loading, navigate]);
 
+  // Listener para erros de autenticação do Supabase
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        // Limpa possíveis estados residuais
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md bg-card/80 backdrop-blur-sm border-primary/20">
+      <Card className="w-full max-w-md bg-card/80 backdrop-blur-sm border-primary/20 shadow-2xl">
         <CardHeader className="text-center">
             <div className="flex justify-center mb-4">
-                <div className="p-3 bg-primary/10 rounded-2xl">
+                <div className="p-3 bg-primary/10 rounded-2xl animate-bounce">
                     <BarChart className="h-10 w-10 text-primary" />
                 </div>
             </div>
-          <CardTitle className="text-2xl font-black">Rico 2.0</CardTitle>
-          <p className="text-sm text-muted-foreground mt-2">Entre na sua conta para acessar o robô</p>
+          <CardTitle className="text-3xl font-black tracking-tighter">RICO 2.0</CardTitle>
+          <p className="text-sm text-muted-foreground mt-2">Acesse sua conta para operar</p>
         </CardHeader>
         <CardContent>
           <Auth
             supabaseClient={supabase}
+            providers={['google']}
+            redirectTo={`${window.location.origin}/`}
             appearance={{ 
                 theme: ThemeSupa,
                 variables: {
@@ -43,10 +57,14 @@ const Login = () => {
                             brandAccent: 'hsl(var(--primary))',
                         }
                     }
+                },
+                className: {
+                    container: 'flex flex-col gap-4',
+                    button: 'font-bold py-2',
+                    input: 'bg-muted/50 border-none'
                 }
             }}
             theme="dark"
-            providers={['google']}
             localization={{
                 variables: {
                     sign_in: {
