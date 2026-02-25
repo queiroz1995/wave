@@ -26,13 +26,16 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const hasTradedCurrentRoundRef = useRef<boolean>(false);
     
     const lastTickDigitRef = useRef<number>(Math.floor(Math.random() * 10));
-    const hasReceivedFirstTick = useRef<boolean>(false);
     const lastContractExitDigitRef = useRef<number | null>(null);
+    
+    // Controle de Martingale para Roleta
+    const [rouletteGaleLevel, setRouletteGaleLevel] = useState(0);
+    const roundProfitRef = useRef(0);
 
     const {
         addLog, setAccountBalance, setLastDigits, setIsBotRunning,
         setTotalProfit, setWins, setLosses,
-        asset, initialStake,
+        asset, initialStake, martingaleFactor, maxLevels,
         isBotRunning,
         accountType, realToken, demoToken,
         isRouletteMode, setRouletteTimer,
@@ -63,13 +66,13 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         const signalId = addSignal({
             strategy: "Roleta",
-            signal: contractType === 'DIGITEVEN' ? 'EVEN' : contractType === 'DIGITODD' ? 'ODD' : 'ODD', 
+            signal: 'EVEN', 
             details: `Aposta ${label}`,
             stake: stake
         });
 
         const params: any = {
-            amount: stake,
+            amount: parseFloat(stake.toFixed(2)),
             basis: 'stake',
             contract_type: contractType,
             currency: 'USD',
@@ -106,7 +109,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             setRouletteTimer(remaining === 0 ? 16 : remaining);
 
-            // Fase de Giro (Animação)
+            // Fase de Giro
             if (remaining <= 4 && remaining >= 1) {
                 setIsRouletteSpinning(true);
             } else {
@@ -115,35 +118,47 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             // EXIBIÇÃO DO RESULTADO (No segundo 1)
             if (remaining === 1) {
-                // Se houve contrato, usamos o dígito real da Deriv. Se não, o último tick.
                 const finalDigit = lastContractExitDigitRef.current !== null 
                     ? lastContractExitDigitRef.current 
                     : lastTickDigitRef.current;
                 
                 setLastRouletteResult(finalDigit);
                 setRouletteHistory((prev: number[]) => [finalDigit, ...prev].slice(0, 50));
+
+                // Lógica de Martingale após a rodada
+                setTimeout(() => {
+                    if (hasTradedCurrentRoundRef.current) {
+                        if (roundProfitRef.current <= 0) {
+                            setRouletteGaleLevel(prev => Math.min(prev + 1, maxLevels));
+                            toast.error("Rodada no prejuízo. Aplicando Martingale...");
+                        } else {
+                            setRouletteGaleLevel(0);
+                            toast.success("Lucro na rodada! Resetando stake.");
+                        }
+                    }
+                    roundProfitRef.current = 0;
+                }, 2000);
                 
-                // Reseta o dígito de contrato para a próxima rodada
                 lastContractExitDigitRef.current = null;
             }
 
             // ENVIO DAS APOSTAS (5s restantes)
             if (remaining === 5 && !hasTradedCurrentRoundRef.current) {
                 if (isConnected) {
-                    const stakeAmount = parseFloat(initialStake);
+                    const baseStake = parseFloat(initialStake);
+                    const mgFactor = parseFloat(martingaleFactor) || 2.2;
+                    const stakeAmount = baseStake * Math.pow(mgFactor, rouletteGaleLevel);
+                    
                     let hasBets = false;
 
-                    // Números exatos (Aposta "Match" que paga muito)
                     if (selectedRouletteNumbers.length > 0) {
                         selectedRouletteNumbers.forEach(num => executeTrade(num, stakeAmount, 'DIGITMATCH'));
                         hasBets = true;
                     }
-                    
                     if (selectedRouletteEven) {
                         executeTrade('even', stakeAmount, 'DIGITEVEN');
                         hasBets = true;
                     }
-                    
                     if (selectedRouletteOdd) {
                         executeTrade('odd', stakeAmount, 'DIGITODD');
                         hasBets = true;
@@ -164,7 +179,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [isRouletteMode, isConnected, selectedRouletteNumbers, selectedRouletteEven, selectedRouletteOdd, initialStake, executeTrade, setRouletteTimer, setIsRouletteSpinning, setLastRouletteResult, setRouletteHistory]);
+    }, [isRouletteMode, isConnected, selectedRouletteNumbers, selectedRouletteEven, selectedRouletteOdd, initialStake, martingaleFactor, maxLevels, rouletteGaleLevel, executeTrade, setRouletteTimer, setIsRouletteSpinning, setLastRouletteResult, setRouletteHistory]);
 
     // 3. PROCESSAMENTO DE MENSAGENS DA DERIV
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
@@ -178,7 +193,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             } else if (data?.msg_type === 'tick' && data.tick?.symbol === asset) {
                 const digit = parseInt(data.tick.quote.toString().slice(-1));
                 lastTickDigitRef.current = digit;
-                hasReceivedFirstTick.current = true;
                 setLastDigits(prev => [digit, ...prev].slice(0, 100));
             } else if (data?.msg_type === 'balance') {
                 setAccountBalance(data.balance.balance);
@@ -190,19 +204,15 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     const exitDigit = parseInt(contract.exit_tick_display_value.slice(-1));
                     const signalId = data.echo_req.passthrough?.signalId;
                     
-                    // GUARDA O NÚMERO EXATO PARA A ROLETA USAR
                     lastContractExitDigitRef.current = exitDigit;
+                    roundProfitRef.current += profit;
 
                     totalProfitRef.current += profit;
                     setTotalProfit(totalProfitRef.current);
                     
                     const resultType = contract.status === 'won' ? "WIN" : "LOSS";
-
-                    if (resultType === 'WIN') {
-                        setWins(prev => prev + 1);
-                    } else {
-                        setLosses(prev => prev + 1);
-                    }
+                    if (resultType === 'WIN') setWins(prev => prev + 1);
+                    else setLosses(prev => prev + 1);
 
                     const typeLabel = contract.contract_type === 'DIGITMATCH' ? `NÚMERO ${contract.barrier}` : 
                                      contract.contract_type === 'DIGITEVEN' ? 'PAR' : 'ÍMPAR';
