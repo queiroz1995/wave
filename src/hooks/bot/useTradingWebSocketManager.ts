@@ -4,7 +4,6 @@ import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 
 const DERIV_WS_URL = import.meta.env.VITE_DERIV_WS_URL || 'wss://ws.binaryws.com/websockets/v3?app_id=1089';
 
-// Define a interface para os setters que o hook precisa
 interface TradingManagerProps {
     isConnected: boolean;
     status: { message: string, color: string };
@@ -15,10 +14,9 @@ interface TradingManagerProps {
     reconnectAttemptsRef: React.MutableRefObject<number>;
 }
 
-// Este hook gerencia a conexão WebSocket com a API da Deriv para negociação.
 export const useTradingWebSocketManager = ({ 
-    isConnected, // Adicionado como prop
-    status, // Adicionado como prop
+    isConnected,
+    status,
     setIsConnected, 
     setStatus, 
     setAccountBalance, 
@@ -29,140 +27,110 @@ export const useTradingWebSocketManager = ({
     const ws = useRef<WebSocket | null>(null);
     const pingInterval = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isIntentionalDisconnect = useRef(false);
+    const authTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [isSocketOpen, setIsSocketOpen] = useState(false);
 
-    // Usa uma ref para garantir que o callback onMessage seja sempre a versão mais recente.
     const onMessageRef = useRef(onMessage);
     useEffect(() => {
         onMessageRef.current = onMessage;
     }, [onMessage]);
 
-    const connect = useCallback((token: string, accountType: 'real' | 'demo') => {
-        try {
-            if (ws.current) {
-                console.warn('[TradingWS] Connection attempt while already connected or connecting.');
-                onMessageRef.current({ type: 'info', payload: 'Uma conexão já está em andamento.' });
-                return;
-            }
+    const connectSocket = useCallback(() => {
+        if (ws.current?.readyState === WebSocket.OPEN || ws.current?.readyState === WebSocket.CONNECTING) return;
 
-            const cleanedToken = token.trim();
-            if (!cleanedToken) {
-                onMessageRef.current({ type: 'error', payload: `Por favor, insira o Token da Conta ${accountType === 'real' ? 'Real' : 'Demo'}.` });
-                return;
-            }
+        console.log("[TradingWS] Estabelecendo conexão pública...");
+        ws.current = new WebSocket(DERIV_WS_URL);
 
-            localStorage.setItem('lastAccountType', accountType);
-            isIntentionalDisconnect.current = false;
-            console.log(`[TradingWS] Connecting to ${accountType} account...`);
-            onMessageRef.current({ type: 'info', payload: `Conectando à Conta ${accountType === 'real' ? 'Real' : 'Demo'}...` });
-            setStatus({ message: 'Conectando...', color: 'bg-yellow-500' });
+        ws.current.onopen = () => {
+            console.log("[TradingWS] Conexão pública aberta.");
+            setIsSocketOpen(true);
+            reconnectAttemptsRef.current = 0;
             
-            ws.current = new WebSocket(DERIV_WS_URL);
-
-            ws.current.onopen = () => {
-                console.log('[TradingWS] Connection opened. Authenticating...');
-                onMessageRef.current({ type: 'info', payload: 'Conexão estabelecida. Autenticando...' });
-                setStatus({ message: 'Autenticando...', color: 'bg-yellow-500' });
-                ws.current?.send(JSON.stringify({ authorize: cleanedToken }));
-                
-                if (pingInterval.current) clearInterval(pingInterval.current);
-                pingInterval.current = setInterval(() => ws.current?.send(JSON.stringify({ ping: 1 })), 20000);
-            };
-
-            ws.current.onerror = (error) => {
-                console.error("[TradingWS] WebSocket Error:", error);
-                onMessageRef.current({ type: 'error', payload: 'Ocorreu um erro na conexão. Verifique sua internet e o console para detalhes.' });
-            };
-
-            ws.current.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    // console.log('[TradingWS] Received message:', data);
-
-                    if (data.error) {
-                        console.error("[TradingWS] Deriv API Error:", data.error);
-                        const errorCode = data.error.code;
-                        const errorMessage = data.error.message.toLowerCase();
-                        
-                        if (errorCode === 'AuthorizationFailed' || 
-                            errorCode === 'InvalidToken' || 
-                            errorMessage.includes('permission')) 
-                        {
-                            onMessageRef.current({ type: 'auth_error', payload: 'Token inválido ou expirado. Ele foi limpo automaticamente. Por favor, insira um novo token.' });
-                            isIntentionalDisconnect.current = true;
-                            ws.current?.close();
-                            return;
-                        }
-                    }
-
-                    // --- Lógica de atualização de estado movida para o BotContext ---
-                    // O BotContext agora lida com a resposta 'authorize' e 'balance'
-                    // --- FIM Lógica de atualização de estado movida para o BotContext ---
-
-                    // Passa a mensagem completa para o contexto.
-                    onMessageRef.current({ type: 'message', payload: data });
-                } catch (error) {
-                    console.error("[TradingWS] Failed to process message:", error, "Raw data:", event.data);
-                    onMessageRef.current({ type: 'error', payload: 'Recebida uma mensagem inválida do servidor.' });
+            if (pingInterval.current) clearInterval(pingInterval.current);
+            pingInterval.current = setInterval(() => {
+                if (ws.current?.readyState === WebSocket.OPEN) {
+                    ws.current.send(JSON.stringify({ ping: 1 }));
                 }
-            };
+            }, 15000);
 
-            ws.current.onclose = () => {
-                console.warn('[TradingWS] Connection closed.');
-                setIsConnected(false);
-                if (pingInterval.current) clearInterval(pingInterval.current);
-                ws.current = null;
+            // Avisa o app que o socket está pronto para receber comandos públicos (como ticks)
+            onMessageRef.current({ type: 'socket_ready' });
+        };
 
-                if (isIntentionalDisconnect.current) {
-                    console.log('[TradingWS] Intentional disconnect.');
-                    onMessageRef.current({ type: 'info', payload: `Conexão finalizada.` });
-                    setStatus({ message: 'Desconectado', color: 'bg-red-500' });
-                } else {
-                    const maxAttempts = 5;
-                    if (reconnectAttemptsRef.current < maxAttempts) {
-                        const delay = Math.min(30000, Math.pow(2, reconnectAttemptsRef.current) * 1000 + 2000);
-                        reconnectAttemptsRef.current++;
-                        console.log(`[TradingWS] Connection lost. Reconnecting in ${delay / 1000}s... (Attempt ${reconnectAttemptsRef.current}/${maxAttempts})`);
-                        onMessageRef.current({ type: 'info', payload: `Conexão perdida. Tentando reconectar em ${delay / 1000}s... (${reconnectAttemptsRef.current}/${maxAttempts})` });
-                        setStatus({ message: 'Reconectando...', color: 'bg-yellow-500' });
-                        setTimeout(() => connect(cleanedToken, accountType), delay);
-                    } else {
-                        console.error(`[TradingWS] Failed to reconnect after ${maxAttempts} attempts.`);
-                        onMessageRef.current({ type: 'error', payload: `Não foi possível reconectar após ${maxAttempts} tentativas. Verifique sua conexão.` });
-                        setStatus({ message: 'Falha na Conexão', color: 'bg-red-500' });
-                    }
-                }
-            };
-        } catch (error) {
-            console.error("[TradingWS] Critical error on connect:", error);
-            onMessageRef.current({ type: 'error', payload: 'Não foi possível iniciar a conexão. Verifique o console.' });
-            setStatus({ message: 'Erro de Conexão', color: 'bg-red-500' });
+        ws.current.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                onMessageRef.current({ type: 'message', payload: data });
+            } catch (error) {
+                console.error("[TradingWS] Message error:", error);
+            }
+        };
+
+        ws.current.onclose = () => {
+            setIsSocketOpen(false);
+            setIsConnected(false);
+            if (pingInterval.current) clearInterval(pingInterval.current);
+            ws.current = null;
+
+            if (!isIntentionalDisconnect.current) {
+                console.log("[TradingWS] Conexão perdida. Tentando reconectar...");
+                setTimeout(connectSocket, 3000);
+            }
+        };
+
+        ws.current.onerror = (err) => {
+            console.error("[TradingWS] Erro de conexão:", err);
+            setStatus({ message: 'Erro de Rede', color: 'bg-red-500' });
+        };
+    }, [reconnectAttemptsRef, setStatus, setIsConnected]);
+
+    // Conecta o socket automaticamente no mount
+    useEffect(() => {
+        connectSocket();
+        return () => {
+            isIntentionalDisconnect.current = true;
+            ws.current?.close();
+        };
+    }, [connectSocket]);
+
+    const authorize = useCallback((token: string, accountType: 'real' | 'demo') => {
+        if (ws.current?.readyState !== WebSocket.OPEN) {
+            connectSocket();
+            // Espera um pouco e tenta autorizar
+            setTimeout(() => authorize(token, accountType), 1000);
+            return;
         }
-    }, [setStatus, setIsConnected, reconnectAttemptsRef]); // Removido onMessageRef.current, pois ele é atualizado via useEffect
+
+        const cleanedToken = token.trim();
+        if (!cleanedToken) return;
+
+        console.log("[TradingWS] Enviando autorização...");
+        setStatus({ message: 'Autenticando...', color: 'bg-yellow-500' });
+        ws.current.send(JSON.stringify({ authorize: cleanedToken }));
+    }, [connectSocket, setStatus]);
 
     const disconnect = useCallback(() => {
-        console.log('[TradingWS] Disconnecting intentionally.');
-        isIntentionalDisconnect.current = true;
-        reconnectAttemptsRef.current = 0;
-        ws.current?.close();
-    }, [reconnectAttemptsRef]);
+        // Para a autorização mas mantém o socket aberto para ticks públicos se desejar
+        // Ou fecha tudo se for intenção do usuário
+        setIsConnected(false);
+        setStatus({ message: 'Desconectado', color: 'bg-red-500' });
+    }, [setIsConnected, setStatus]);
 
     const sendMessage = useCallback((payload: any) => {
         if (ws.current?.readyState === WebSocket.OPEN) {
-            console.log('[TradingWS] Sending message:', payload);
             ws.current.send(JSON.stringify(payload));
         } else {
-            console.error('[TradingWS] Cannot send message. WebSocket is not open.');
-            onMessageRef.current({ type: 'error', payload: 'Não é possível enviar mensagem. WebSocket não está conectado.' });
+            console.warn("[TradingWS] Tentativa de enviar mensagem com socket fechado:", payload);
         }
     }, []);
 
-    // Retornamos as funções de controle e o estado atual (que será atualizado via BotContext)
     return useMemo(() => ({
-        isConnected: isConnected, // Agora definido como prop
-        status: status, // Agora definido como prop
-        connect,
+        isConnected,
+        isSocketOpen,
+        status,
+        connect: authorize, // Mapeado para manter compatibilidade
         disconnect,
         sendMessage,
         wsRef: ws,
-    }), [isConnected, status, connect, disconnect, sendMessage]);
+    }), [isConnected, isSocketOpen, status, authorize, disconnect, sendMessage]);
 };

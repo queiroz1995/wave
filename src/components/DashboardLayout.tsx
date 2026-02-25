@@ -7,11 +7,7 @@ import { useBotContext } from '@/context/BotContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OperationLog } from '@/components/bot/OperationLog';
 import { TradeHistory } from '@/components/bot/TradeHistory';
-import { SequenceAnalyzer } from '@/components/bot/SequenceAnalyzer';
-import { ClosedHistory } from '@/components/bot/ClosedHistory';
-import { Cataloger } from '@/components/bot/Cataloger';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FunctionGuideModal } from '@/components/bot/FunctionGuideModal';
 import { Separator } from '@/components/ui/separator';
 import { SettingsSheet } from '@/components/bot/SettingsSheet';
@@ -22,31 +18,16 @@ interface DashboardLayoutProps {
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     const { totalProfit, accountBalance, wins, losses } = useBotContext();
-    const isMobile = useIsMobile(1024); // lg breakpoint
+    const isMobile = useIsMobile(1024);
     const [activeTab, setActiveTab] = useState("operations");
-
-    const tabTriggerClasses = "text-sm px-4 py-2 justify-start w-full data-[state=active]:bg-primary data-[state=active]:text-primary-foreground";
 
     const tabs = [
         { value: "operations", label: "Operações" },
         { value: "results", label: "Histórico" },
-        { value: "analyzer", label: "Analisador" },
-        { value: "cataloger", label: "Catalogador" },
-        { value: "closed-history", label: "Hist. Fechado" },
     ];
 
     const totalTrades = wins + losses;
     const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : 0;
-
-    const renderTabContent = () => (
-        <>
-            <TabsContent value="operations" className="h-full mt-0"><OperationLog /></TabsContent>
-            <TabsContent value="results" className="h-full mt-0"><TradeHistory /></TabsContent>
-            <TabsContent value="analyzer" className="h-full mt-0"><SequenceAnalyzer /></TabsContent>
-            <TabsContent value="cataloger" className="h-full mt-0"><Cataloger /></TabsContent>
-            <TabsContent value="closed-history" className="h-full mt-0"><ClosedHistory /></TabsContent>
-        </>
-    );
 
     return (
         <div className="container mx-auto p-2 sm:p-4 min-h-screen flex flex-col">
@@ -56,11 +37,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                         <BarChart className="h-6 w-6 text-primary" />
                     </div>
                     <h1 className="text-xl sm:text-2xl font-extrabold">
-                        Rico 2.0
+                        Rico 2.0 (Modo Roleta)
                     </h1>
                 </div>
                 <div className="flex items-center gap-2 sm:gap-4">
-                    {/* Stats hidden on mobile, shown in GamePanel */}
                     <div className="hidden lg:flex items-center gap-3 sm:gap-4 rounded-md border p-2 px-3 bg-background/50">
                         <div className="text-center">
                             <p className="text-xs text-muted-foreground">LUCRO</p>
@@ -68,7 +48,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                         </div>
                         <Separator orientation="vertical" className="h-8" />
                         <div className="text-center">
-                            <p className="text-xs text-muted-foreground">ASSERTIVIDADE</p>
+                            <p className="text-xs text-muted-foreground">WIN RATE</p>
                             <p className={`font-bold ${winRate >= 50 ? 'text-green-500' : totalTrades > 0 ? 'text-red-500' : ''}`}>
                                 {winRate.toFixed(1)}%
                             </p>
@@ -79,6 +59,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                             <p className="font-bold text-primary">${accountBalance?.toFixed(2) || '0.00'}</p>
                         </div>
                     </div>
+
                     <SettingsSheet />
                     <FunctionGuideModal />
                     <ThemeToggle />
@@ -86,41 +67,24 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             </header>
             
             <main className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 flex-grow">
-                {/* Coluna Principal (Conexão, Display, Painel de Jogo) */}
                 <div className="lg:col-span-2 space-y-4 sm:space-y-6">
                     {children}
                 </div>
 
-                {/* Coluna de Logs/Análise (Ocupa a largura total no mobile) */}
                 <div className="lg:col-span-1 min-h-[400px] lg:h-[calc(100dvh-150px)]">
-                    {isMobile ? (
-                        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full flex flex-col">
-                            <Select value={activeTab} onValueChange={setActiveTab}>
-                                <SelectTrigger className="w-full mb-2">
-                                    <SelectValue placeholder="Selecione uma visualização" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {tabs.map(tab => (
-                                        <SelectItem key={tab.value} value={tab.value}>{tab.label}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <div className="flex-grow mt-2 min-h-0">
-                                {renderTabContent()}
-                            </div>
-                        </Tabs>
-                    ) : (
-                        <Tabs defaultValue="operations" orientation="vertical" className="w-full h-full grid grid-cols-4">
-                            <TabsList className="col-span-1 flex flex-col h-auto items-start gap-1 bg-transparent p-0 pr-4">
+                    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full flex flex-col">
+                        {!isMobile && (
+                            <TabsList className="flex w-full mb-4 bg-muted/50 p-1">
                                 {tabs.map(tab => (
-                                    <TabsTrigger key={tab.value} value={tab.value} className={tabTriggerClasses}>{tab.label}</TabsTrigger>
+                                    <TabsTrigger key={tab.value} value={tab.value} className="flex-1">{tab.label}</TabsTrigger>
                                 ))}
                             </TabsList>
-                            <div className="col-span-3 h-full">
-                                {renderTabContent()}
-                            </div>
-                        </Tabs>
-                    )}
+                        )}
+                        <div className="flex-grow min-h-0">
+                            <TabsContent value="operations" className="h-full mt-0"><OperationLog /></TabsContent>
+                            <TabsContent value="results" className="h-full mt-0"><TradeHistory /></TabsContent>
+                        </div>
+                    </Tabs>
                 </div>
             </main>
         </div>

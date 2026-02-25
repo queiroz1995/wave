@@ -32,7 +32,7 @@ export interface SignalEntry {
     exitDigit?: number; // Adicionado para mostrar o dígito final
 }
 
-export type ContractType = 'DIGITODD' | 'DIGITEVEN' | 'DIGITOVER' | 'DIGITUNDER';
+export type ContractType = 'DIGITODD' | 'DIGITEVEN' | 'DIGITOVER' | 'DIGITUNDER' | 'DIGITMATCH';
 
 export type TradeType = 'digit';
 
