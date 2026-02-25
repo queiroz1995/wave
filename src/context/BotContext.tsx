@@ -28,7 +28,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const lastTickDigitRef = useRef<number>(Math.floor(Math.random() * 10));
     const lastContractExitDigitRef = useRef<number | null>(null);
     
-    // Agora o Gale Level vem do estado global para permitir controle manual
     const {
         addLog, setAccountBalance, setLastDigits, setIsBotRunning,
         setTotalProfit, setWins, setLosses,
@@ -43,7 +42,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         selectedRouletteOdd, setSelectedRouletteOdd,
         setLastRouletteResult,
         addSignal, updateSignalResult,
-        manualGaleLevel, setManualGaleLevel // Usando o estado global para controle manual
+        manualGaleLevel, setManualGaleLevel
     } = stateAndSetters;
 
     const [isConnected, setIsConnected] = useState(false);
@@ -123,8 +122,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setLastRouletteResult(finalDigit);
                 setRouletteHistory((prev: number[]) => [finalDigit, ...prev].slice(0, 50));
                 
+                // LIMPEZA AUTOMÁTICA DAS APOSTAS APÓS O RESULTADO
+                setSelectedRouletteNumbers([]);
+                setSelectedRouletteEven(false);
+                setSelectedRouletteOdd(false);
+                
                 lastContractExitDigitRef.current = null;
-                // REMOVIDO: Martingale automático removido daqui
             }
 
             // ENVIO DAS APOSTAS (5s restantes)
@@ -132,7 +135,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 if (isConnected) {
                     const baseStake = parseFloat(initialStake);
                     const mgFactor = parseFloat(martingaleFactor) || 2.2;
-                    // Calcula a stake com base no nível de Gale MANUAL
                     const stakeAmount = baseStake * Math.pow(mgFactor, manualGaleLevel);
                     
                     let hasBets = false;
@@ -156,7 +158,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             }
 
-            // Limpeza para nova rodada
+            // Limpeza interna para nova rodada
             if (remaining === 13) {
                 setLastRouletteResult(null);
                 hasTradedCurrentRoundRef.current = false;
@@ -165,7 +167,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [isRouletteMode, isConnected, selectedRouletteNumbers, selectedRouletteEven, selectedRouletteOdd, initialStake, martingaleFactor, manualGaleLevel, executeTrade, setRouletteTimer, setIsRouletteSpinning, setLastRouletteResult, setRouletteHistory]);
+    }, [isRouletteMode, isConnected, selectedRouletteNumbers, setSelectedRouletteNumbers, selectedRouletteEven, setSelectedRouletteEven, selectedRouletteOdd, setSelectedRouletteOdd, initialStake, martingaleFactor, manualGaleLevel, executeTrade, setRouletteTimer, setIsRouletteSpinning, setLastRouletteResult, setRouletteHistory]);
 
     // 3. PROCESSAMENTO DE MENSAGENS DA DERIV
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
