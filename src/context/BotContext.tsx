@@ -4,8 +4,8 @@ import React, { createContext, useContext, useRef, useCallback, useEffect, useSt
 import { useBotState } from '../hooks/bot/useBotState';
 import { useBotPersistence } from '../hooks/bot/useBotPersistence';
 import { useTradingWebSocketManager } from '../hooks/bot/useTradingWebSocketManager';
-import { ContractType } from '@/types/bot';
-import { toast } from 'sonner';
+import { ContractType, SignalType } from '@/types/bot';
+import { supabase } from '@/integrations/supabase/client';
 
 const BotContext = createContext<any>(undefined);
 
@@ -19,228 +19,352 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const stateAndSetters = useBotState();
     useBotPersistence(stateAndSetters);
 
+    const isTradeOpen = useRef(false);
+    const processedTickEpoch = useRef<number | null>(null);
     const totalProfitRef = useRef(0.00);
+    const martingaleLevel = useRef(0);
+    const [lastCompletedContract, setLastCompletedContract] = useState<any>(null);
+    const lastTradeDetails = useRef<{ stake: number, strategyName: string, signalId: string | null, contractType: ContractType | null, barrier?: number } | null>(null);
     const reconnectAttemptsRef = useRef(0);
+    const tickSubscriptionId = useRef<string | null>(null);
+    const contractSubscriptionId = useRef<string | null>(null);
     const sendMessageRef = useRef<(payload: any) => void>(() => {});
-    const currentAssetRef = useRef<string>('');
-    const hasTradedCurrentRoundRef = useRef<boolean>(false);
-    
-    // Inicia com um número aleatório para evitar o "bug do zero" no começo
-    const lastTickDigitRef = useRef<number>(Math.floor(Math.random() * 10));
-    const hasReceivedFirstTick = useRef<boolean>(false);
 
     const {
-        addLog, setAccountBalance, setLastDigits, setIsBotRunning,
+        addLog, setAccountBalance, setChartData, setLastDigits, setIsBotRunning,
         setTotalProfit, setWins, setLosses,
-        asset, initialStake,
-        isBotRunning,
-        accountType, realToken, demoToken,
-        isRouletteMode, setRouletteTimer,
-        setIsRouletteSpinning,
-        setRouletteHistory,
-        selectedRouletteNumbers, setSelectedRouletteNumbers,
-        selectedRouletteEven, setSelectedRouletteEven,
-        selectedRouletteOdd, setSelectedRouletteOdd,
-        setLastRouletteResult,
-        addSignal, updateSignalResult,
+        asset, duration, initialStake, addSignal, updateSignalResult,
+        lastDigits, setActiveContract,
+        setCurrentSignal,
+        martingaleFactor,
+        setLastTickEpoch, lastTickEpoch,
+        setTradeStatus,
+        digitPrediction,
+        setClosedHistory, setIsFetchingHistory,
+        activeContract, isBotRunning,
+        digitTradeMode,
+        activeStrategy,
+        realToken, demoToken, accountType,
+        takeProfit, stopLoss, maxLevels,
+        catalogerPatternLength, catalogerMinWinRate, catalogerMartingaleLevels, catalogerMinOccurrences,
+        isDoubleOneTriggerActive, doubleOneTriggerCount, doubleOneTriggerTargetDigits,
+        isMartingaleActive,
+        virtualLossStreak, setVirtualLossStreak,
+        virtualWinStreak, setVirtualWinStreak, // NOVO
+        isWaitingForVirtualResult, setIsWaitingForVirtualResult,
+        virtualTargetLosses, setVirtualTargetLosses,
+        virtualTargetWins, setVirtualTargetWins, // NOVO
+        // NOVOS ESTADOS
+        isStreakFilterActive, maxStreakAllowed,
     } = stateAndSetters;
 
     const [isConnected, setIsConnected] = useState(false);
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
 
-    // 1. EXECUÇÃO DE APOSTAS
-    const executeTrade = useCallback((prediction: number | string, stake: number, type: 'DIGITMATCH' | 'DIGITEVEN' | 'DIGITODD' = 'DIGITMATCH') => {
-        if (!isConnected) return;
+    const fetchInitialTicks = useCallback(async () => {
+        if (!asset) return;
+        try {
+            const { data, error } = await supabase.from('ticks').select('digit, epoch').eq('symbol', asset).order('epoch', { ascending: false }).limit(250);
+            if (!error && data?.length > 0) {
+                setLastDigits(data.map(t => t.digit));
+                setLastTickEpoch(data[0].epoch);
+            }
+        } catch (e) {}
+    }, [asset, setLastDigits, setLastTickEpoch]);
 
-        const contractType: ContractType = 
-            type === 'DIGITEVEN' ? 'DIGITEVEN' : 
-            type === 'DIGITODD' ? 'DIGITODD' : 
-            'DIGITMATCH';
+    useEffect(() => { fetchInitialTicks(); }, [fetchInitialTicks]);
 
-        const label = contractType === 'DIGITEVEN' ? 'PAR' : 
-                      contractType === 'DIGITODD' ? 'ÍMPAR' : 
-                      `Número ${prediction}`;
+    const fetchClosedHistory = useCallback(async () => {
+        setIsFetchingHistory(true);
+        try {
+            const { data } = await supabase.from('ticks').select('digit, epoch, symbol').order('epoch', { ascending: false }).limit(250);
+            if (data) setClosedHistory(data);
+        } catch (e) {} finally { setIsFetchingHistory(false); }
+    }, [setIsFetchingHistory, setClosedHistory]);
 
-        const signalId = addSignal({
-            strategy: "Roleta",
-            signal: contractType === 'DIGITEVEN' ? 'EVEN' : contractType === 'DIGITODD' ? 'ODD' : 'ODD', 
-            details: `Aposta ${label}`,
-            stake: stake
-        });
-
-        const params: any = {
-            amount: stake,
-            basis: 'stake',
-            contract_type: contractType,
-            currency: 'USD',
-            duration: 1,
-            duration_unit: 't',
-            symbol: asset,
-        };
-
-        if (contractType === 'DIGITMATCH') {
-            params.barrier = String(prediction);
+    const smartAIAnalysis = useMemo(() => {
+        if (lastDigits.length < catalogerPatternLength + 10) return null;
+        const chars = digitTradeMode === 'evenOdd' 
+            ? lastDigits.map(d => d % 2 === 0 ? 'E' : 'O').reverse()
+            : lastDigits.map(d => d > digitPrediction ? 'A' : 'B').reverse();
+        const statsMap = new Map<string, { occurrences: number, wins: number, contractType: ContractType }>();
+        for (let i = 0; i <= chars.length - catalogerPatternLength - 1; i++) {
+            const pattern = chars.slice(i, i + catalogerPatternLength).join('');
+            const outcome = chars[i + catalogerPatternLength];
+            const type: ContractType = digitTradeMode === 'evenOdd' 
+                ? (outcome === 'E' ? 'DIGITEVEN' : 'DIGITODD')
+                : (outcome === 'A' ? 'DIGITOVER' : 'DIGITUNDER');
+            const key = `${pattern}->${outcome}`;
+            if (!statsMap.has(key)) statsMap.set(key, { occurrences: 0, wins: 0, contractType: type });
+            const stats = statsMap.get(key)!;
+            stats.occurrences++;
+            stats.wins++;
         }
-
-        sendMessageRef.current({
-            buy: 1,
-            price: stake,
-            subscribe: 1,
-            parameters: params,
-            passthrough: { signalId }
+        const potentialTrades = Array.from(statsMap.entries()).map(([key, stats]) => {
+            const [pattern] = key.split('->');
+            return { pattern, contractType: stats.contractType, occurrences: stats.occurrences, winRate: (stats.wins / stats.occurrences) * 100 };
         });
-        
-        addLog(`[Aposta] Enviando ${label} ($${stake.toFixed(2)})`, "TRADE", { stake, contractType, barrier: contractType === 'DIGITMATCH' ? Number(prediction) : undefined });
+        return potentialTrades
+            .filter(t => t.occurrences >= catalogerMinOccurrences && t.winRate >= catalogerMinWinRate)
+            .reduce((best: any, current) => (!best || current.winRate > best.winRate ? current : best), null);
+    }, [lastDigits, digitTradeMode, digitPrediction, catalogerPatternLength, catalogerMinWinRate, catalogerMinOccurrences]);
 
-    }, [isConnected, asset, addSignal, addLog]);
+    const stopBot = useCallback((reason: string) => {
+        setIsBotRunning(false);
+        isTradeOpen.current = false;
+        martingaleLevel.current = 0;
+        setVirtualLossStreak(0);
+        setVirtualWinStreak(0); // NOVO
+        setIsWaitingForVirtualResult(false);
+        addLog(reason, 'INFO');
+    }, [setIsBotRunning, addLog, setVirtualLossStreak, setVirtualWinStreak, setIsWaitingForVirtualResult]);
 
-    // 2. CRONÔMETRO CENTRALIZADO
-    useEffect(() => {
-        if (!isRouletteMode) return;
-        
-        const interval = setInterval(() => {
-            const now = Date.now();
-            const cycleMs = 16000;
-            const elapsed = now % cycleMs;
-            const remaining = Math.ceil((cycleMs - elapsed) / 1000);
+    const processTickData = useCallback((tick: { quote: string, epoch: number, symbol: string }) => {
+        const lastDigit = parseInt(String(tick.quote).replace(/[^\d.]/g, '').slice(-1));
+        if (isNaN(lastDigit)) return;
+        setLastDigits(prev => [lastDigit, ...prev].slice(0, 250));
+        setLastTickEpoch(tick.epoch);
+        setChartData(prev => [...prev, { time: new Date(tick.epoch * 1000).toLocaleTimeString('pt-BR', { hour12: false }), price: parseFloat(tick.quote) }].slice(-50));
+    }, [setLastDigits, setLastTickEpoch, setChartData]);
 
-            setRouletteTimer(remaining === 0 ? 16 : remaining);
-
-            if (remaining <= 4 && remaining >= 1) {
-                setIsRouletteSpinning(true);
-            } else {
-                setIsRouletteSpinning(false);
-            }
-
-            if (remaining === 1) {
-                const winningDigit = hasReceivedFirstTick.current 
-                    ? lastTickDigitRef.current 
-                    : Math.floor(Math.random() * 10);
-                
-                setLastRouletteResult(winningDigit);
-                setRouletteHistory((prev: number[]) => [winningDigit, ...prev].slice(0, 50));
-            }
-
-            // Envio das apostas (5s antes do fim)
-            if (remaining === 5 && !hasTradedCurrentRoundRef.current) {
-                if (isConnected) {
-                    const stakeAmount = parseFloat(initialStake);
-                    let hasBets = false;
-
-                    // 1. Apostas em números específicos (DIGITMATCH)
-                    if (selectedRouletteNumbers.length > 0) {
-                        selectedRouletteNumbers.forEach(num => executeTrade(num, stakeAmount, 'DIGITMATCH'));
-                        hasBets = true;
-                    }
-                    
-                    // 2. Apostas em Par (DIGITEVEN)
-                    if (selectedRouletteEven) {
-                        executeTrade('even', stakeAmount, 'DIGITEVEN');
-                        hasBets = true;
-                    }
-                    
-                    // 3. Apostas em Ímpar (DIGITODD)
-                    if (selectedRouletteOdd) {
-                        executeTrade('odd', stakeAmount, 'DIGITODD');
-                        hasBets = true;
-                    }
-
-                    if (hasBets) {
-                        hasTradedCurrentRoundRef.current = true;
-                    }
-                }
-            }
-
-            if (remaining === 13) {
-                setLastRouletteResult(null);
-                hasTradedCurrentRoundRef.current = false;
-            }
-            
-            // REMOVIDO: Limpeza automática das seleções (selectedRouletteNumbers, selectedRouletteEven, selectedRouletteOdd)
-            // Agora as seleções persistem até serem desmarcadas manualmente.
-        }, 1000);
-
-        return () => clearInterval(interval);
-    }, [isRouletteMode, isConnected, selectedRouletteNumbers, selectedRouletteEven, selectedRouletteOdd, initialStake, executeTrade, setRouletteTimer, setIsRouletteSpinning, setLastRouletteResult, setRouletteHistory]);
-
-    // 3. WEBSOCKET FEED
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
         const data = event.payload;
         if (event.type === 'message') {
             if (data?.msg_type === 'authorize') {
-                setIsConnected(true);
-                setStatus({ message: `Conta Ativa`, color: 'bg-green-500' });
+                setIsConnected(true); 
+                setStatus({ message: `Conectado - ${data.authorize.is_virtual ? 'Demo' : 'Real'}`, color: 'bg-green-500' });
                 if (data.authorize.balance) setAccountBalance(data.authorize.balance);
-                sendMessageRef.current({ balance: 1, subscribe: 1 });
-            } else if (data?.msg_type === 'tick' && data.tick?.symbol === asset) {
-                const quote = data.tick.quote.toString();
-                const digit = parseInt(quote.slice(-1));
-                
-                lastTickDigitRef.current = digit;
-                hasReceivedFirstTick.current = true;
-                setLastDigits(prev => [digit, ...prev].slice(0, 100));
-            } else if (data?.msg_type === 'balance') {
-                setAccountBalance(data.balance.balance);
-            } else if (data?.msg_type === 'proposal_open_contract') {
-                const contract = data.proposal_open_contract;
-                
-                if (contract.is_sold) {
-                    const profit = parseFloat(contract.profit);
-                    const exitDigit = parseInt(contract.exit_tick_display_value.slice(-1));
-                    const signalId = data.echo_req.passthrough?.signalId;
-                    const contractType = contract.contract_type as ContractType;
-                    const barrier = contract.barrier ? Number(contract.barrier) : undefined;
-                    
-                    // Sincronização visual forçada pelo contrato
-                    setLastRouletteResult(exitDigit);
-
-                    totalProfitRef.current += profit;
-                    setTotalProfit(totalProfitRef.current);
-                    
-                    // Determina o resultado usando o status do contrato
-                    const resultType = contract.status === 'won' ? "WIN" : "LOSS";
-
-                    if (resultType === 'WIN') {
-                        setWins(prev => prev + 1);
-                    } else {
-                        setLosses(prev => prev + 1);
-                    }
-
-                    const logMessage = resultType === 'WIN' 
-                        ? `VITÓRIA! Número ${exitDigit}. Lucro: +$${profit.toFixed(2)}`
-                        : `DERROTA: Número ${exitDigit}. Perda: -$${Math.abs(profit).toFixed(2)}`;
-
-                    addLog(logMessage, resultType, { 
-                        profit, 
-                        strategyName: "Roleta", 
-                        exitDigit, 
-                        contractType, 
-                        barrier 
-                    });
-
-                    if (signalId) {
-                        updateSignalResult(signalId, resultType, profit, parseFloat(contract.buy_price), exitDigit);
-                    }
+                addLog(`Iniciando fluxo de dados seguro para: ${asset}`, 'INFO');
+                sendMessageRef.current({ ticks: asset, subscribe: 1 });
+            } else if (data?.msg_type === 'tick') {
+                if (data.tick?.symbol === asset) processTickData(data.tick);
+            } else if (data?.msg_type === 'buy') {
+                if (data.buy) { 
+                    setTradeStatus('ACTIVE'); 
+                    setActiveContract({ contract_id: data.buy.contract_id }); 
+                    addLog(`Ordem executada: ${data.buy.contract_id}`, 'INFO');
+                    sendMessageRef.current({ proposal_open_contract: 1, contract_id: data.buy.contract_id, subscribe: 1 });
+                } else if (data.error) {
+                    isTradeOpen.current = false;
+                    setTradeStatus('IDLE');
+                    addLog(`Falha na Entrada: ${data.error.message}`, "ERROR");
                 }
-            } else if (data?.error) {
-                if (!data.error.message.includes("already subscribed")) {
-                    addLog(`Mensagem: ${data.error.message}`, "ERROR");
+            } else if (data?.msg_type === 'proposal_open_contract') {
+                const poc = data.proposal_open_contract;
+                if (poc?.is_sold) {
+                    setLastCompletedContract(poc);
+                    if (data.subscription?.id) sendMessageRef.current({ forget: data.subscription.id });
                 }
             }
         }
-    }, [asset, setLastDigits, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, addLog, setLastRouletteResult]);
+    }, [addLog, setAccountBalance, setActiveContract, setTradeStatus, asset, processTickData]);
 
     const ws = useTradingWebSocketManager({ isConnected, status, setIsConnected, setStatus, setAccountBalance, onMessage: handleWebSocketMessage, reconnectAttemptsRef });
-    const { sendMessage, connect, disconnect, isSocketOpen } = ws;
+    const { sendMessage, connect, disconnect } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
-    useEffect(() => { 
-        if (asset !== currentAssetRef.current && isSocketOpen) {
-            sendMessageRef.current({ forget_all: 'ticks' });
-            sendMessageRef.current({ ticks: asset, subscribe: 1 });
-            currentAssetRef.current = asset;
+    const buyContract = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, stakeAmount: number, barrier: number) => {
+        if (!isConnected) return;
+        const stakeNum = parseFloat(stakeAmount.toFixed(2));
+        const params: any = { amount: stakeNum, basis: 'stake', contract_type: contractType, currency: 'USD', duration: 1, duration_unit: 't', symbol: asset };
+        if (contractType === 'DIGITOVER' || contractType === 'DIGITUNDER') params.barrier = String(barrier);
+        lastTradeDetails.current = { stake: stakeNum, strategyName, signalId, contractType, barrier };
+        setTradeStatus('SENDING');
+        sendMessage({ buy: 1, price: stakeNum, parameters: params });
+    }, [sendMessage, asset, setTradeStatus, isConnected]);
+
+    const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, barrier: number) => {
+        const baseStake = parseFloat(initialStake) || 0.35;
+        let stakeToUse = baseStake;
+        
+        // Aplica Martingale se o nível for maior que zero
+        if (isMartingaleActive && martingaleLevel.current > 0) {
+            stakeToUse = baseStake * Math.pow(parseFloat(martingaleFactor) || 2.2, martingaleLevel.current);
         }
-    }, [asset, isSocketOpen]);
+        
+        buyContract(contractType, strategyName, signalId, stakeToUse, barrier);
+    }, [initialStake, martingaleFactor, buyContract, isMartingaleActive]);
+
+    const getSignalType = (contract: ContractType): SignalType => contract === 'DIGITEVEN' ? 'EVEN' : contract === 'DIGITODD' ? 'ODD' : contract === 'DIGITOVER' ? 'OVER' : 'UNDER';
+
+    // FUNÇÃO AUXILIAR: VERIFICA ESTABILIDADE DO MERCADO
+    const isMarketStable = useCallback(() => {
+        if (!isStreakFilterActive) return true;
+        // Analisa os últimos 10 dígitos para ver se existe alguma sequência maior que a permitida
+        const checkWindow = lastDigits.slice(0, 10);
+        if (checkWindow.length < 3) return true;
+
+        let currentStreak = 1;
+        let currentType = digitTradeMode === 'evenOdd' 
+            ? (checkWindow[0] % 2 === 0 ? 'E' : 'O')
+            : (checkWindow[0] > digitPrediction ? 'A' : 'B');
+
+        for (let i = 1; i < checkWindow.length; i++) {
+            const type = digitTradeMode === 'evenOdd' 
+                ? (checkWindow[i] % 2 === 0 ? 'E' : 'O')
+                : (checkWindow[i] > digitPrediction ? 'A' : 'B');
+            
+            if (type === currentType) {
+                currentStreak++;
+                if (currentStreak > maxStreakAllowed) return false; // Bloqueia se a sequência for muito longa
+            } else {
+                currentStreak = 1;
+                currentType = type;
+            }
+        }
+        return true;
+    }, [lastDigits, isStreakFilterActive, maxStreakAllowed, digitTradeMode, digitPrediction]);
+
+    // LÓGICA DE EXECUÇÃO: IMEDIATA E SEQUENCIAL
+    useEffect(() => {
+        if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isTradeOpen.current) return;
+        
+        // FASE 2: ANALISANDO A SEQUÊNCIA DE FILTRO (IMEDIATA)
+        if (isWaitingForVirtualResult && lastTradeDetails.current) {
+            processedTickEpoch.current = lastTickEpoch;
+            const currentDigit = lastDigits[0];
+            const trade = lastTradeDetails.current;
+            let isVirtualWin = false;
+
+            if (trade.contractType === 'DIGITEVEN') isVirtualWin = currentDigit % 2 === 0;
+            else if (trade.contractType === 'DIGITODD') isVirtualWin = currentDigit % 2 !== 0;
+            else if (trade.contractType === 'DIGITOVER') isVirtualWin = currentDigit > (trade.barrier || 0);
+            else if (trade.contractType === 'DIGITUNDER') isVirtualWin = currentDigit < (trade.barrier || 0);
+
+            // LOGICA: SE TIVER META DE LOSS VIRTUAL, ELA TEM PRIORIDADE
+            if (virtualTargetLosses > 0 && virtualLossStreak < virtualTargetLosses) {
+                if (isVirtualWin) {
+                    addLog(`Win Virtual no dígito ${currentDigit}. Sequência de Loss interrompida.`, 'INFO');
+                    setVirtualLossStreak(0);
+                    setVirtualWinStreak(0);
+                    setIsWaitingForVirtualResult(false);
+                } else {
+                    const nextLossStreak = virtualLossStreak + 1;
+                    setVirtualLossStreak(nextLossStreak);
+                    addLog(`Loss Virtual ${nextLossStreak}/${virtualTargetLosses} (Dígito ${currentDigit})`, 'ERROR');
+                    
+                    if (nextLossStreak >= virtualTargetLosses && virtualTargetWins === 0) {
+                        addLog("Sequência de Loss atingida! EXECUTANDO ENTRADA REAL.", 'TRADE');
+                        isTradeOpen.current = true;
+                        setVirtualLossStreak(0);
+                        setIsWaitingForVirtualResult(false);
+                        executeBuy(trade.contractType!, trade.strategyName, trade.signalId, trade.barrier || 0);
+                    }
+                }
+                return;
+            }
+
+            // LOGICA: SE JÁ PASSOU PELOS LOSSES OU NÃO TINHA, VERIFICA WINS VIRTUAIS
+            if (virtualTargetWins > 0) {
+                if (isVirtualWin) {
+                    const nextWinStreak = virtualWinStreak + 1;
+                    setVirtualWinStreak(nextWinStreak);
+                    addLog(`Win Virtual ${nextWinStreak}/${virtualTargetWins} (Dígito ${currentDigit})`, 'WIN');
+                    
+                    if (nextWinStreak >= virtualTargetWins) {
+                        addLog("Sequência de Vitória Virtual atingida! EXECUTANDO ENTRADA REAL.", 'TRADE');
+                        isTradeOpen.current = true;
+                        setVirtualLossStreak(0);
+                        setVirtualWinStreak(0);
+                        setIsWaitingForVirtualResult(false);
+                        executeBuy(trade.contractType!, trade.strategyName, trade.signalId, trade.barrier || 0);
+                    }
+                } else {
+                    addLog(`Loss Virtual no dígito ${currentDigit}. Sequência de confirmação interrompida.`, 'INFO');
+                    setVirtualLossStreak(0);
+                    setVirtualWinStreak(0);
+                    setIsWaitingForVirtualResult(false);
+                }
+                return;
+            }
+        }
+
+        // FASE 1: BUSCANDO O PADRÃO INICIAL
+        if (lastDigits.length < catalogerPatternLength) return;
+        processedTickEpoch.current = lastTickEpoch;
+
+        // FILTRO DE ZIGUE-ZAGUE (ESTABILIDADE)
+        if (!isMarketStable()) return;
+
+        let contract: ContractType | null = null;
+        let strategyName = '';
+        let barrier = digitPrediction;
+
+        if (activeStrategy === 'smartAI' && smartAIAnalysis) {
+            const { pattern, contractType } = smartAIAnalysis;
+            const currentPattern = digitTradeMode === 'evenOdd'
+                ? lastDigits.slice(0, pattern.length).map(d => d % 2 === 0 ? 'E' : 'O').reverse().join('')
+                : lastDigits.slice(0, pattern.length).map(d => d > digitPrediction ? 'A' : 'B').reverse().join('');
+            if (currentPattern === pattern) {
+                contract = contractType;
+                strategyName = `IA: ${pattern}`;
+            }
+        } else if (activeStrategy === 'doubleOneTrigger' && isDoubleOneTriggerActive) {
+            const recent = lastDigits.slice(0, doubleOneTriggerCount);
+            if (recent.length === doubleOneTriggerCount && recent.every(d => doubleOneTriggerTargetDigits.includes(d))) {
+                contract = recent[0] % 2 === 0 ? 'DIGITEVEN' : 'DIGITODD';
+                strategyName = "Gatilho";
+            }
+        }
+
+        if (contract) {
+            const sId = addSignal({ strategy: strategyName, signal: getSignalType(contract), details: 'Análise Sequencial', winRate: '...' });
+            setCurrentSignal(contract, { strategyName, winRate: 0, signalId: sId });
+            
+            // VERIFICA SE DEVE ATIVAR O FILTRO VIRTUAL OU ENTRAR DIRETO
+            if (virtualTargetLosses > 0 || virtualTargetWins > 0) {
+                lastTradeDetails.current = { stake: 0, strategyName, signalId: sId, contractType: contract, barrier };
+                setIsWaitingForVirtualResult(true);
+                setVirtualLossStreak(0);
+                setVirtualWinStreak(0);
+                const msg = [];
+                if (virtualTargetLosses > 0) msg.push(`${virtualTargetLosses} losses`);
+                if (virtualTargetWins > 0) msg.push(`${virtualTargetWins} wins`);
+                addLog(`Padrão Detectado. Aguardando ${msg.join(' e ')} para entrar...`, 'INFO');
+            } else {
+                isTradeOpen.current = true;
+                executeBuy(contract, strategyName, sId, barrier);
+            }
+        }
+    }, [isBotRunning, lastDigits, lastTickEpoch, activeStrategy, smartAIAnalysis, digitTradeMode, digitPrediction, isDoubleOneTriggerActive, doubleOneTriggerCount, doubleOneTriggerTargetDigits, catalogerPatternLength, isWaitingForVirtualResult, virtualLossStreak, virtualWinStreak, virtualTargetLosses, virtualTargetWins, isMarketStable]);
+
+    // Resultados Reais
+    useEffect(() => {
+        if (!lastCompletedContract) return;
+        const { profit, status, contract_id, exit_tick } = lastCompletedContract;
+        if (activeContract?.contract_id !== contract_id) return;
+        const isLoss = status === 'lost';
+        const exitDigit = parseInt(String(exit_tick).slice(-1));
+        const lastTrade = lastTradeDetails.current;
+        
+        setAccountBalance(prev => prev !== null ? prev + parseFloat(profit) : null);
+        totalProfitRef.current += parseFloat(profit);
+        setTotalProfit(totalProfitRef.current);
+        
+        if (isLoss) {
+            setLosses(prev => prev + 1);
+            // Se perdeu no real, aumenta o nível do gale para a próxima entrada real (após o filtro)
+            if (isMartingaleActive && isBotRunning) martingaleLevel.current += 1;
+            addLog(`LOSS REAL: $${Math.abs(parseFloat(profit)).toFixed(2)} (Gale nível ${martingaleLevel.current})`, 'LOSS', { profit: parseFloat(profit), strategyName: lastTrade?.strategyName, exitDigit });
+        } else {
+            setWins(prev => prev + 1);
+            // Se ganhou no real, reseta o gale
+            martingaleLevel.current = 0;
+            addLog(`WIN REAL: $${parseFloat(profit).toFixed(2)}`, 'WIN', { profit: parseFloat(profit), strategyName: lastTrade?.strategyName, exitDigit });
+        }
+        
+        if (lastTrade?.signalId) updateSignalResult(lastTrade.signalId, isLoss ? 'LOSS' : 'WIN', parseFloat(profit), lastTrade.stake, exitDigit);
+        isTradeOpen.current = false; setActiveContract(null); setTradeStatus('IDLE'); setLastCompletedContract(null);
+        
+        if (isBotRunning) {
+            if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("META BATIDA!");
+            else if (totalProfitRef.current <= -parseFloat(stopLoss)) stopBot("STOP LOSS!");
+            else if (martingaleLevel.current > maxLevels) { 
+                addLog("Limite de Gale Real atingido. Resetando nível.", "ERROR"); 
+                martingaleLevel.current = 0; 
+            }
+        }
+    }, [lastCompletedContract, activeContract, isBotRunning, takeProfit, stopLoss, maxLevels, isMartingaleActive]);
 
     const handleConnect = useCallback((targetType?: 'real' | 'demo', targetToken?: string) => {
         const type = targetType || accountType;
@@ -248,15 +372,19 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (token) connect(token, type);
     }, [accountType, realToken, demoToken, connect]);
 
+    const handleDisconnect = useCallback(() => {
+        disconnect(); stopBot("Desconectado");
+    }, [disconnect, stopBot]);
+
+    const toggleBot = useCallback(() => {
+        if (!isConnected) return;
+        if (isBotRunning) stopBot("Parado");
+        else { setIsBotRunning(true); totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0); martingaleLevel.current = 0; setVirtualLossStreak(0); setVirtualWinStreak(0); }
+    }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit]);
+
     const contextValue = useMemo(() => ({
-        ...stateAndSetters, 
-        isConnected, 
-        status, 
-        handleConnect, 
-        handleDisconnect: disconnect, 
-        manualBuy: () => {}, 
-        toggleBot: () => setIsBotRunning(!isBotRunning),
-    }), [stateAndSetters, isConnected, status, handleConnect, disconnect, isBotRunning, setIsBotRunning]);
+        ...stateAndSetters, isConnected, status, handleConnect, handleDisconnect, toggleBot, manualBuy: () => {}, fetchClosedHistory, clearClosedHistory: () => setClosedHistory([]),
+    }), [stateAndSetters, isConnected, status, handleConnect, handleDisconnect, toggleBot, fetchClosedHistory]);
 
     return <BotContext.Provider value={contextValue}>{children}</BotContext.Provider>;
 };

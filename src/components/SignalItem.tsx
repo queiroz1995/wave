@@ -37,9 +37,17 @@ const SignalItem: React.FC<SignalItemProps> = ({ signal }) => {
                             <span className={cn("font-extrabold", profitColor)}>
                                 {profitSign}{signal.profit?.toFixed(2)}
                             </span>
+                            {signal.exitDigit !== undefined && (
+                                <span className="text-muted-foreground text-[10px] ml-1">
+                                    (Dígito: <span className={cn(
+                                        "font-bold",
+                                        signal.exitDigit === 0 ? 'text-blue-400' : (signal.exitDigit % 2 === 0 ? 'text-green-400' : 'text-red-400')
+                                    )}>{signal.exitDigit}</span>)
+                                </span>
+                            )}
                         </p>
                         <p className="text-[10px] text-muted-foreground/80 mt-1">
-                            Estratégia: <span className="font-semibold text-primary/80">{signal.strategy}</span>
+                            Estratégia: <span className="font-semibold text-primary/80">{signal.strategy}</span> | Stake: ${signal.stake?.toFixed(2) || 'N/A'}
                         </p>
                     </div>
                 ) : (

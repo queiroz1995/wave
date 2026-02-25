@@ -37,8 +37,6 @@ export const useBotPersistence = (state: ReturnType<typeof useBotState>) => {
         virtualLossStreak, virtualWinStreak, isWaitingForVirtualResult, virtualTargetLosses, virtualTargetWins,
         // NOVO: Filtro de Sequência
         isStreakFilterActive, maxStreakAllowed,
-        // ROULETTE
-        rouletteHistory,
     } = state;
     
     useEffect(() => {
@@ -73,7 +71,6 @@ export const useBotPersistence = (state: ReturnType<typeof useBotState>) => {
             virtualTargetWins,
             isStreakFilterActive,
             maxStreakAllowed,
-            rouletteHistory,
         };
 
         localStorage.setItem('derivBotState', JSON.stringify(stateToSave));
@@ -107,6 +104,5 @@ export const useBotPersistence = (state: ReturnType<typeof useBotState>) => {
         virtualTargetWins,
         isStreakFilterActive,
         maxStreakAllowed,
-        rouletteHistory,
     ]);
 };
