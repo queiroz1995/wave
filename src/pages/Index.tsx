@@ -4,8 +4,9 @@ import { ConnectionPanel } from '@/components/bot/ConnectionPanel';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { RouletteMode } from '@/components/bot/RouletteMode';
 import { RouletteHistory } from '@/components/bot/RouletteHistory';
+import { RouletteAnalyzer } from '@/components/bot/RouletteAnalyzer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Gamepad2, History } from 'lucide-react';
+import { Gamepad2, History, BarChart3 } from 'lucide-react';
 
 const IndexPage = () => {
   return (
@@ -17,19 +18,27 @@ const IndexPage = () => {
         
         <div className="lg:col-span-2">
             <Tabs defaultValue="game" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-4 bg-muted/50 p-1 h-12">
+                <TabsList className="grid w-full grid-cols-3 mb-4 bg-muted/50 p-1 h-12">
                     <TabsTrigger value="game" className="flex items-center gap-2 font-bold data-[state=active]:bg-primary data-[state=active]:text-white">
                         <Gamepad2 className="h-4 w-4" />
                         Operação
                     </TabsTrigger>
+                    <TabsTrigger value="analyzer" className="flex items-center gap-2 font-bold data-[state=active]:bg-primary data-[state=active]:text-white">
+                        <BarChart3 className="h-4 w-4" />
+                        Tendência
+                    </TabsTrigger>
                     <TabsTrigger value="history" className="flex items-center gap-2 font-bold data-[state=active]:bg-primary data-[state=active]:text-white">
                         <History className="h-4 w-4" />
-                        Histórico & Análise
+                        Histórico
                     </TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="game" className="mt-0">
                     <RouletteMode />
+                </TabsContent>
+
+                <TabsContent value="analyzer" className="mt-0">
+                    <RouletteAnalyzer />
                 </TabsContent>
                 
                 <TabsContent value="history" className="mt-0">
