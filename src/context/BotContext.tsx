@@ -25,9 +25,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const currentAssetRef = useRef<string>('');
     const hasTradedCurrentRoundRef = useRef<boolean>(false);
     
-    // Inicia com um número aleatório para evitar o "bug do zero" no começo
     const lastTickDigitRef = useRef<number>(Math.floor(Math.random() * 10));
     const hasReceivedFirstTick = useRef<boolean>(false);
+    const lastContractExitDigitRef = useRef<number | null>(null);
 
     const {
         addLog, setAccountBalance, setLastDigits, setIsBotRunning,
@@ -59,7 +59,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         const label = contractType === 'DIGITEVEN' ? 'PAR' : 
                       contractType === 'DIGITODD' ? 'ÍMPAR' : 
-                      `Número ${prediction}`;
+                      `NÚMERO ${prediction}`;
 
         const signalId = addSignal({
             strategy: "Roleta",
@@ -90,11 +90,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             passthrough: { signalId }
         });
         
-        addLog(`[Aposta] Enviando ${label} ($${stake.toFixed(2)})`, "TRADE", { stake, contractType, barrier: contractType === 'DIGITMATCH' ? Number(prediction) : undefined });
+        addLog(`[Aposta] ${label} enviado ($${stake.toFixed(2)})`, "TRADE", { stake, contractType, barrier: contractType === 'DIGITMATCH' ? Number(prediction) : undefined });
 
     }, [isConnected, asset, addSignal, addLog]);
 
-    // 2. CRONÔMETRO CENTRALIZADO
+    // 2. CRONÔMETRO E SINCRONIZAÇÃO DE RESULTADO
     useEffect(() => {
         if (!isRouletteMode) return;
         
@@ -106,40 +106,44 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             setRouletteTimer(remaining === 0 ? 16 : remaining);
 
+            // Fase de Giro (Animação)
             if (remaining <= 4 && remaining >= 1) {
                 setIsRouletteSpinning(true);
             } else {
                 setIsRouletteSpinning(false);
             }
 
+            // EXIBIÇÃO DO RESULTADO (No segundo 1)
             if (remaining === 1) {
-                const winningDigit = hasReceivedFirstTick.current 
-                    ? lastTickDigitRef.current 
-                    : Math.floor(Math.random() * 10);
+                // Se houve contrato, usamos o dígito real da Deriv. Se não, o último tick.
+                const finalDigit = lastContractExitDigitRef.current !== null 
+                    ? lastContractExitDigitRef.current 
+                    : lastTickDigitRef.current;
                 
-                setLastRouletteResult(winningDigit);
-                setRouletteHistory((prev: number[]) => [winningDigit, ...prev].slice(0, 50));
+                setLastRouletteResult(finalDigit);
+                setRouletteHistory((prev: number[]) => [finalDigit, ...prev].slice(0, 50));
+                
+                // Reseta o dígito de contrato para a próxima rodada
+                lastContractExitDigitRef.current = null;
             }
 
-            // Envio das apostas (5s antes do fim)
+            // ENVIO DAS APOSTAS (5s restantes)
             if (remaining === 5 && !hasTradedCurrentRoundRef.current) {
                 if (isConnected) {
                     const stakeAmount = parseFloat(initialStake);
                     let hasBets = false;
 
-                    // 1. Apostas em números específicos (DIGITMATCH)
+                    // Números exatos (Aposta "Match" que paga muito)
                     if (selectedRouletteNumbers.length > 0) {
                         selectedRouletteNumbers.forEach(num => executeTrade(num, stakeAmount, 'DIGITMATCH'));
                         hasBets = true;
                     }
                     
-                    // 2. Apostas em Par (DIGITEVEN)
                     if (selectedRouletteEven) {
                         executeTrade('even', stakeAmount, 'DIGITEVEN');
                         hasBets = true;
                     }
                     
-                    // 3. Apostas em Ímpar (DIGITODD)
                     if (selectedRouletteOdd) {
                         executeTrade('odd', stakeAmount, 'DIGITODD');
                         hasBets = true;
@@ -151,19 +155,18 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             }
 
+            // Limpeza para nova rodada
             if (remaining === 13) {
                 setLastRouletteResult(null);
                 hasTradedCurrentRoundRef.current = false;
             }
             
-            // REMOVIDO: Limpeza automática das seleções (selectedRouletteNumbers, selectedRouletteEven, selectedRouletteOdd)
-            // Agora as seleções persistem até serem desmarcadas manualmente.
         }, 1000);
 
         return () => clearInterval(interval);
     }, [isRouletteMode, isConnected, selectedRouletteNumbers, selectedRouletteEven, selectedRouletteOdd, initialStake, executeTrade, setRouletteTimer, setIsRouletteSpinning, setLastRouletteResult, setRouletteHistory]);
 
-    // 3. WEBSOCKET FEED
+    // 3. PROCESSAMENTO DE MENSAGENS DA DERIV
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
         const data = event.payload;
         if (event.type === 'message') {
@@ -173,9 +176,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 if (data.authorize.balance) setAccountBalance(data.authorize.balance);
                 sendMessageRef.current({ balance: 1, subscribe: 1 });
             } else if (data?.msg_type === 'tick' && data.tick?.symbol === asset) {
-                const quote = data.tick.quote.toString();
-                const digit = parseInt(quote.slice(-1));
-                
+                const digit = parseInt(data.tick.quote.toString().slice(-1));
                 lastTickDigitRef.current = digit;
                 hasReceivedFirstTick.current = true;
                 setLastDigits(prev => [digit, ...prev].slice(0, 100));
@@ -188,16 +189,13 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     const profit = parseFloat(contract.profit);
                     const exitDigit = parseInt(contract.exit_tick_display_value.slice(-1));
                     const signalId = data.echo_req.passthrough?.signalId;
-                    const contractType = contract.contract_type as ContractType;
-                    const barrier = contract.barrier ? Number(contract.barrier) : undefined;
                     
-                    // Sincronização visual forçada pelo contrato
-                    setLastRouletteResult(exitDigit);
+                    // GUARDA O NÚMERO EXATO PARA A ROLETA USAR
+                    lastContractExitDigitRef.current = exitDigit;
 
                     totalProfitRef.current += profit;
                     setTotalProfit(totalProfitRef.current);
                     
-                    // Determina o resultado usando o status do contrato
                     const resultType = contract.status === 'won' ? "WIN" : "LOSS";
 
                     if (resultType === 'WIN') {
@@ -206,29 +204,24 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         setLosses(prev => prev + 1);
                     }
 
-                    const logMessage = resultType === 'WIN' 
-                        ? `VITÓRIA! Número ${exitDigit}. Lucro: +$${profit.toFixed(2)}`
-                        : `DERROTA: Número ${exitDigit}. Perda: -$${Math.abs(profit).toFixed(2)}`;
+                    const typeLabel = contract.contract_type === 'DIGITMATCH' ? `NÚMERO ${contract.barrier}` : 
+                                     contract.contract_type === 'DIGITEVEN' ? 'PAR' : 'ÍMPAR';
 
-                    addLog(logMessage, resultType, { 
+                    addLog(`${resultType === 'WIN' ? '✅' : '❌'} [${typeLabel}] Sorteado: ${exitDigit}`, resultType, { 
                         profit, 
                         strategyName: "Roleta", 
                         exitDigit, 
-                        contractType, 
-                        barrier 
+                        contractType: contract.contract_type, 
+                        barrier: contract.barrier 
                     });
 
                     if (signalId) {
                         updateSignalResult(signalId, resultType, profit, parseFloat(contract.buy_price), exitDigit);
                     }
                 }
-            } else if (data?.error) {
-                if (!data.error.message.includes("already subscribed")) {
-                    addLog(`Mensagem: ${data.error.message}`, "ERROR");
-                }
             }
         }
-    }, [asset, setLastDigits, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, addLog, setLastRouletteResult]);
+    }, [asset, setLastDigits, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, addLog]);
 
     const ws = useTradingWebSocketManager({ isConnected, status, setIsConnected, setStatus, setAccountBalance, onMessage: handleWebSocketMessage, reconnectAttemptsRef });
     const { sendMessage, connect, disconnect, isSocketOpen } = ws;
