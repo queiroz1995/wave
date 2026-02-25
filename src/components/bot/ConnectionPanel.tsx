@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Power, PowerOff, DollarSign } from 'lucide-react';
+import { Power, PowerOff, DollarSign, ExternalLink } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
 
 export const ConnectionPanel: React.FC = () => {
@@ -23,7 +23,6 @@ export const ConnectionPanel: React.FC = () => {
 
     const handleAccountTypeChange = (value: 'real' | 'demo') => {
         setAccountType(value); 
-        // Apenas troca o tipo, a conexão é feita no botão "Conectar"
     };
 
     return (
@@ -34,19 +33,29 @@ export const ConnectionPanel: React.FC = () => {
                     <Select value={accountType} onValueChange={handleAccountTypeChange}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="demo">Demo</SelectItem>
-                            <SelectItem value="real">Real</SelectItem>
+                            <SelectItem value="demo">Demo (Treino)</SelectItem>
+                            <SelectItem value="real">Real (Dinheiro)</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="token-input">Token de Acesso</Label>
+                    <div className="flex items-center justify-between">
+                        <Label htmlFor="token-input">Token de Acesso</Label>
+                        <a 
+                            href="https://app.deriv.com/account/api-token" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-[10px] text-primary hover:underline flex items-center gap-1"
+                        >
+                            Gerar Token <ExternalLink className="h-2 w-2" />
+                        </a>
+                    </div>
                     <Input 
                         id="token-input" 
                         type="password" 
                         value={currentToken} 
                         onChange={(e) => accountType === 'real' ? setRealToken(e.target.value) : setDemoToken(e.target.value)} 
-                        placeholder="Insira seu token aqui" 
+                        placeholder="Insira seu token da Deriv" 
                         disabled={isConnected} 
                     />
                 </div>
@@ -73,7 +82,7 @@ export const ConnectionPanel: React.FC = () => {
                 
                 {isConnected && (
                     <div className="text-center pt-4 border-t border-primary/10">
-                        <Label className="text-xs text-muted-foreground uppercase font-bold">Saldo da Conta</Label>
+                        <Label className="text-xs text-muted-foreground uppercase font-bold">Saldo Disponível</Label>
                         <p className="text-2xl font-black text-primary flex items-center justify-center gap-2">
                             <DollarSign className="h-6 w-6" />
                             {accountBalance?.toFixed(2) || '0.00'}
