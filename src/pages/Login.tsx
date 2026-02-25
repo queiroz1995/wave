@@ -46,7 +46,7 @@ const Login = () => {
                 }
             }}
             theme="dark"
-            providers={[]}
+            providers={['google']}
             localization={{
                 variables: {
                     sign_in: {
