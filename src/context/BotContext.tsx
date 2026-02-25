@@ -28,10 +28,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const lastTickDigitRef = useRef<number>(Math.floor(Math.random() * 10));
     const lastContractExitDigitRef = useRef<number | null>(null);
     
-    // Controle de Martingale para Roleta
-    const [rouletteGaleLevel, setRouletteGaleLevel] = useState(0);
-    const roundProfitRef = useRef(0);
-
+    // Agora o Gale Level vem do estado global para permitir controle manual
     const {
         addLog, setAccountBalance, setLastDigits, setIsBotRunning,
         setTotalProfit, setWins, setLosses,
@@ -46,6 +43,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         selectedRouletteOdd, setSelectedRouletteOdd,
         setLastRouletteResult,
         addSignal, updateSignalResult,
+        manualGaleLevel, setManualGaleLevel // Usando o estado global para controle manual
     } = stateAndSetters;
 
     const [isConnected, setIsConnected] = useState(false);
@@ -116,7 +114,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setIsRouletteSpinning(false);
             }
 
-            // EXIBIÇÃO DO RESULTADO (No segundo 1)
+            // EXIBIÇÃO DO RESULTADO
             if (remaining === 1) {
                 const finalDigit = lastContractExitDigitRef.current !== null 
                     ? lastContractExitDigitRef.current 
@@ -124,22 +122,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 
                 setLastRouletteResult(finalDigit);
                 setRouletteHistory((prev: number[]) => [finalDigit, ...prev].slice(0, 50));
-
-                // Lógica de Martingale após a rodada
-                setTimeout(() => {
-                    if (hasTradedCurrentRoundRef.current) {
-                        if (roundProfitRef.current <= 0) {
-                            setRouletteGaleLevel(prev => Math.min(prev + 1, maxLevels));
-                            toast.error("Rodada no prejuízo. Aplicando Martingale...");
-                        } else {
-                            setRouletteGaleLevel(0);
-                            toast.success("Lucro na rodada! Resetando stake.");
-                        }
-                    }
-                    roundProfitRef.current = 0;
-                }, 2000);
                 
                 lastContractExitDigitRef.current = null;
+                // REMOVIDO: Martingale automático removido daqui
             }
 
             // ENVIO DAS APOSTAS (5s restantes)
@@ -147,7 +132,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 if (isConnected) {
                     const baseStake = parseFloat(initialStake);
                     const mgFactor = parseFloat(martingaleFactor) || 2.2;
-                    const stakeAmount = baseStake * Math.pow(mgFactor, rouletteGaleLevel);
+                    // Calcula a stake com base no nível de Gale MANUAL
+                    const stakeAmount = baseStake * Math.pow(mgFactor, manualGaleLevel);
                     
                     let hasBets = false;
 
@@ -179,7 +165,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [isRouletteMode, isConnected, selectedRouletteNumbers, selectedRouletteEven, selectedRouletteOdd, initialStake, martingaleFactor, maxLevels, rouletteGaleLevel, executeTrade, setRouletteTimer, setIsRouletteSpinning, setLastRouletteResult, setRouletteHistory]);
+    }, [isRouletteMode, isConnected, selectedRouletteNumbers, selectedRouletteEven, selectedRouletteOdd, initialStake, martingaleFactor, manualGaleLevel, executeTrade, setRouletteTimer, setIsRouletteSpinning, setLastRouletteResult, setRouletteHistory]);
 
     // 3. PROCESSAMENTO DE MENSAGENS DA DERIV
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
@@ -205,7 +191,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     const signalId = data.echo_req.passthrough?.signalId;
                     
                     lastContractExitDigitRef.current = exitDigit;
-                    roundProfitRef.current += profit;
 
                     totalProfitRef.current += profit;
                     setTotalProfit(totalProfitRef.current);

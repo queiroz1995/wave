@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Plus, Minus, History, Zap, ShoppingCart } from 'lucide-react';
+import { Plus, Minus, History, Zap, ShoppingCart, RotateCcw, TrendingUp } from 'lucide-react';
 
 export const RouletteMode = () => {
     const { 
@@ -14,7 +14,8 @@ export const RouletteMode = () => {
         selectedRouletteNumbers, setSelectedRouletteNumbers,
         selectedRouletteEven, setSelectedRouletteEven,
         selectedRouletteOdd, setSelectedRouletteOdd,
-        lastRouletteResult, initialStake, setInitialStake, isConnected 
+        lastRouletteResult, initialStake, setInitialStake, isConnected,
+        manualGaleLevel, setManualGaleLevel, martingaleFactor
     } = useBotContext();
 
     const isBettingOpen = rouletteTimer >= 5;
@@ -33,15 +34,19 @@ export const RouletteMode = () => {
         return counts.map(c => Math.round((c / total) * 100));
     }, [rouletteHistory]);
 
-    // CÁLCULO TOTAL DA APOSTA
+    // CÁLCULO TOTAL DA APOSTA COM GALE MANUAL
     const totalStakeCalculation = useMemo(() => {
         const stake = parseFloat(initialStake) || 0;
+        const mgFactor = parseFloat(martingaleFactor) || 2.2;
+        const currentStakeWithGale = stake * Math.pow(mgFactor, manualGaleLevel);
+        
         const count = selectedRouletteNumbers.length + (selectedRouletteEven ? 1 : 0) + (selectedRouletteOdd ? 1 : 0);
         return {
             count,
-            total: (count * stake).toFixed(2)
+            unit: currentStakeWithGale.toFixed(2),
+            total: (count * currentStakeWithGale).toFixed(2)
         };
-    }, [selectedRouletteNumbers, selectedRouletteEven, selectedRouletteOdd, initialStake]);
+    }, [selectedRouletteNumbers, selectedRouletteEven, selectedRouletteOdd, initialStake, manualGaleLevel, martingaleFactor]);
 
     const toggleNumber = (num: number) => {
         if (!isBettingOpen) return;
@@ -141,6 +146,24 @@ export const RouletteMode = () => {
                     </Badge>
                 </div>
 
+                {/* PAINEL DE GALE MANUAL */}
+                <div className="grid grid-cols-2 gap-2">
+                    <Button 
+                        variant="outline" 
+                        onClick={() => setManualGaleLevel(manualGaleLevel + 1)}
+                        className="h-10 bg-yellow-500/10 border-yellow-500/30 text-yellow-600 font-bold text-xs"
+                    >
+                        <TrendingUp className="h-4 w-4 mr-2" /> Gale + ({manualGaleLevel})
+                    </Button>
+                    <Button 
+                        variant="outline" 
+                        onClick={() => setManualGaleLevel(0)}
+                        className="h-10 border-white/10 text-muted-foreground font-bold text-xs"
+                    >
+                        <RotateCcw className="h-4 w-4 mr-2" /> Reset Gale
+                    </Button>
+                </div>
+
                 {/* PAINEL DE CONTABILIZAÇÃO EM TEMPO REAL */}
                 <div className={cn(
                     "p-3 rounded-xl border transition-all duration-300 flex items-center justify-between",
@@ -148,10 +171,13 @@ export const RouletteMode = () => {
                 )}>
                     <div className="flex items-center gap-2">
                         <ShoppingCart className={cn("h-4 w-4", totalStakeCalculation.count > 0 ? "text-primary" : "text-muted-foreground")} />
-                        <span className="text-[10px] font-black uppercase text-muted-foreground">Resumo da Rodada</span>
+                        <div>
+                            <span className="text-[10px] font-black uppercase text-muted-foreground block">Resumo da Rodada</span>
+                            {manualGaleLevel > 0 && <span className="text-[9px] font-bold text-yellow-600 uppercase">Gale Nível {manualGaleLevel} Ativo</span>}
+                        </div>
                     </div>
                     <div className="text-right">
-                        <p className="text-[9px] font-bold text-muted-foreground uppercase">{totalStakeCalculation.count} seleções</p>
+                        <p className="text-[9px] font-bold text-muted-foreground uppercase">{totalStakeCalculation.count} seleções x ${totalStakeCalculation.unit}</p>
                         <p className="text-lg font-black text-primary">${totalStakeCalculation.total}</p>
                     </div>
                 </div>
@@ -161,7 +187,7 @@ export const RouletteMode = () => {
                     <div className="flex items-center gap-3">
                         <Button variant="outline" size="icon" className="h-12 w-12 shrink-0 border-white/10" onClick={() => adjustStake(-0.5)}><Minus className="h-5 w-5" /></Button>
                         <div className="flex-1 text-center bg-muted/30 rounded-xl py-2 border border-white/5">
-                            <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Aposta Unitária</p>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Aposta Base</p>
                             <p className="text-xl font-black">${initialStake}</p>
                         </div>
                         <Button variant="outline" size="icon" className="h-12 w-12 shrink-0 border-white/10" onClick={() => adjustStake(0.5)}><Plus className="h-5 w-5" /></Button>
