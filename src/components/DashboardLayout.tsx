@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { BarChart } from 'lucide-react';
+import { BarChart, LogOut } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useBotContext } from '@/context/BotContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,6 +11,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { FunctionGuideModal } from '@/components/bot/FunctionGuideModal';
 import { Separator } from '@/components/ui/separator';
 import { SettingsSheet } from '@/components/bot/SettingsSheet';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 interface DashboardLayoutProps {
     children: React.ReactNode;
@@ -18,6 +20,7 @@ interface DashboardLayoutProps {
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     const { totalProfit, accountBalance, wins, losses } = useBotContext();
+    const { signOut } = useAuth();
     const isMobile = useIsMobile(1024);
     const [activeTab, setActiveTab] = useState("operations");
 
@@ -37,7 +40,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                         <BarChart className="h-6 w-6 text-primary" />
                     </div>
                     <h1 className="text-xl sm:text-2xl font-extrabold">
-                        Rico 2.0 (Modo Roleta)
+                        Rico 2.0
                     </h1>
                 </div>
                 <div className="flex items-center gap-2 sm:gap-4">
@@ -63,6 +66,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                     <SettingsSheet />
                     <FunctionGuideModal />
                     <ThemeToggle />
+                    <Button variant="ghost" size="icon" onClick={signOut} title="Sair">
+                        <LogOut className="h-[1.2rem] w-[1.2rem] text-destructive" />
+                    </Button>
                 </div>
             </header>
             
