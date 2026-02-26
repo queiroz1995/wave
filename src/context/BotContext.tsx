@@ -251,23 +251,22 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         let strategyName = '';
         let barrier = digitPrediction;
 
-        // LÓGICA PROBABILISTICA (NOVA)
+        // LÓGICA PROBABILISTICA (MARTINGALE IMEDIATO)
         if (activeStrategy === 'probabilistic') {
-             // Se estamos no martingale e com reversão ativa, invertemos o último contrato perdedor
+             // Se estamos no martingale e com reversão ativa, fazemos o GALE IMEDIATO invertendo o último contrato
             if (martingaleLevel.current > 0 && reverseOnLoss && lastTradeDetails.current?.contractType) {
                 const lastType = lastTradeDetails.current.contractType;
                 if (lastType === 'DIGITEVEN') contract = 'DIGITODD';
                 else if (lastType === 'DIGITODD') contract = 'DIGITEVEN';
                 else if (lastType === 'DIGITOVER') contract = 'DIGITUNDER';
                 else if (lastType === 'DIGITUNDER') contract = 'DIGITOVER';
-                strategyName = "Prob: Ciclo Reversão";
-            } else {
-                // Entrada baseada na Máxima da Janela
+                strategyName = "Prob: Gale Reverso";
+            } else if (martingaleLevel.current === 0) {
+                // Entrada baseada na Máxima da Janela (Apenas se não estiver no meio de um Gale)
                 const window = lastDigits.slice(0, probWindow);
                 if (window.length >= probWindow) {
                     const evens = window.filter(d => d % 2 === 0).length;
                     const odds = window.length - evens;
-                    // Aposta no que menos saiu (Reversão à média)
                     contract = evens > odds ? 'DIGITODD' : 'DIGITEVEN';
                     strategyName = `Prob: Máxima ${probWindow}`;
                 }
