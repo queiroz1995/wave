@@ -245,7 +245,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         processedTickEpoch.current = lastTickEpoch;
-        if (!isMarketStable()) return;
 
         let contract: ContractType | null = null;
         let strategyName = '';
@@ -253,7 +252,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         // LÓGICA PROBABILISTICA (MARTINGALE IMEDIATO)
         if (activeStrategy === 'probabilistic') {
-             // Se estamos no martingale e com reversão ativa, fazemos o GALE IMEDIATO invertendo o último contrato
+            // Se estamos no martingale e com reversão ativa, fazemos o GALE IMEDIATO ignorando filtros de estabilidade
             if (martingaleLevel.current > 0 && reverseOnLoss && lastTradeDetails.current?.contractType) {
                 const lastType = lastTradeDetails.current.contractType;
                 if (lastType === 'DIGITEVEN') contract = 'DIGITODD';
@@ -262,7 +261,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 else if (lastType === 'DIGITUNDER') contract = 'DIGITOVER';
                 strategyName = "Prob: Gale Reverso";
             } else if (martingaleLevel.current === 0) {
-                // Entrada baseada na Máxima da Janela (Apenas se não estiver no meio de um Gale)
+                // Entrada baseada na Máxima da Janela (Apenas se o mercado estiver estável)
+                if (!isMarketStable()) return;
                 const window = lastDigits.slice(0, probWindow);
                 if (window.length >= probWindow) {
                     const evens = window.filter(d => d % 2 === 0).length;
@@ -273,6 +273,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
         }
         else if (activeStrategy === 'neuralRico') {
+            if (!isMarketStable()) return;
             const window = lastDigits.slice(0, neuralRicoWindow);
             if (window.length >= neuralRicoWindow) {
                 const evens = window.filter(d => d % 2 === 0).length;
@@ -291,6 +292,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             }
         } else if (activeStrategy === 'smartAI' && smartAIAnalysis) {
+            if (!isMarketStable()) return;
             const { pattern, contractType } = smartAIAnalysis;
             const currentPattern = digitTradeMode === 'evenOdd'
                 ? lastDigits.slice(0, pattern.length).map(d => d % 2 === 0 ? 'E' : 'O').reverse().join('')
@@ -299,6 +301,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 contract = contractType; strategyName = `IA: ${pattern}`;
             }
         } else if (activeStrategy === 'doubleOneTrigger' && isDoubleOneTriggerActive) {
+            if (!isMarketStable()) return;
             const recent = lastDigits.slice(0, doubleOneTriggerCount);
             if (recent.length === doubleOneTriggerCount && recent.every(d => doubleOneTriggerTargetDigits.includes(d))) {
                 contract = recent[0] % 2 === 0 ? 'DIGITEVEN' : 'DIGITODD'; strategyName = "Gatilho";
