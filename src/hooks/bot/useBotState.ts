@@ -22,7 +22,7 @@ const DEFAULTS = {
     stopLoss: '50.00',
     lossRecoveryStrategy: 'martingale' as 'martingale',
     targetProfitPerTrade: '0.35',
-    activeStrategy: 'smartAI' as 'colorPattern' | 'imbalance' | 'analyzer' | 'dynamicDigit' | 'smartAI' | 'doubleOneTrigger',
+    activeStrategy: 'neuralRico' as 'colorPattern' | 'imbalance' | 'analyzer' | 'dynamicDigit' | 'smartAI' | 'doubleOneTrigger' | 'neuralRico',
     minWinRate: 55,
     marketStabilityThreshold: '10',
     colorPatternProfiles: {},
@@ -59,13 +59,15 @@ const DEFAULTS = {
     sorosLevels: 0,
     sorosProfitPercentage: 0,
     virtualLossStreak: 0,
-    virtualWinStreak: 0, // NOVO
+    virtualWinStreak: 0,
     isWaitingForVirtualResult: false,
     virtualTargetLosses: 3,
-    virtualTargetWins: 0, // NOVO
-    // NOVOS ESTADOS PARA FILTRO DE SEQUÊNCIA
+    virtualTargetWins: 0,
     isStreakFilterActive: true,
     maxStreakAllowed: 2,
+    // NOVOS ESTADOS PARA NEURAL RICO
+    neuralRicoWindow: 10,
+    neuralRicoThreshold: 70,
 };
 
 const getInitialState = () => {
@@ -89,7 +91,7 @@ const getInitialState = () => {
             mergedState.bankManagementActualBankroll = mergedState.bankManagementInitialBankroll;
         }
         
-        const allowedStrategies = ['smartAI', 'doubleOneTrigger', 'colorPattern'];
+        const allowedStrategies = ['smartAI', 'doubleOneTrigger', 'colorPattern', 'neuralRico'];
         if (!allowedStrategies.includes(mergedState.activeStrategy)) {
             mergedState.activeStrategy = DEFAULTS.activeStrategy;
         }
@@ -134,7 +136,7 @@ export const useBotState = () => {
     const [martingaleMode, setMartingaleMode] = useState<'IMMEDIATE'>(initialState.martingaleMode);
     const [maxTrades, setMaxTrades] = useState(initialState.maxTrades);
     const [isMartingaleActive, setIsMartingaleActive] = useState(initialState.isMartingaleActive);
-    const [activeStrategy, setActiveStrategy] = useState<'colorPattern' | 'imbalance' | 'analyzer' | 'dynamicDigit' | 'smartAI' | 'doubleOneTrigger'>(initialState.activeStrategy);
+    const [activeStrategy, setActiveStrategy] = useState<'colorPattern' | 'imbalance' | 'analyzer' | 'dynamicDigit' | 'smartAI' | 'doubleOneTrigger' | 'neuralRico'>(initialState.activeStrategy);
     const [minWinRate, setMinWinRate] = useState<number | string>(initialState.minWinRate);
     const [marketStabilityThreshold, setMarketStabilityThreshold] = useState<number | string>(initialState.marketStabilityThreshold);
     const [colorPatternProfiles, setColorPatternProfiles] = useState(initialState.colorPatternProfiles);
@@ -167,14 +169,16 @@ export const useBotState = () => {
     const [sorosLevels, setSorosLevels] = useState(initialState.sorosLevels);
     const [sorosProfitPercentage, setSorosProfitPercentage] = useState(initialState.sorosProfitPercentage);
     const [virtualLossStreak, setVirtualLossStreak] = useState(initialState.virtualLossStreak);
-    const [virtualWinStreak, setVirtualWinStreak] = useState(initialState.virtualWinStreak); // NOVO
+    const [virtualWinStreak, setVirtualWinStreak] = useState(initialState.virtualWinStreak);
     const [isWaitingForVirtualResult, setIsWaitingForVirtualResult] = useState(initialState.isWaitingForVirtualResult);
     const [virtualTargetLosses, setVirtualTargetLosses] = useState(initialState.virtualTargetLosses);
-    const [virtualTargetWins, setVirtualTargetWins] = useState(initialState.virtualTargetWins); // NOVO
-    
-    // NOVOS ESTADOS
+    const [virtualTargetWins, setVirtualTargetWins] = useState(initialState.virtualTargetWins);
     const [isStreakFilterActive, setIsStreakFilterActive] = useState(initialState.isStreakFilterActive);
     const [maxStreakAllowed, setMaxStreakAllowed] = useState(initialState.maxStreakAllowed);
+    
+    // NOVOS ESTADOS PARA NEURAL RICO
+    const [neuralRicoWindow, setNeuralRicoWindow] = useState(initialState.neuralRicoWindow);
+    const [neuralRicoThreshold, setNeuralRicoThreshold] = useState(initialState.neuralRicoThreshold);
 
     const [isBotRunning, setIsBotRunning] = useState(false);
     const [manualGaleLevel, setManualGaleLevel] = useState(0);
@@ -279,12 +283,14 @@ export const useBotState = () => {
         lastTradeProfit, setLastTradeProfit,
         isMartingaleActive, setIsMartingaleActive,
         virtualLossStreak, setVirtualLossStreak,
-        virtualWinStreak, setVirtualWinStreak, // NOVO
+        virtualWinStreak, setVirtualWinStreak,
         isWaitingForVirtualResult, setIsWaitingForVirtualResult,
         virtualTargetLosses, setVirtualTargetLosses,
-        virtualTargetWins, setVirtualTargetWins, // NOVO
-        // EXPORTANDO NOVOS ESTADOS
+        virtualTargetWins, setVirtualTargetWins,
         isStreakFilterActive, setIsStreakFilterActive,
         maxStreakAllowed, setMaxStreakAllowed,
+        // EXPORTANDO NOVOS ESTADOS NEURAL RICO
+        neuralRicoWindow, setNeuralRicoWindow,
+        neuralRicoThreshold, setNeuralRicoThreshold,
     };
 };

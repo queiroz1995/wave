@@ -35,8 +35,10 @@ export const useBotPersistence = (state: ReturnType<typeof useBotState>) => {
         isSorosActive, sorosLevels, sorosProfitPercentage,
         // Virtual Loss/Win
         virtualLossStreak, virtualWinStreak, isWaitingForVirtualResult, virtualTargetLosses, virtualTargetWins,
-        // NOVO: Filtro de Sequência
+        // Filtro de Sequência
         isStreakFilterActive, maxStreakAllowed,
+        // Neural Rico
+        neuralRicoWindow, neuralRicoThreshold,
     } = state;
     
     useEffect(() => {
@@ -71,6 +73,8 @@ export const useBotPersistence = (state: ReturnType<typeof useBotState>) => {
             virtualTargetWins,
             isStreakFilterActive,
             maxStreakAllowed,
+            neuralRicoWindow,
+            neuralRicoThreshold,
         };
 
         localStorage.setItem('derivBotState', JSON.stringify(stateToSave));
@@ -104,5 +108,7 @@ export const useBotPersistence = (state: ReturnType<typeof useBotState>) => {
         virtualTargetWins,
         isStreakFilterActive,
         maxStreakAllowed,
+        neuralRicoWindow,
+        neuralRicoThreshold,
     ]);
 };
