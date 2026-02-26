@@ -3,7 +3,7 @@
 import React from 'react';
 import { CheckCircle, XCircle, AlertTriangle, Info, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { LogEntry, LogType, ContractType } from '@/types/bot';
+import { LogEntry, LogType } from '@/types/bot';
 
 interface LogItemProps {
     log: LogEntry;
@@ -23,32 +23,28 @@ const logTypeConfig: Record<LogType, LogConfig> = {
     TRADE: { icon: Zap, color: 'text-cyan-400', bg: 'bg-cyan-400/10' },
 };
 
-const formatContractType = (type?: ContractType) => {
-    if (!type) return '';
-    switch (type) {
-        case 'DIGITODD': return 'Ímpar';
-        case 'DIGITEVEN': return 'Par';
-        case 'DIGITOVER': return 'Acima';
-        case 'DIGITUNDER': return 'Abaixo';
-        case 'DIGITMATCH': return 'Número';
-        default: return type;
-    }
-};
-
-const getDigitParity = (digit: number) => {
-    if (digit === 0) return 'Par (0)';
-    return digit % 2 === 0 ? 'Par' : 'Ímpar';
-};
-
 const LogItem: React.FC<LogItemProps> = ({ log }) => {
     const config = logTypeConfig[log.type] || logTypeConfig.INFO;
     const Icon = config.icon;
 
     const isTradeResult = log.type === 'WIN' || log.type === 'LOSS';
+    const isTradeInitiation = log.type === 'TRADE';
     const profitColor = log.profit && log.profit > 0 ? 'text-green-500' : 'text-red-500';
     const profitSign = log.profit && log.profit >= 0 ? '+' : '';
 
+    // Limpa quebras de linha e espaços múltiplos da mensagem para garantir que seja uma linha única
     const cleanMessage = log.message.replace(/[\r\n]+/g, ' ').replace(/\s\s+/g, ' ').trim();
+
+    const formatContractType = (type?: string) => {
+        if (!type) return '';
+        switch (type) {
+            case 'DIGITODD': return 'Ímpar';
+            case 'DIGITEVEN': return 'Par';
+            case 'DIGITOVER': return 'Acima';
+            case 'DIGITUNDER': return 'Abaixo';
+            default: return type;
+        }
+    };
 
     return (
         <div className={cn(
@@ -60,43 +56,67 @@ const LogItem: React.FC<LogItemProps> = ({ log }) => {
             </div>
             
             <div className="flex-1 min-w-0">
-                <div className="flex flex-col min-h-[16px]">
-                    <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground/70 text-[10px] min-w-[55px] font-mono flex-shrink-0">
-                            {log.timestamp}
-                        </span>
-                        
-                        {isTradeResult ? (
+                <div className="flex items-center gap-2 min-h-[16px]"> {/* Garante altura mínima */}
+                    <span className="text-muted-foreground/70 text-[10px] min-w-[55px] font-mono flex-shrink-0">
+                        {log.timestamp}
+                    </span>
+                    
+                    {isTradeResult ? (
+                        <div className="flex flex-col">
                             <p className="font-bold text-sm">
                                 <span className={cn("mr-2", config!.color)}>{log.type === 'WIN' ? 'VITÓRIA' : 'DERROTA'}</span>
                                 <span className={cn("font-extrabold", profitColor)}>
                                     {profitSign}{log.profit?.toFixed(2)}
                                 </span>
+                                {log.exitDigit !== undefined && (
+                                    <span className="text-muted-foreground text-[10px] ml-1">
+                                        (Dígito: <span className={cn(
+                                            "font-bold",
+                                            log.exitDigit === 0 ? 'text-blue-400' : (log.exitDigit % 2 === 0 ? 'text-green-400' : 'text-red-400')
+                                        )}>{log.exitDigit}</span>)
+                                    </span>
+                                )}
                             </p>
-                        ) : (
-                            <p className="text-foreground/90 truncate whitespace-nowrap text-[11px]" title={cleanMessage}>
-                                {cleanMessage}
+                            <p className="text-[10px] text-muted-foreground/80 mt-1">
+                                {log.strategyName && (
+                                    <>Estratégia: <span className="font-semibold text-primary/80">{log.strategyName}</span></>
+                                )}
+                                {(log.contractType || log.barrier !== undefined) && (
+                                    <span className="ml-1">
+                                        | Contrato: <span className="font-semibold text-primary/80">{formatContractType(log.contractType)}</span>
+                                        {log.barrier !== undefined && ` (Barreira: ${log.barrier})`}
+                                    </span>
+                                )}
                             </p>
-                        )}
-                    </div>
-                    
-                    {isTradeResult && (
-                        <p className="text-[10px] text-muted-foreground/80 mt-0.5">
-                            {log.contractType && (
-                                <>Aposta: <span className="font-semibold text-primary/80">{formatContractType(log.contractType)}</span></>
-                            )}
-                            {log.contractType === 'DIGITMATCH' && log.barrier !== undefined && (
-                                <span className="ml-2">Alvo: <span className="font-semibold text-primary/80">{log.barrier}</span></span>
-                            )}
-                            {log.exitDigit !== undefined && (
-                                <span className="ml-2">
-                                    Resultado: <span className="font-semibold text-primary/80">{log.exitDigit}</span>
-                                    {log.contractType === 'DIGITEVEN' || log.contractType === 'DIGITODD' ? ` (${getDigitParity(log.exitDigit)})` : ''}
-                                </span>
-                            )}
+                        </div>
+                    ) : (
+                        <p className="text-foreground/90 truncate whitespace-nowrap text-[11px]" title={cleanMessage}>
+                            {cleanMessage}
                         </p>
                     )}
                 </div>
+                
+                {/* Exibe detalhes de trade não-resultado em uma linha separada, se existirem */}
+                {isTradeInitiation && (log.stake !== undefined || log.strategyName || log.contractType) && (
+                    <div className="flex gap-2 text-[10px] mt-0.5 pl-0.5 text-muted-foreground">
+                        {log.stake !== undefined && (
+                            <span className="whitespace-nowrap">
+                                Stake: <span className="font-mono">${log.stake.toFixed(2)}</span>
+                            </span>
+                        )}
+                        {log.strategyName && (
+                            <span className="truncate whitespace-nowrap">
+                                Estratégia: {log.strategyName}
+                            </span>
+                        )}
+                        {log.contractType && (
+                            <span className="whitespace-nowrap">
+                                Contrato: {formatContractType(log.contractType)}
+                                {log.barrier !== undefined && ` (Barreira: ${log.barrier})`}
+                            </span>
+                        )}
+                    </div>
+                )}
             </div>
         </div>
     );

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Power, PowerOff, DollarSign, ExternalLink } from 'lucide-react';
+import { Power, PowerOff, DollarSign, RotateCcw } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
 
 export const ConnectionPanel: React.FC = () => {
@@ -17,12 +17,27 @@ export const ConnectionPanel: React.FC = () => {
         handleConnect, handleDisconnect,
         isConnected, status,
         accountBalance,
+        addLog,
     } = useBotContext();
 
     const currentToken = accountType === 'real' ? realToken : demoToken;
 
     const handleAccountTypeChange = (value: 'real' | 'demo') => {
-        setAccountType(value); 
+        console.log(`[ConnectionPanel] Changing account type to: ${value}. Is connected: ${isConnected}`);
+        setAccountType(value); // Atualiza o tipo de conta no estado
+        
+        // Conecta imediatamente à nova conta (handleConnect gerenciará a desconexão da anterior se houver)
+        const tokenToUse = value === 'real' ? realToken : demoToken;
+        handleConnect(value, tokenToUse);
+    };
+
+    const handleSynchronize = () => {
+        if (!currentToken) {
+            addLog("Token de acesso vazio. Por favor, insira o token antes de sincronizar.", 'ERROR');
+            return;
+        }
+        // Chama handleConnect sem argumentos para usar o estado atual (token e accountType)
+        handleConnect();
     };
 
     return (
@@ -33,29 +48,19 @@ export const ConnectionPanel: React.FC = () => {
                     <Select value={accountType} onValueChange={handleAccountTypeChange}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="demo">Demo (Treino)</SelectItem>
-                            <SelectItem value="real">Real (Dinheiro)</SelectItem>
+                            <SelectItem value="demo">Demo</SelectItem>
+                            <SelectItem value="real">Real</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
                 <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                        <Label htmlFor="token-input">Token de Acesso</Label>
-                        <a 
-                            href="https://app.deriv.com/account/api-token" 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-[10px] text-primary hover:underline flex items-center gap-1"
-                        >
-                            Gerar Token <ExternalLink className="h-2 w-2" />
-                        </a>
-                    </div>
+                    <Label htmlFor="token-input">Token de Acesso</Label>
                     <Input 
                         id="token-input" 
                         type="password" 
                         value={currentToken} 
                         onChange={(e) => accountType === 'real' ? setRealToken(e.target.value) : setDemoToken(e.target.value)} 
-                        placeholder="Insira seu token da Deriv" 
+                        placeholder="Insira seu token aqui" 
                         disabled={isConnected} 
                     />
                 </div>
@@ -64,7 +69,7 @@ export const ConnectionPanel: React.FC = () => {
                     <Button 
                         onClick={isConnected ? handleDisconnect : () => handleConnect(accountType, currentToken)} 
                         variant={isConnected ? "destructive" : "default"}
-                        className="flex-1 font-bold"
+                        className="flex-1"
                     >
                         {isConnected ? (
                             <>
@@ -74,25 +79,37 @@ export const ConnectionPanel: React.FC = () => {
                         ) : (
                             <>
                                 <Power className="h-4 w-4 mr-2" />
-                                <span>Conectar Conta</span>
+                                <span>Conectar</span>
                             </>
                         )}
                     </Button>
+                    
+                    {!isConnected && (
+                        <Button 
+                            onClick={handleSynchronize} 
+                            variant="outline"
+                            size="icon"
+                            className="flex-shrink-0"
+                        >
+                            <RotateCcw className="h-4 w-4" />
+                            <span className="sr-only">Sincronizar</span>
+                        </Button>
+                    )}
                 </div>
                 
-                {isConnected && (
-                    <div className="text-center pt-4 border-t border-primary/10">
-                        <Label className="text-xs text-muted-foreground uppercase font-bold">Saldo Disponível</Label>
-                        <p className="text-2xl font-black text-primary flex items-center justify-center gap-2">
+                {isConnected && accountBalance !== null && (
+                    <div className="text-center pt-4 border-t">
+                        <Label>Saldo da Conta</Label>
+                        <p className="text-2xl font-bold text-primary flex items-center justify-center gap-2">
                             <DollarSign className="h-6 w-6" />
-                            {accountBalance?.toFixed(2) || '0.00'}
+                            {accountBalance.toFixed(2)}
                         </p>
                     </div>
                 )}
 
                 <div className="flex items-center justify-center space-x-2 pt-2 text-sm">
-                    <span className={`h-2 w-2 rounded-full ${status.color} transition-all animate-pulse`}></span>
-                    <span className="font-medium text-muted-foreground">{status.message}</span>
+                    <span className={`h-3 w-3 rounded-full ${status.color} transition-all animate-pulse`}></span>
+                    <span>{status.message}</span>
                 </div>
             </CardContent>
         </Card>

@@ -1,52 +1,33 @@
 "use client";
 import React from 'react';
+import { GamePanel } from '@/components/bot/GamePanel';
 import { ConnectionPanel } from '@/components/bot/ConnectionPanel';
 import { DashboardLayout } from '@/components/DashboardLayout';
-import { RouletteMode } from '@/components/bot/RouletteMode';
-import { RouletteHistory } from '@/components/bot/RouletteHistory';
-import { RouletteAnalyzer } from '@/components/bot/RouletteAnalyzer';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Gamepad2, History, BarChart3 } from 'lucide-react';
+import { DigitStream } from '@/components/bot/DigitStream';
+import { Card, CardContent } from '@/components/ui/card';
+import { DigitStats } from '@/components/bot/DigitStats';
+import { VirtualLossDisplay } from '@/components/bot/VirtualLossDisplay';
+import { LogicStatePanel } from '@/components/bot/LogicStatePanel';
 
 const IndexPage = () => {
   return (
     <DashboardLayout>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-        <div className="lg:col-span-1">
-            <ConnectionPanel />
-        </div>
-        
-        <div className="lg:col-span-2">
-            <Tabs defaultValue="game" className="w-full">
-                <TabsList className="grid w-full grid-cols-3 mb-4 bg-muted/50 p-1 h-12">
-                    <TabsTrigger value="game" className="flex items-center gap-2 font-bold data-[state=active]:bg-primary data-[state=active]:text-white">
-                        <Gamepad2 className="h-4 w-4" />
-                        Operação
-                    </TabsTrigger>
-                    <TabsTrigger value="analyzer" className="flex items-center gap-2 font-bold data-[state=active]:bg-primary data-[state=active]:text-white">
-                        <BarChart3 className="h-4 w-4" />
-                        Tendência
-                    </TabsTrigger>
-                    <TabsTrigger value="history" className="flex items-center gap-2 font-bold data-[state=active]:bg-primary data-[state=active]:text-white">
-                        <History className="h-4 w-4" />
-                        Histórico
-                    </TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="game" className="mt-0">
-                    <RouletteMode />
-                </TabsContent>
-
-                <TabsContent value="analyzer" className="mt-0">
-                    <RouletteAnalyzer />
-                </TabsContent>
-                
-                <TabsContent value="history" className="mt-0">
-                    <RouletteHistory />
-                </TabsContent>
-            </Tabs>
-        </div>
+      {/* Indicador de Virtual Loss no topo quando o bot estiver rodando */}
+      <VirtualLossDisplay />
+      
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        <ConnectionPanel />
+        <GamePanel />
       </div>
+
+      <LogicStatePanel />
+      
+      <Card className="bg-card/80 backdrop-blur-sm">
+        <CardContent className="p-0">
+          <DigitStream />
+          <DigitStats />
+        </CardContent>
+      </Card>
     </DashboardLayout>
   );
 };
