@@ -250,25 +250,26 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         let strategyName = '';
         let barrier = digitPrediction;
 
-        // LÓGICA PROBABILISTICA (MARTINGALE IMEDIATO)
+        // LÓGICA PROBABILISTICA (TENDÊNCIA)
         if (activeStrategy === 'probabilistic') {
-            // Se estamos no martingale e com reversão ativa, fazemos o GALE IMEDIATO ignorando filtros de estabilidade
+            // Se estamos no martingale e com reversão ativa, fazemos o GALE IMEDIATO
             if (martingaleLevel.current > 0 && reverseOnLoss && lastTradeDetails.current?.contractType) {
                 const lastType = lastTradeDetails.current.contractType;
                 if (lastType === 'DIGITEVEN') contract = 'DIGITODD';
                 else if (lastType === 'DIGITODD') contract = 'DIGITEVEN';
                 else if (lastType === 'DIGITOVER') contract = 'DIGITUNDER';
                 else if (lastType === 'DIGITUNDER') contract = 'DIGITOVER';
-                strategyName = "Prob: Gale Reverso";
+                strategyName = "Prob: Fluxo Reverso";
             } else if (martingaleLevel.current === 0) {
-                // Entrada baseada na Máxima da Janela (Apenas se o mercado estiver estável)
+                // Entrada a favor da tendência (O que mais saiu)
                 if (!isMarketStable()) return;
                 const window = lastDigits.slice(0, probWindow);
                 if (window.length >= probWindow) {
                     const evens = window.filter(d => d % 2 === 0).length;
                     const odds = window.length - evens;
-                    contract = evens > odds ? 'DIGITODD' : 'DIGITEVEN';
-                    strategyName = `Prob: Máxima ${probWindow}`;
+                    // AGORA: Aposta a favor da força (Trend Following)
+                    contract = evens > odds ? 'DIGITEVEN' : 'DIGITODD';
+                    strategyName = `Prob: Tendência ${probWindow}`;
                 }
             }
         }

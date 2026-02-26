@@ -126,27 +126,26 @@ export const StrategySettings = () => {
                         <div className="p-4 border rounded-lg bg-primary/10 space-y-2">
                             <div className="flex items-center gap-2 font-semibold text-primary">
                                 <RefreshCcw className="h-5 w-5" />
-                                <span>Ciclo Probabilístico de Máximas</span>
+                                <span>Ciclo Probabilístico de Tendência</span>
                             </div>
                             <p className="text-sm text-muted-foreground">
-                                Analisa as máximas de Par/Ímpar em janelas estatísticas e aplica reversão de lado após um Loss.
+                                Analisa as predominâncias de Par/Ímpar e aposta **sempre a favor do fluxo** dominante.
                             </p>
                         </div>
                         
                         <div className="space-y-4">
-                            <Label>Janela de Análise de Máximas</Label>
+                            <Label>Janela de Análise de Fluxo</Label>
                             <ToggleGroup type="single" value={String(probWindow)} onValueChange={(v) => v && setProbWindow(Number(v))} className="justify-start gap-2">
                                 <ToggleGroupItem value="36" className="flex-1 border">36</ToggleGroupItem>
                                 <ToggleGroupItem value="69" className="flex-1 border">69</ToggleGroupItem>
                                 <ToggleGroupItem value="96" className="flex-1 border">96</ToggleGroupItem>
                             </ToggleGroup>
-                            <p className="text-[10px] text-muted-foreground italic">Dica: 69 é a janela mais equilibrada para volatilidade 100.</p>
                         </div>
 
                         <div className="flex items-center justify-between p-3 border rounded-md bg-muted/20">
                             <div className="space-y-0.5">
                                 <Label className="font-bold text-sm">Entrada Reversa no Loss</Label>
-                                <p className="text-[10px] text-muted-foreground">Se der RED (Loss), entra no lado oposto na próxima.</p>
+                                <p className="text-[10px] text-muted-foreground">Se der RED (Loss), entra no lado oposto para capturar a virada de tendência.</p>
                             </div>
                             <Switch checked={reverseOnLoss} onCheckedChange={setReverseOnLoss} />
                         </div>
