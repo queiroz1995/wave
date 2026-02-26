@@ -53,8 +53,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         virtualTargetLosses, setVirtualTargetLosses,
         virtualTargetWins, setVirtualTargetWins,
         isStreakFilterActive, maxStreakAllowed,
-        // NOVOS ESTADOS NEURAL RICO
         neuralRicoWindow, neuralRicoThreshold,
+        // PROBABILISTICA
+        probWindow, reverseOnLoss,
     } = stateAndSetters;
 
     const [isConnected, setIsConnected] = useState(false);
@@ -250,22 +251,40 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         let strategyName = '';
         let barrier = digitPrediction;
 
-        // LÓGICA NEURAL RICO
-        if (activeStrategy === 'neuralRico') {
+        // LÓGICA PROBABILISTICA (NOVA)
+        if (activeStrategy === 'probabilistic') {
+             // Se estamos no martingale e com reversão ativa, invertemos o último contrato perdedor
+            if (martingaleLevel.current > 0 && reverseOnLoss && lastTradeDetails.current?.contractType) {
+                const lastType = lastTradeDetails.current.contractType;
+                if (lastType === 'DIGITEVEN') contract = 'DIGITODD';
+                else if (lastType === 'DIGITODD') contract = 'DIGITEVEN';
+                else if (lastType === 'DIGITOVER') contract = 'DIGITUNDER';
+                else if (lastType === 'DIGITUNDER') contract = 'DIGITOVER';
+                strategyName = "Prob: Ciclo Reversão";
+            } else {
+                // Entrada baseada na Máxima da Janela
+                const window = lastDigits.slice(0, probWindow);
+                if (window.length >= probWindow) {
+                    const evens = window.filter(d => d % 2 === 0).length;
+                    const odds = window.length - evens;
+                    // Aposta no que menos saiu (Reversão à média)
+                    contract = evens > odds ? 'DIGITODD' : 'DIGITEVEN';
+                    strategyName = `Prob: Máxima ${probWindow}`;
+                }
+            }
+        }
+        else if (activeStrategy === 'neuralRico') {
             const window = lastDigits.slice(0, neuralRicoWindow);
             if (window.length >= neuralRicoWindow) {
                 const evens = window.filter(d => d % 2 === 0).length;
                 const odds = window.length - evens;
                 const evenPercent = (evens / window.length) * 100;
                 const oddPercent = (odds / window.length) * 100;
-                
-                // SATURAÇÃO: Se um lado está acima do threshold, aposta na reversão
                 if (evenPercent >= neuralRicoThreshold) {
                     contract = 'DIGITODD'; strategyName = "ANR: Saturação Par";
                 } else if (oddPercent >= neuralRicoThreshold) {
                     contract = 'DIGITEVEN'; strategyName = "ANR: Saturação Ímpar";
                 } 
-                // FLUXO: Se o mercado está equilibrado (ex: 45-55%), segue o último dígito
                 else if (evenPercent >= 45 && evenPercent <= 55) {
                     const lastD = lastDigits[0];
                     contract = lastD % 2 === 0 ? 'DIGITEVEN' : 'DIGITODD';
@@ -288,7 +307,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         if (contract) {
-            const sId = addSignal({ strategy: strategyName, signal: getSignalType(contract), details: 'Analise Neural', winRate: '...' });
+            const sId = addSignal({ strategy: strategyName, signal: getSignalType(contract), details: 'Analise Probabilistica', winRate: '...' });
             setCurrentSignal(contract, { strategyName, winRate: 0, signalId: sId });
             if (virtualTargetLosses > 0 || virtualTargetWins > 0) {
                 lastTradeDetails.current = { stake: 0, strategyName, signalId: sId, contractType: contract, barrier };
@@ -297,7 +316,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 isTradeOpen.current = true; executeBuy(contract, strategyName, sId, barrier);
             }
         }
-    }, [isBotRunning, lastDigits, lastTickEpoch, activeStrategy, smartAIAnalysis, digitTradeMode, digitPrediction, isDoubleOneTriggerActive, doubleOneTriggerCount, doubleOneTriggerTargetDigits, catalogerPatternLength, isWaitingForVirtualResult, virtualLossStreak, virtualWinStreak, virtualTargetLosses, virtualTargetWins, isMarketStable, neuralRicoWindow, neuralRicoThreshold]);
+    }, [isBotRunning, lastDigits, lastTickEpoch, activeStrategy, smartAIAnalysis, digitTradeMode, digitPrediction, isDoubleOneTriggerActive, doubleOneTriggerCount, doubleOneTriggerTargetDigits, catalogerPatternLength, isWaitingForVirtualResult, virtualLossStreak, virtualWinStreak, virtualTargetLosses, virtualTargetWins, isMarketStable, neuralRicoWindow, neuralRicoThreshold, probWindow, reverseOnLoss]);
 
     useEffect(() => {
         if (!lastCompletedContract) return;
@@ -332,7 +351,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (token) connect(token, type);
     }, [accountType, realToken, demoToken, connect]);
 
-    const handleDisconnect = useCallback(() => { disconnect(); stopBot("Desconectado"); }, [disconnect, stopBot]);
+    const handleDisconnect = useCallback(( ) => { disconnect(); stopBot("Desconectado"); }, [disconnect, stopBot]);
 
     const toggleBot = useCallback(() => {
         if (!isConnected) return;

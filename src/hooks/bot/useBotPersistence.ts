@@ -39,6 +39,8 @@ export const useBotPersistence = (state: ReturnType<typeof useBotState>) => {
         isStreakFilterActive, maxStreakAllowed,
         // Neural Rico
         neuralRicoWindow, neuralRicoThreshold,
+        // Probabilistica
+        probWindow, reverseOnLoss,
     } = state;
     
     useEffect(() => {
@@ -75,6 +77,8 @@ export const useBotPersistence = (state: ReturnType<typeof useBotState>) => {
             maxStreakAllowed,
             neuralRicoWindow,
             neuralRicoThreshold,
+            probWindow,
+            reverseOnLoss,
         };
 
         localStorage.setItem('derivBotState', JSON.stringify(stateToSave));
@@ -110,5 +114,7 @@ export const useBotPersistence = (state: ReturnType<typeof useBotState>) => {
         maxStreakAllowed,
         neuralRicoWindow,
         neuralRicoThreshold,
+        probWindow,
+        reverseOnLoss,
     ]);
 };

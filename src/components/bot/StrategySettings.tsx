@@ -3,7 +3,7 @@
 import React, { useEffect } from 'react';
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BrainCircuit, Bot, Hash, Activity, Zap } from 'lucide-react';
+import { BrainCircuit, Bot, Hash, Activity, Zap, RefreshCcw } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
 import { InfoTooltip } from '@/components/InfoTooltip';
 import { ColorPatternConfig } from './ColorPatternConfig';
@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 const strategyTabs = [
+    { value: "probabilistic", label: "Ciclo Probabilístico", compatibleModes: ['evenOdd'] },
     { value: "neuralRico", label: "Algoritmo Neural Rico", compatibleModes: ['evenOdd'] },
     { value: "smartAI", label: "IA Super Poderosa", compatibleModes: ['evenOdd', 'overUnder'] },
     { value: "doubleOneTrigger", label: "Gatilho Consecutivo", compatibleModes: ['evenOdd', 'overUnder'] },
@@ -36,9 +37,11 @@ export const StrategySettings = () => {
         doubleOneTriggerTargetDigits, setDoubleOneTriggerTargetDigits,
         isStreakFilterActive, setIsStreakFilterActive,
         maxStreakAllowed, setMaxStreakAllowed,
-        // NEURAL RICO
         neuralRicoWindow, setNeuralRicoWindow,
         neuralRicoThreshold, setNeuralRicoThreshold,
+        // PROBABILISTICA
+        probWindow, setProbWindow,
+        reverseOnLoss, setReverseOnLoss,
     } = useBotContext();
 
     useEffect(() => {
@@ -119,6 +122,36 @@ export const StrategySettings = () => {
                         ))}
                     </TabsList>
 
+                    <TabsContent value="probabilistic" className="mt-4 space-y-6">
+                        <div className="p-4 border rounded-lg bg-primary/10 space-y-2">
+                            <div className="flex items-center gap-2 font-semibold text-primary">
+                                <RefreshCcw className="h-5 w-5" />
+                                <span>Ciclo Probabilístico de Máximas</span>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                                Analisa as máximas de Par/Ímpar em janelas estatísticas e aplica reversão de lado após um Loss.
+                            </p>
+                        </div>
+                        
+                        <div className="space-y-4">
+                            <Label>Janela de Análise de Máximas</Label>
+                            <ToggleGroup type="single" value={String(probWindow)} onValueChange={(v) => v && setProbWindow(Number(v))} className="justify-start gap-2">
+                                <ToggleGroupItem value="36" className="flex-1 border">36</ToggleGroupItem>
+                                <ToggleGroupItem value="69" className="flex-1 border">69</ToggleGroupItem>
+                                <ToggleGroupItem value="96" className="flex-1 border">96</ToggleGroupItem>
+                            </ToggleGroup>
+                            <p className="text-[10px] text-muted-foreground italic">Dica: 69 é a janela mais equilibrada para volatilidade 100.</p>
+                        </div>
+
+                        <div className="flex items-center justify-between p-3 border rounded-md bg-muted/20">
+                            <div className="space-y-0.5">
+                                <Label className="font-bold text-sm">Entrada Reversa no Loss</Label>
+                                <p className="text-[10px] text-muted-foreground">Se der RED (Loss), entra no lado oposto na próxima.</p>
+                            </div>
+                            <Switch checked={reverseOnLoss} onCheckedChange={setReverseOnLoss} />
+                        </div>
+                    </TabsContent>
+
                     <TabsContent value="neuralRico" className="mt-4 space-y-6">
                         <div className="p-4 border rounded-lg bg-primary/10 space-y-2">
                             <div className="flex items-center gap-2 font-semibold text-primary">
@@ -142,7 +175,6 @@ export const StrategySettings = () => {
                                 max={30} 
                                 step={1}
                             />
-                            <p className="text-[10px] text-muted-foreground">Quantos dígitos a IA analisa para detectar o estado do mercado.</p>
                         </div>
                         
                         <div className="space-y-2">
@@ -157,7 +189,6 @@ export const StrategySettings = () => {
                                 max={90} 
                                 step={1}
                             />
-                            <p className="text-[10px] text-muted-foreground">Porcentagem necessária de um lado para a IA forçar a reversão.</p>
                         </div>
                     </TabsContent>
                     
