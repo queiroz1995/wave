@@ -22,7 +22,7 @@ const DEFAULTS = {
     stopLoss: '50.00',
     lossRecoveryStrategy: 'martingale' as 'martingale',
     targetProfitPerTrade: '0.35',
-    activeStrategy: 'probabilistic' as 'colorPattern' | 'imbalance' | 'analyzer' | 'dynamicDigit' | 'smartAI' | 'doubleOneTrigger' | 'neuralRico' | 'probabilistic',
+    activeStrategy: 'probabilistic' as 'colorPattern' | 'imbalance' | 'analyzer' | 'dynamicDigit' | 'smartAI' | 'doubleOneTrigger' | 'neuralRico' | 'probabilistic' | 'trendSurfer',
     minWinRate: 55,
     marketStabilityThreshold: '10',
     colorPatternProfiles: {},
@@ -93,7 +93,7 @@ const getInitialState = () => {
             mergedState.bankManagementActualBankroll = mergedState.bankManagementInitialBankroll;
         }
         
-        const allowedStrategies = ['smartAI', 'doubleOneTrigger', 'colorPattern', 'neuralRico', 'probabilistic'];
+        const allowedStrategies = ['smartAI', 'doubleOneTrigger', 'colorPattern', 'neuralRico', 'probabilistic', 'trendSurfer'];
         if (!allowedStrategies.includes(mergedState.activeStrategy)) {
             mergedState.activeStrategy = DEFAULTS.activeStrategy;
         }
@@ -138,7 +138,7 @@ export const useBotState = () => {
     const [martingaleMode, setMartingaleMode] = useState<'IMMEDIATE'>(initialState.martingaleMode);
     const [maxTrades, setMaxTrades] = useState(initialState.maxTrades);
     const [isMartingaleActive, setIsMartingaleActive] = useState(initialState.isMartingaleActive);
-    const [activeStrategy, setActiveStrategy] = useState<'colorPattern' | 'imbalance' | 'analyzer' | 'dynamicDigit' | 'smartAI' | 'doubleOneTrigger' | 'neuralRico' | 'probabilistic'>(initialState.activeStrategy);
+    const [activeStrategy, setActiveStrategy] = useState<'colorPattern' | 'imbalance' | 'analyzer' | 'dynamicDigit' | 'smartAI' | 'doubleOneTrigger' | 'neuralRico' | 'probabilistic' | 'trendSurfer'>(initialState.activeStrategy);
     const [minWinRate, setMinWinRate] = useState<number | string>(initialState.minWinRate);
     const [marketStabilityThreshold, setMarketStabilityThreshold] = useState<number | string>(initialState.marketStabilityThreshold);
     const [colorPatternProfiles, setColorPatternProfiles] = useState(initialState.colorPatternProfiles);

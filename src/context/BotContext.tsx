@@ -250,8 +250,27 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         let strategyName = '';
         let barrier = digitPrediction;
 
+        // ESTRATÉGIA TREND SURFER & XADREZ
+        if (activeStrategy === 'trendSurfer') {
+            const recent = lastDigits.slice(0, 4);
+            if (recent.length === 4) {
+                const parities = recent.map(d => d % 2 === 0 ? 'E' : 'O');
+                
+                // LÓGICA SURFER (4 iguais)
+                if (parities.every(p => p === 'E')) {
+                    contract = 'DIGITEVEN'; strategyName = "Surfer: Par 5º";
+                } else if (parities.every(p => p === 'O')) {
+                    contract = 'DIGITODD'; strategyName = "Surfer: Ímpar 5º";
+                }
+                // LÓGICA XADREZ (Alternado E-O-E-O ou O-E-O-E)
+                else if (parities[0] !== parities[1] && parities[1] !== parities[2] && parities[2] !== parities[3]) {
+                    contract = parities[0] === 'E' ? 'DIGITODD' : 'DIGITEVEN';
+                    strategyName = "Xadrez: Continuação";
+                }
+            }
+        }
         // LÓGICA PROBABILISTICA (TENDÊNCIA INTELIGENTE)
-        if (activeStrategy === 'probabilistic') {
+        else if (activeStrategy === 'probabilistic') {
             const window = lastDigits.slice(0, probWindow);
             if (window.length >= probWindow) {
                 const evens = window.filter(d => d % 2 === 0).length;

@@ -3,7 +3,7 @@
 import React, { useEffect } from 'react';
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BrainCircuit, Bot, Hash, Activity, Zap, RefreshCcw } from 'lucide-react';
+import { BrainCircuit, Bot, Hash, Activity, Zap, RefreshCcw, Waves } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
 import { InfoTooltip } from '@/components/InfoTooltip';
 import { ColorPatternConfig } from './ColorPatternConfig';
@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 const strategyTabs = [
+    { value: "trendSurfer", label: "Trend Surfer", compatibleModes: ['evenOdd'] },
     { value: "probabilistic", label: "Ciclo Probabilístico", compatibleModes: ['evenOdd'] },
     { value: "neuralRico", label: "Algoritmo Neural Rico", compatibleModes: ['evenOdd'] },
     { value: "smartAI", label: "IA Super Poderosa", compatibleModes: ['evenOdd', 'overUnder'] },
@@ -121,6 +122,22 @@ export const StrategySettings = () => {
                             !tab.compatibleModes.includes(digitTradeMode)
                         ))}
                     </TabsList>
+
+                    <TabsContent value="trendSurfer" className="mt-4 space-y-6">
+                        <div className="p-4 border rounded-lg bg-primary/10 space-y-2">
+                            <div className="flex items-center gap-2 font-semibold text-primary">
+                                <Waves className="h-5 w-5" />
+                                <span>Trend Surfer & Xadrez</span>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                                Identifica sequências de 4 cores iguais (para buscar a 5ª) ou 4 cores alternadas (xadrez) para buscar a continuação.
+                            </p>
+                        </div>
+                        <p className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                            **Lógica Surfer:** E-E-E-E → Entrada E | O-O-O-O → Entrada O <br/>
+                            **Lógica Xadrez:** E-O-E-O → Entrada E | O-E-O-E → Entrada O
+                        </p>
+                    </TabsContent>
 
                     <TabsContent value="probabilistic" className="mt-4 space-y-6">
                         <div className="p-4 border rounded-lg bg-primary/10 space-y-2">
