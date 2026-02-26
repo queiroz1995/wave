@@ -250,26 +250,33 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         let strategyName = '';
         let barrier = digitPrediction;
 
-        // LÓGICA PROBABILISTICA (TENDÊNCIA)
+        // LÓGICA PROBABILISTICA (TENDÊNCIA INTELIGENTE)
         if (activeStrategy === 'probabilistic') {
-            // Se estamos no martingale e com reversão ativa, fazemos o GALE IMEDIATO
-            if (martingaleLevel.current > 0 && reverseOnLoss && lastTradeDetails.current?.contractType) {
-                const lastType = lastTradeDetails.current.contractType;
-                if (lastType === 'DIGITEVEN') contract = 'DIGITODD';
-                else if (lastType === 'DIGITODD') contract = 'DIGITEVEN';
-                else if (lastType === 'DIGITOVER') contract = 'DIGITUNDER';
-                else if (lastType === 'DIGITUNDER') contract = 'DIGITOVER';
-                strategyName = "Prob: Fluxo Reverso";
-            } else if (martingaleLevel.current === 0) {
-                // Entrada a favor da tendência (O que mais saiu)
-                if (!isMarketStable()) return;
-                const window = lastDigits.slice(0, probWindow);
-                if (window.length >= probWindow) {
-                    const evens = window.filter(d => d % 2 === 0).length;
-                    const odds = window.length - evens;
-                    // AGORA: Aposta a favor da força (Trend Following)
-                    contract = evens > odds ? 'DIGITEVEN' : 'DIGITODD';
-                    strategyName = `Prob: Tendência ${probWindow}`;
+            const window = lastDigits.slice(0, probWindow);
+            if (window.length >= probWindow) {
+                const evens = window.filter(d => d % 2 === 0).length;
+                const odds = window.length - evens;
+                const dominantSide = evens > odds ? 'DIGITEVEN' : 'DIGITODD';
+
+                // Se estamos no martingale e com inversão inteligente ativa
+                if (martingaleLevel.current > 0 && reverseOnLoss && lastTradeDetails.current?.contractType) {
+                    const lastType = lastTradeDetails.current.contractType;
+                    const reverseType = lastType === 'DIGITEVEN' ? 'DIGITODD' : 'DIGITEVEN';
+                    
+                    // SÓ INVERTE se o lado oposto agora for o dominante na janela estatística
+                    if (reverseType === dominantSide) {
+                        contract = reverseType;
+                        strategyName = "Prob: Inversão Inteligente";
+                    } else {
+                        // Se o fluxo ainda for o mesmo, o bot prefere aguardar ou seguir o fluxo (Trend Following)
+                        contract = dominantSide;
+                        strategyName = "Prob: Mantendo Fluxo";
+                    }
+                } else if (martingaleLevel.current === 0) {
+                    // Entrada padrão: Seguir a Tendência
+                    if (!isMarketStable()) return;
+                    contract = dominantSide;
+                    strategyName = `Prob: Fluxo ${probWindow}`;
                 }
             }
         }
