@@ -43,7 +43,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         digitTradeMode,
         activeStrategy,
         realToken, demoToken, accountType,
-        takeProfit, stopLoss, maxLevels,
+        takeProfit, maxLevels,
         catalogerPatternLength, catalogerMinWinRate, catalogerMinOccurrences,
         isDoubleOneTriggerActive, doubleOneTriggerCount, doubleOneTriggerTargetDigits,
         isMartingaleActive,
@@ -369,10 +369,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isTradeOpen.current = false; setActiveContract(null); setTradeStatus('IDLE'); setLastCompletedContract(null);
         if (isBotRunning) {
             if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("META BATIDA!");
-            else if (totalProfitRef.current <= -parseFloat(stopLoss)) stopBot("STOP LOSS!");
+            // STOP LOSS REMOVIDO CONFORME SOLICITADO
             else if (martingaleLevel.current > maxLevels) { martingaleLevel.current = 0; }
         }
-    }, [lastCompletedContract, activeContract, isBotRunning, takeProfit, stopLoss, maxLevels, isMartingaleActive]);
+    }, [lastCompletedContract, activeContract, isBotRunning, takeProfit, maxLevels, isMartingaleActive]);
 
     const handleConnect = useCallback((targetType?: 'real' | 'demo', targetToken?: string) => {
         const type = targetType || accountType;

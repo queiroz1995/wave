@@ -15,14 +15,13 @@ import { cn } from '@/lib/utils';
 export const RiskManagement = () => {
     const {
         martingaleFactor, setMartingaleFactor, maxLevels, setMaxLevels, takeProfit, setTakeProfit,
-        stopLoss, setStopLoss,
         lossRecoveryStrategy, setLossRecoveryStrategy,
         martingaleMode, setMartingaleMode,
-        maxTrades, setMaxTrades, // NEW: Max Trades
-        isSorosActive, setIsSorosActive, // NEW: Soros
-        sorosLevels, setSorosLevels, // NEW: Soros
-        sorosProfitPercentage, setSorosProfitPercentage, // NEW: Soros
-        isMartingaleActive, setIsMartingaleActive, // NOVO
+        maxTrades, setMaxTrades,
+        isSorosActive, setIsSorosActive,
+        sorosLevels, setSorosLevels,
+        sorosProfitPercentage, setSorosProfitPercentage,
+        isMartingaleActive, setIsMartingaleActive,
     } = useBotContext();
 
     const handleProfitChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -32,16 +31,8 @@ export const RiskManagement = () => {
         }
     };
 
-    const handleLossChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.target.value;
-        if (/^\d*[,.]?\d*$/.test(value)) {
-            setStopLoss(value.replace(',', '.'));
-        }
-    };
-
     const handleMaxTradesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
-        // Allow only non-negative integers
         if (/^\d*$/.test(value)) {
             setMaxTrades(Number(value));
         }
@@ -66,7 +57,6 @@ export const RiskManagement = () => {
                     </RadioGroup>
                 </div>
 
-                {/* NOVO: Toggle de Ativação do Martingale */}
                 <div className="space-y-3 pt-4 border-t">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
@@ -80,7 +70,6 @@ export const RiskManagement = () => {
                         />
                     </div>
                 </div>
-                {/* FIM NOVO: Toggle de Ativação do Martingale */}
 
                 <div className={cn("space-y-4 pt-4 border-t", !isMartingaleActive && "opacity-50 pointer-events-none")}>
                     <div className="space-y-2">
@@ -129,25 +118,23 @@ export const RiskManagement = () => {
                         />
                     </div>
                     
-                    <div className="space-y-2">
+                    <div className="space-y-2 opacity-50 cursor-not-allowed">
                         <div className="flex items-center gap-1.5">
-                            <Label htmlFor="stopLoss">Stop Loss ($)</Label>
-                            <InfoTooltip infoText="Limite de perda. O bot irá parar se atingir este valor." />
+                            <Label htmlFor="stopLoss">Stop Loss (Desativado)</Label>
+                            <InfoTooltip infoText="O Stop Loss foi desativado conforme sua solicitação. O bot só parará ao bater a meta." />
                         </div>
                         <Input 
                             id="stopLoss" 
-                            value={stopLoss} 
-                            onChange={handleLossChange} 
-                            placeholder="Ex: 50.00"
-                            className="text-base"
+                            value="ILIMITADO"
+                            disabled
+                            className="text-base font-bold text-red-500"
                         />
                     </div>
 
-                    {/* NEW: Max Trades Input */}
                     <div className="space-y-2">
                         <div className="flex items-center gap-1.5">
                             <Label htmlFor="maxTrades">Máximo de Entradas</Label>
-                            <InfoTooltip infoText="O número máximo de operações que o bot fará. Defina 0 para sem limite. Se o limite for atingido em uma derrota, o Martingale ainda será executado." />
+                            <InfoTooltip infoText="O número máximo de operações que o bot fará. Defina 0 para sem limite." />
                         </div>
                         <Input 
                             id="maxTrades" 
@@ -174,7 +161,6 @@ export const RiskManagement = () => {
                     </RadioGroup>
                 </div>
 
-                {/* NEW: Soros Management Section */}
                 <div className="space-y-3 pt-4 border-t">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
@@ -202,7 +188,6 @@ export const RiskManagement = () => {
                                     max={5} 
                                     step={1} 
                                 />
-                                <p className="text-xs text-muted-foreground">Número de vitórias consecutivas para aplicar o Soros.</p>
                             </div>
                             <div className="space-y-2">
                                 <div className="flex justify-between items-center">
@@ -217,7 +202,6 @@ export const RiskManagement = () => {
                                     max={100} 
                                     step={5} 
                                 />
-                                <p className="text-xs text-muted-foreground">Porcentagem do lucro da última operação para reinvestir.</p>
                             </div>
                         </div>
                     )}
