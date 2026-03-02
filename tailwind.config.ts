@@ -92,5 +92,10 @@ export default {
       },
     },
   },
+  // Ensure we safe-list the AI colors for dynamic usage
+  safelist: [
+    { pattern: /(bg|border|text|shadow)-(blue|purple|cyan|orange|red|green)-500/ },
+    { pattern: /(bg|border|text|shadow)-(blue|purple|cyan|orange|red|green)-500\/[0-9]+/ },
+  ],
   plugins: [require("tailwindcss-animate")],
 } satisfies Config;
