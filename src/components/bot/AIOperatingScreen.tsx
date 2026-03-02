@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, ChevronDown, Trash2 } from 'lucide-react';
+import { Power, RefreshCw, ChevronDown, Trash2, Bot } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -44,13 +44,23 @@ export const AIOperatingScreen = () => {
                     {/* Header Simplificado */}
                     <div className="flex justify-between items-center">
                         <div className="flex items-center gap-4">
-                            <div className="p-3.5 bg-primary/10 rounded-2xl">
-                                {selectedAIInfo && <selectedAIInfo.icon className="h-7 w-7 text-primary" />}
+                            <div className="h-14 w-14 bg-primary/10 rounded-2xl overflow-hidden border-2 border-white/50 shadow-sm">
+                                {selectedAIInfo?.image ? (
+                                    <img 
+                                        src={selectedAIInfo.image} 
+                                        alt="" 
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                        <Bot className="h-7 w-7 text-primary" />
+                                    </div>
+                                )}
                             </div>
                             <div>
-                                <h2 className="text-2xl font-black uppercase tracking-tighter">{selectedAIInfo?.name}</h2>
+                                <h2 className="text-2xl font-black uppercase tracking-tighter">{selectedAIInfo?.name || 'Neural Core'}</h2>
                                 <Badge variant="secondary" className="text-[9px] font-black px-2 py-0 uppercase tracking-widest bg-primary/5 text-primary border-none">
-                                    {selectedAIInfo?.style}
+                                    {selectedAIInfo?.style || 'Alpha-Mode'}
                                 </Badge>
                             </div>
                         </div>
