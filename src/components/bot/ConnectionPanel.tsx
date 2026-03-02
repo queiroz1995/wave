@@ -3,11 +3,10 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Power, PowerOff, DollarSign, RotateCcw } from 'lucide-react';
+import { Power, PowerOff, RotateCcw, Wallet } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
+import { cn } from '@/lib/utils';
 
 export const ConnectionPanel: React.FC = () => {
     const {
@@ -23,95 +22,74 @@ export const ConnectionPanel: React.FC = () => {
     const currentToken = accountType === 'real' ? realToken : demoToken;
 
     const handleAccountTypeChange = (value: 'real' | 'demo') => {
-        console.log(`[ConnectionPanel] Changing account type to: ${value}. Is connected: ${isConnected}`);
-        setAccountType(value); // Atualiza o tipo de conta no estado
-        
-        // Conecta imediatamente à nova conta (handleConnect gerenciará a desconexão da anterior se houver)
+        setAccountType(value);
         const tokenToUse = value === 'real' ? realToken : demoToken;
-        handleConnect(value, tokenToUse);
-    };
-
-    const handleSynchronize = () => {
-        if (!currentToken) {
-            addLog("Token de acesso vazio. Por favor, insira o token antes de sincronizar.", 'ERROR');
-            return;
-        }
-        // Chama handleConnect sem argumentos para usar o estado atual (token e accountType)
-        handleConnect();
+        if (tokenToUse) handleConnect(value, tokenToUse);
     };
 
     return (
-        <Card className="bg-card/80 backdrop-blur-sm">
-            <CardContent className="pt-6 space-y-4">
-                <div className="space-y-2">
-                    <Label>Tipo de Conta</Label>
-                    <Select value={accountType} onValueChange={handleAccountTypeChange}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="demo">Demo</SelectItem>
-                            <SelectItem value="real">Real</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="token-input">Token de Acesso</Label>
-                    <Input 
-                        id="token-input" 
-                        type="password" 
-                        value={currentToken} 
-                        onChange={(e) => accountType === 'real' ? setRealToken(e.target.value) : setDemoToken(e.target.value)} 
-                        placeholder="Insira seu token aqui" 
-                        disabled={isConnected} 
-                    />
-                </div>
-                
-                <div className="flex gap-2">
+        <div className="w-full flex flex-col sm:flex-row items-center gap-2 bg-white/40 backdrop-blur-md border border-white/60 p-2 px-3 rounded-2xl shadow-sm mb-4">
+            {/* Seletor de Conta e Status */}
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+                <Select value={accountType} onValueChange={handleAccountTypeChange}>
+                    <SelectTrigger className="h-8 w-[90px] text-[10px] font-black uppercase tracking-widest rounded-xl border-none bg-white/50">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="demo">Demo</SelectItem>
+                        <SelectItem value="real">Real</SelectItem>
+                    </SelectContent>
+                </Select>
+                <div className={cn(
+                    "h-2 w-2 rounded-full animate-pulse",
+                    status.color
+                )} />
+            </div>
+
+            {/* Input de Token - Compacto */}
+            <div className="relative flex-grow w-full">
+                <Input 
+                    type="password" 
+                    value={currentToken} 
+                    onChange={(e) => accountType === 'real' ? setRealToken(e.target.value) : setDemoToken(e.target.value)} 
+                    placeholder="Token API" 
+                    disabled={isConnected} 
+                    className="h-8 text-[11px] font-mono pr-8 rounded-xl border-none bg-white/50 focus-visible:ring-primary/30"
+                />
+                {!isConnected && (
                     <Button 
-                        onClick={isConnected ? handleDisconnect : () => handleConnect(accountType, currentToken)} 
-                        variant={isConnected ? "destructive" : "default"}
-                        className="flex-1"
+                        onClick={() => handleConnect()} 
+                        variant="ghost" 
+                        size="icon" 
+                        className="absolute right-0 top-0 h-8 w-8 hover:bg-transparent text-primary"
                     >
-                        {isConnected ? (
-                            <>
-                                <PowerOff className="h-4 w-4 mr-2" />
-                                <span>Desconectar</span>
-                            </>
-                        ) : (
-                            <>
-                                <Power className="h-4 w-4 mr-2" />
-                                <span>Conectar</span>
-                            </>
-                        )}
+                        <RotateCcw className="h-3.5 w-3.5" />
                     </Button>
-                    
-                    {!isConnected && (
-                        <Button 
-                            onClick={handleSynchronize} 
-                            variant="outline"
-                            size="icon"
-                            className="flex-shrink-0"
-                        >
-                            <RotateCcw className="h-4 w-4" />
-                            <span className="sr-only">Sincronizar</span>
-                        </Button>
-                    )}
-                </div>
-                
+                )}
+            </div>
+
+            {/* Botão de Conexão e Saldo */}
+            <div className="flex items-center gap-2 w-full sm:w-auto">
                 {isConnected && accountBalance !== null && (
-                    <div className="text-center pt-4 border-t">
-                        <Label>Saldo da Conta</Label>
-                        <p className="text-2xl font-bold text-primary flex items-center justify-center gap-2">
-                            <DollarSign className="h-6 w-6" />
-                            {accountBalance.toFixed(2)}
-                        </p>
+                    <div className="flex items-center gap-1.5 px-3 py-1 bg-primary/10 rounded-xl">
+                        <Wallet className="h-3 w-3 text-primary" />
+                        <span className="text-[11px] font-black text-primary">${accountBalance.toFixed(2)}</span>
                     </div>
                 )}
-
-                <div className="flex items-center justify-center space-x-2 pt-2 text-sm">
-                    <span className={`h-3 w-3 rounded-full ${status.color} transition-all animate-pulse`}></span>
-                    <span>{status.message}</span>
-                </div>
-            </CardContent>
-        </Card>
+                
+                <Button 
+                    onClick={isConnected ? handleDisconnect : () => handleConnect(accountType, currentToken)} 
+                    variant={isConnected ? "destructive" : "default"}
+                    className="h-8 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest flex-1 sm:flex-none"
+                >
+                    {isConnected ? (
+                        <PowerOff className="h-3.5 w-3.5" />
+                    ) : (
+                        <Power className="h-3.5 w-3.5 mr-2" />
+                    )}
+                    <span className={cn(isConnected && "sr-only")}>{isConnected ? "OFF" : "Conectar"}</span>
+                </Button>
+            </div>
+        </div>
     );
 };

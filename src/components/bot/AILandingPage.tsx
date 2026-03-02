@@ -4,7 +4,6 @@ import React from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { StrategyAICard } from './StrategyAICard';
 import { Sparkles } from 'lucide-react';
-import { ConnectionPanel } from './ConnectionPanel';
 
 const strategies = [
     { 
@@ -72,10 +71,6 @@ export const AILandingPage = () => {
                         onClick={() => selectAI(ia)}
                     />
                 ))}
-            </div>
-
-            <div className="pt-8 border-t border-gray-100">
-                <ConnectionPanel />
             </div>
         </div>
     );

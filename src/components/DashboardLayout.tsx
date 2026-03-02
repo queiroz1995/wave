@@ -4,20 +4,21 @@ import React from 'react';
 import { BarChart } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
 import { Separator } from '@/components/ui/separator';
+import { ConnectionPanel } from './bot/ConnectionPanel';
 
 interface DashboardLayoutProps {
     children: React.ReactNode;
 }
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
-    const { totalProfit, accountBalance, wins, losses } = useBotContext();
+    const { totalProfit, wins, losses } = useBotContext();
     
     const totalTrades = wins + losses;
     const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : 0;
 
     return (
         <div className="min-h-screen bg-background flex flex-col items-center">
-            {/* Header Simplificado e Centralizado */}
+            {/* Header Simplificado */}
             <header className="w-full max-w-4xl flex justify-between items-center py-6 px-4 mb-2">
                 <div className="flex items-center gap-3">
                     <div className="p-2.5 bg-primary/10 rounded-2xl">
@@ -29,7 +30,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                         </h1>
                         <div className="flex items-center gap-2">
                             <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-                            <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Servidor Ativo</span>
+                            <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Sinal de Dados Ativo</span>
                         </div>
                     </div>
                 </div>
@@ -44,7 +45,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                     </div>
                     <Separator orientation="vertical" className="h-6" />
                     <div className="text-center">
-                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Assertividade</p>
+                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Win Rate</p>
                         <p className="text-sm font-black text-primary">
                             {winRate.toFixed(1)}%
                         </p>
@@ -53,7 +54,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             </header>
             
             <main className="w-full max-w-4xl px-4 flex-grow flex flex-col pb-10">
-                {/* O conteúdo agora ocupa o centro da tela sem abas laterais */}
+                {/* Painel de Conexão Compacto no Topo */}
+                <ConnectionPanel />
+
                 <div className="w-full h-full">
                     {children}
                 </div>
