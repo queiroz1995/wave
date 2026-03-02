@@ -3,44 +3,44 @@
 import React from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { StrategyAICard } from './StrategyAICard';
-import { Bot, Zap, Waves, BrainCircuit, Target, Palette, Sparkles } from 'lucide-react';
+import { Bot, Zap, Waves, BrainCircuit, Target, Palette, Sparkles, Cpu, Activity } from 'lucide-react';
 import { ConnectionPanel } from './ConnectionPanel';
 
 const strategies = [
     { 
         id: "trendSurfer", 
         name: "I.A Wave", 
-        style: "Conservador", 
-        icon: Waves, 
+        style: "High-Momentum", 
+        icon: 'wave' as const, 
         color: "blue",
-        description: "Especialista em seguir tendências e padrões de xadrez.",
+        description: "Especialista em ondas de tendência e padrões xadrez ultrarrápidos.",
         compatibleModes: ['evenOdd'] 
     },
     { 
         id: "probabilistic", 
         name: "I.A Cycle", 
-        style: "Moderado", 
-        icon: Zap, 
+        style: "Market-Cycle", 
+        icon: 'cycle' as const, 
         color: "purple",
-        description: "Analisa ciclos estatísticos e fluxo de mercado dominante.",
+        description: "Analisa o fluxo de mercado e ciclos estatísticos para máxima precisão.",
         compatibleModes: ['evenOdd'] 
     },
     { 
         id: "neuralRico", 
         name: "I.A Rico", 
-        style: "Estratégico", 
-        icon: BrainCircuit, 
+        style: "Deep-Neural", 
+        icon: 'rico' as const, 
         color: "cyan",
-        description: "Algoritmo híbrido focado em saturação neural e reversão.",
+        description: "Algoritmo de saturação neural focado em reversões estratégicas.",
         compatibleModes: ['evenOdd'] 
     },
     { 
         id: "smartAI", 
         name: "I.A Titan", 
-        style: "Agressivo", 
-        icon: Bot, 
+        style: "Titan-Processor", 
+        icon: 'titan' as const, 
         color: "orange",
-        description: "IA de alto processamento que cataloga padrões lucrativos.",
+        description: "Processador de padrões que identifica o que o mercado está respeitando.",
         compatibleModes: ['evenOdd', 'overUnder'] 
     }
 ];
@@ -52,10 +52,10 @@ export const AILandingPage = () => {
         <div className="space-y-8 pb-10 animate-in fade-in duration-700">
             <div className="text-center space-y-2">
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-4">
-                    <Sparkles className="h-3 w-3" /> Conexão Neural Ativa
+                    <Sparkles className="h-3 w-3" /> Rico Intelligence v2.0
                 </div>
-                <h1 className="text-4xl font-black uppercase tracking-tighter">Escolha seu Especialista</h1>
-                <p className="text-sm text-muted-foreground font-medium">Selecione uma IA configurada para iniciar suas operações na Deriv.</p>
+                <h1 className="text-4xl font-black uppercase tracking-tighter">Ativar Especialista</h1>
+                <p className="text-sm text-muted-foreground font-medium">Cada IA possui um núcleo de processamento focado em uma lógica específica.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -65,7 +65,7 @@ export const AILandingPage = () => {
                         id={ia.id}
                         name={ia.name}
                         style={ia.style}
-                        icon={ia.id === 'trendSurfer' ? 'wave' : ia.id === 'probabilistic' ? 'cycle' : ia.id === 'neuralRico' ? 'rico' : 'titan'}
+                        icon={ia.icon}
                         color={ia.color}
                         description={ia.description}
                         isActive={false}
@@ -74,7 +74,7 @@ export const AILandingPage = () => {
                 ))}
             </div>
 
-            <div className="pt-8 border-t border-white/10">
+            <div className="pt-8 border-t border-gray-100">
                 <ConnectionPanel />
             </div>
         </div>

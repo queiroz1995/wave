@@ -3,7 +3,7 @@
 import React from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from '@/lib/utils';
-import { Bot, Zap, Waves, BrainCircuit, Target, Palette, Check, Activity } from 'lucide-react';
+import { Bot, Zap, Waves, BrainCircuit, Target, Palette, Check, Activity, Cpu, CircuitBoard, Fingerprint } from 'lucide-react';
 
 interface StrategyAICardProps {
     id: string;
@@ -43,24 +43,33 @@ export const StrategyAICard: React.FC<StrategyAICardProps> = ({
         <Card 
             onClick={onClick}
             className={cn(
-                "relative cursor-pointer transition-all duration-300 overflow-hidden border-2 group glass-panel",
+                "relative cursor-pointer transition-all duration-300 overflow-hidden border-2 group glass-panel rounded-[2rem]",
                 isActive 
                     ? colorClasses[color] 
                     : "border-gray-100 hover:border-gray-200 hover:bg-white"
             )}
         >
-            {/* Soft Glow Background */}
+            {/* Efeito de luz de fundo */}
             <div className={cn(
                 "absolute -right-8 -top-8 w-32 h-32 blur-[40px] rounded-full opacity-10 transition-opacity duration-700 group-hover:opacity-20",
                 `bg-${color}-500`
             )} />
 
-            <CardContent className="p-5 flex flex-col items-center text-center space-y-4">
+            <CardContent className="p-6 flex flex-col items-center text-center space-y-4">
+                {/* Ícone Estilizado como Núcleo de Robô */}
                 <div className={cn(
-                    "p-4 rounded-2xl transition-all duration-500 shadow-sm relative",
-                    isActive ? `bg-${color}-500 text-white scale-105` : "bg-gray-100 text-gray-400"
+                    "p-5 rounded-[1.5rem] transition-all duration-500 shadow-lg relative border-2",
+                    isActive 
+                        ? `bg-${color}-500 text-white scale-110 border-white/20 shadow-${color}-500/40` 
+                        : "bg-gray-100 text-gray-400 border-transparent"
                 )}>
-                    <Icon className="h-8 w-8" />
+                    <Icon className="h-10 w-10" />
+                    {isActive && (
+                        <div className="absolute -top-1 -right-1 flex h-4 w-4">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-4 w-4 bg-white/20"></span>
+                        </div>
+                    )}
                 </div>
 
                 <div className="space-y-1 relative z-10">
@@ -78,16 +87,21 @@ export const StrategyAICard: React.FC<StrategyAICardProps> = ({
                     </div>
                 </div>
 
-                <p className="text-[11px] leading-relaxed h-10 overflow-hidden line-clamp-2 italic font-medium text-gray-500">
-                    "{description}"
+                <p className="text-[11px] leading-relaxed h-12 overflow-hidden line-clamp-2 italic font-medium text-gray-500 px-2">
+                    {description}
                 </p>
 
-                {isActive && (
+                {isActive ? (
                     <div className={cn(
-                        "mt-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border",
+                        "mt-2 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border flex items-center gap-2",
                         `bg-${color}-100 text-${color}-600 border-${color}-200`
                     )}>
-                        Módulo Ativo
+                        <div className={cn("h-1.5 w-1.5 rounded-full animate-pulse", `bg-${color}-500`)} />
+                        Sincronizado
+                    </div>
+                ) : (
+                    <div className="mt-2 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-gray-50 text-gray-400 border border-gray-100">
+                        Selecionar
                     </div>
                 )}
             </CardContent>
