@@ -1,0 +1,82 @@
+"use client";
+
+import React from 'react';
+import { useBotContext } from '@/context/BotContext';
+import { StrategyAICard } from './StrategyAICard';
+import { Bot, Zap, Waves, BrainCircuit, Target, Palette, Sparkles } from 'lucide-react';
+import { ConnectionPanel } from './ConnectionPanel';
+
+const strategies = [
+    { 
+        id: "trendSurfer", 
+        name: "I.A Wave", 
+        style: "Conservador", 
+        icon: Waves, 
+        color: "blue",
+        description: "Especialista em seguir tendências e padrões de xadrez.",
+        compatibleModes: ['evenOdd'] 
+    },
+    { 
+        id: "probabilistic", 
+        name: "I.A Cycle", 
+        style: "Moderado", 
+        icon: Zap, 
+        color: "purple",
+        description: "Analisa ciclos estatísticos e fluxo de mercado dominante.",
+        compatibleModes: ['evenOdd'] 
+    },
+    { 
+        id: "neuralRico", 
+        name: "I.A Rico", 
+        style: "Estratégico", 
+        icon: BrainCircuit, 
+        color: "cyan",
+        description: "Algoritmo híbrido focado em saturação neural e reversão.",
+        compatibleModes: ['evenOdd'] 
+    },
+    { 
+        id: "smartAI", 
+        name: "I.A Titan", 
+        style: "Agressivo", 
+        icon: Bot, 
+        color: "orange",
+        description: "IA de alto processamento que cataloga padrões lucrativos.",
+        compatibleModes: ['evenOdd', 'overUnder'] 
+    }
+];
+
+export const AILandingPage = () => {
+    const { selectAI } = useBotContext();
+
+    return (
+        <div className="space-y-8 pb-10 animate-in fade-in duration-700">
+            <div className="text-center space-y-2">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-4">
+                    <Sparkles className="h-3 w-3" /> Conexão Neural Ativa
+                </div>
+                <h1 className="text-4xl font-black uppercase tracking-tighter">Escolha seu Especialista</h1>
+                <p className="text-sm text-muted-foreground font-medium">Selecione uma IA configurada para iniciar suas operações na Deriv.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {strategies.map((ia) => (
+                    <StrategyAICard 
+                        key={ia.id}
+                        id={ia.id}
+                        name={ia.name}
+                        style={ia.style}
+                        icon={ia.id === 'trendSurfer' ? 'wave' : ia.id === 'probabilistic' ? 'cycle' : ia.id === 'neuralRico' ? 'rico' : 'titan'}
+                        color={ia.color}
+                        description={ia.description}
+                        isActive={false}
+                        onClick={() => selectAI(ia)}
+                    />
+                ))}
+            </div>
+
+            <div className="pt-8 border-t border-white/10">
+                <ConnectionPanel />
+            </div>
+        </div>
+    );
+};
