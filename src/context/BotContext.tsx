@@ -146,13 +146,29 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         // 1. IA WAVE (Trend / Xadrez)
         if (activeStrategy === 'trendSurfer') {
-            const last4 = parities.slice(0, 4);
-            // Padrão de Tendência (4 iguais)
-            if (last4.every(p => p === 'E')) { contract = 'DIGITEVEN'; strategyName = "IA Wave (Trend)"; }
-            else if (last4.every(p => p === 'O')) { contract = 'DIGITODD'; strategyName = "IA Wave (Trend)"; }
-            // Padrão Xadrez (E-O-E-O)
-            else if (parities[0] === 'E' && parities[1] === 'O' && parities[2] === 'E' && parities[3] === 'O') { contract = 'DIGITODD'; strategyName = "IA Wave (Xadrez)"; }
-            else if (parities[0] === 'O' && parities[1] === 'E' && parities[2] === 'O' && parities[3] === 'E') { contract = 'DIGITEVEN'; strategyName = "IA Wave (Xadrez)"; }
+            // VERIFICA SE ESTÁ NO 3º GALE (Análise Profunda)
+            if (martingaleLevel.current >= 3) {
+                const last6 = parities.slice(0, 6);
+                if (last6.length === 6) {
+                    if (last6.every(p => p === 'E')) { 
+                        contract = 'DIGITODD'; 
+                        strategyName = "IA Wave (Deep Recovery)"; 
+                        addLog("IA Wave: Iniciando Análise Profunda para Recuperação...", "INFO");
+                    }
+                    else if (last6.every(p => p === 'O')) { 
+                        contract = 'DIGITEVEN'; 
+                        strategyName = "IA Wave (Deep Recovery)"; 
+                        addLog("IA Wave: Iniciando Análise Profunda para Recuperação...", "INFO");
+                    }
+                }
+            } else {
+                // LOGICA PADRÃO PARA NÍVEIS 0, 1, 2
+                const last4 = parities.slice(0, 4);
+                if (last4.every(p => p === 'E')) { contract = 'DIGITEVEN'; strategyName = "IA Wave (Trend)"; }
+                else if (last4.every(p => p === 'O')) { contract = 'DIGITODD'; strategyName = "IA Wave (Trend)"; }
+                else if (parities[0] === 'E' && parities[1] === 'O' && parities[2] === 'E' && parities[3] === 'O') { contract = 'DIGITODD'; strategyName = "IA Wave (Xadrez)"; }
+                else if (parities[0] === 'O' && parities[1] === 'E' && parities[2] === 'O' && parities[3] === 'E') { contract = 'DIGITEVEN'; strategyName = "IA Wave (Xadrez)"; }
+            }
         }
 
         // 2. IA CYCLE (Ciclos Estatísticos)
@@ -162,7 +178,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 const evens = window.filter(d => d % 2 === 0).length;
                 const total = window.length;
                 const evenPerc = (evens / total) * 100;
-                // Só entra se houver um desequilíbrio claro (> 55%)
                 if (evenPerc < 45) { contract = 'DIGITEVEN'; strategyName = "IA Cycle (Recuperação)"; }
                 else if (evenPerc > 55) { contract = 'DIGITODD'; strategyName = "IA Cycle (Recuperação)"; }
             }
@@ -171,7 +186,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // 3. IA RICO (Saturação Neural)
         else if (activeStrategy === 'neuralRico') {
             const last6 = parities.slice(0, 6);
-            // Espera 6 iguais para reverter (Saturação Máxima)
             if (last6.every(p => p === 'E')) { contract = 'DIGITODD'; strategyName = "IA Rico (Reversão)"; }
             else if (last6.every(p => p === 'O')) { contract = 'DIGITEVEN'; strategyName = "IA Rico (Reversão)"; }
         }
