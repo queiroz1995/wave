@@ -4,11 +4,10 @@ import React, { useState } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, ChevronDown, Trash2, Settings2 } from 'lucide-react';
+import { Power, RefreshCw, ChevronDown, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { SettingsSheet } from './SettingsSheet';
 import { QuickConfigModal } from './QuickConfigModal';
 
 export const AIOperatingScreen = () => {
@@ -39,10 +38,10 @@ export const AIOperatingScreen = () => {
 
     return (
         <div className="w-full max-w-md mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
-            {/* CARD PRINCIPAL (HEADER) */}
+            {/* CARD PRINCIPAL */}
             <Card className="glass-panel border-none shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] overflow-hidden rounded-[3rem]">
                 <CardContent className="p-10 space-y-10">
-                    {/* Header: Nome e Controle de Saída */}
+                    {/* Header Simplificado */}
                     <div className="flex justify-between items-center">
                         <div className="flex items-center gap-4">
                             <div className="p-3.5 bg-primary/10 rounded-2xl">
@@ -65,52 +64,39 @@ export const AIOperatingScreen = () => {
                         </Button>
                     </div>
 
-                    {/* Botão INICIAR / PARAR */}
-                    <div className="relative group">
-                        <Button 
-                            onClick={handleStartClick}
-                            disabled={status.message.includes('Desconectado')}
-                            className={cn(
-                                "w-full h-20 rounded-[2rem] text-xl font-black uppercase tracking-[0.2em] transition-all duration-500 shadow-2xl",
-                                isBotRunning 
-                                    ? "bg-red-500 hover:bg-red-600 shadow-red-500/30 scale-[0.98]" 
-                                    : "bg-primary hover:bg-primary/90 shadow-primary/30"
-                            )}
-                        >
-                            {isBotRunning ? "Parar Sistema" : "Iniciar Operação"}
-                        </Button>
-                        {!isBotRunning && (
-                            <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 opacity-40 group-hover:opacity-100 transition-opacity">
-                                <SettingsSheet trigger={
-                                    <Button variant="link" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                                        <Settings2 className="h-3 w-3" /> Configurações Avançadas
-                                    </Button>
-                                } />
-                            </div>
+                    {/* Botão de Ação Único */}
+                    <Button 
+                        onClick={handleStartClick}
+                        disabled={status.message.includes('Desconectado')}
+                        className={cn(
+                            "w-full h-20 rounded-[2rem] text-xl font-black uppercase tracking-[0.2em] transition-all duration-500 shadow-2xl",
+                            isBotRunning 
+                                ? "bg-red-500 hover:bg-red-600 shadow-red-500/30 scale-[0.98]" 
+                                : "bg-primary hover:bg-primary/90 shadow-primary/30"
                         )}
-                    </div>
+                    >
+                        {isBotRunning ? "Interromper" : "Play Operação"}
+                    </Button>
 
-                    {/* Display de LUCRO CENTRALIZADO */}
+                    {/* Display de Lucro */}
                     <div className="text-center space-y-2 pt-4">
-                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.5em] opacity-50">Profit Analytics</p>
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.5em] opacity-50">Live Profit</p>
                         <div className={cn(
                             "text-7xl font-black tracking-tighter flex items-center justify-center gap-3",
                             isWin ? "text-green-500" : "text-red-500"
                         )}>
-                            <span className="text-4xl opacity-50">{isWin ? '↑' : '↓'}</span>
                             {isWin ? '+' : ''}{totalProfit.toFixed(2)}
                         </div>
-                        <p className="text-xs font-black text-muted-foreground uppercase tracking-widest">Dólares Americanos (USD)</p>
                     </div>
 
-                    {/* Saldo Disponível */}
+                    {/* Saldo */}
                     <div className="bg-gray-50/50 border border-gray-100 rounded-[2rem] p-6 flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             <div className="bg-white p-2.5 rounded-xl shadow-sm">
                                 <RefreshCw className="h-5 w-5 text-primary" />
                             </div>
                             <div>
-                                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Banca Atual</p>
+                                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Saldo em Conta</p>
                                 <p className="text-xl font-black tracking-tight">{accountBalance?.toFixed(2) || '0.00'} <span className="text-xs font-bold opacity-40">USD</span></p>
                             </div>
                         </div>
@@ -121,16 +107,16 @@ export const AIOperatingScreen = () => {
                 </CardContent>
             </Card>
 
-            {/* STATUS DE OPERAÇÃO (TIMELINE) */}
+            {/* Timelines de Status */}
             <div className="grid grid-cols-3 gap-3 px-2">
                 {[
-                    { label: 'Analisando', active: isBotRunning && tradeStatus === 'IDLE', color: 'bg-blue-500' },
-                    { label: 'Comprando', active: tradeStatus === 'SENDING', color: 'bg-green-500' },
-                    { label: 'Processando', active: tradeStatus === 'ACTIVE', color: 'bg-yellow-500' }
+                    { label: 'Análise', active: isBotRunning && tradeStatus === 'IDLE', color: 'bg-blue-500' },
+                    { label: 'Aposta', active: tradeStatus === 'SENDING', color: 'bg-green-500' },
+                    { label: 'Contrato', active: tradeStatus === 'ACTIVE', color: 'bg-yellow-500' }
                 ].map((step, i) => (
                     <div key={i} className={cn(
                         "p-3 rounded-2xl border flex flex-col items-center gap-2 transition-all duration-500",
-                        step.active ? "bg-white shadow-lg border-primary/20 scale-105 z-10" : "bg-white/40 border-transparent opacity-40"
+                        step.active ? "bg-white shadow-lg border-primary/20 scale-105" : "bg-white/40 border-transparent opacity-40"
                     )}>
                         <div className={cn("h-1.5 w-1.5 rounded-full", step.active ? step.color : "bg-gray-300", step.active && "animate-pulse")} />
                         <span className="text-[9px] font-black uppercase tracking-widest">{step.label}</span>
@@ -138,10 +124,10 @@ export const AIOperatingScreen = () => {
                 ))}
             </div>
 
-            {/* HISTÓRICO MINIMALISTA */}
+            {/* Histórico */}
             <Card className="glass-panel border-none rounded-[2.5rem] overflow-hidden">
                 <div className="p-6 flex justify-between items-center bg-gray-50/30">
-                    <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground">Log de Contratos</h3>
+                    <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground">Relatório de Voo</h3>
                     <div className="flex items-center gap-3">
                         <div className="flex gap-2 text-[11px] font-black">
                             <span className="text-green-500">W: {wins}</span>
@@ -173,7 +159,7 @@ export const AIOperatingScreen = () => {
                                     </tr>
                                 )) : (
                                     <tr>
-                                        <td colSpan={3} className="py-20 text-center text-[10px] font-black text-muted-foreground/30 uppercase tracking-[0.3em]">Aguardando Sinais</td>
+                                        <td colSpan={3} className="py-20 text-center text-[10px] font-black text-muted-foreground/30 uppercase tracking-[0.3em]">Neural_Link_Standby</td>
                                     </tr>
                                 )}
                             </tbody>
