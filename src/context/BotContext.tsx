@@ -4,7 +4,7 @@ import React, { createContext, useContext, useRef, useCallback, useEffect, useSt
 import { useBotState } from '../hooks/bot/useBotState';
 import { useBotPersistence } from '../hooks/bot/useBotPersistence';
 import { useTradingWebSocketManager } from '../hooks/bot/useTradingWebSocketManager';
-import { ContractType, SignalType } from '@/types/bot';
+import { ContractType } from '@/types/bot';
 import { supabase } from '@/integrations/supabase/client';
 
 const BotContext = createContext<any>(undefined);
@@ -19,7 +19,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const stateAndSetters = useBotState();
     useBotPersistence(stateAndSetters);
 
-    // Estados de Navegação do App
     const [appFlow, setAppFlow] = useState<'selection' | 'operating'>('selection');
     const [selectedAIInfo, setSelectedAIInfo] = useState<any>(null);
 
@@ -33,7 +32,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const sendMessageRef = useRef<(payload: any) => void>(() => {});
 
     const {
-        addLog, setAccountBalance, setChartData, setLastDigits, setIsBotRunning,
+        addLog, setAccountBalance, setLastDigits, setIsBotRunning,
         setTotalProfit, setWins, setLosses,
         asset, initialStake, addSignal, updateSignalResult,
         lastDigits, setActiveContract,
@@ -42,23 +41,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setLastTickEpoch, lastTickEpoch,
         setTradeStatus,
         digitPrediction,
-        setClosedHistory, setIsFetchingHistory,
         activeContract, isBotRunning,
-        digitTradeMode,
         activeStrategy, setActiveStrategy,
         realToken, demoToken, accountType,
         takeProfit, maxLevels,
-        catalogerPatternLength, catalogerMinWinRate, catalogerMinOccurrences,
-        isDoubleOneTriggerActive, doubleOneTriggerCount, doubleOneTriggerTargetDigits,
         isMartingaleActive,
-        virtualLossStreak, setVirtualLossStreak,
-        virtualWinStreak, setVirtualWinStreak,
-        isWaitingForVirtualResult, setIsWaitingForVirtualResult,
-        virtualTargetLosses, setVirtualTargetLosses,
-        virtualTargetWins, setVirtualTargetWins,
-        isStreakFilterActive, maxStreakAllowed,
-        neuralRicoWindow, neuralRicoThreshold,
-        probWindow, reverseOnLoss,
+        probWindow,
     } = stateAndSetters;
 
     const [isConnected, setIsConnected] = useState(false);
@@ -81,11 +69,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsBotRunning(false);
         isTradeOpen.current = false;
         martingaleLevel.current = 0;
-        setVirtualLossStreak(0);
-        setVirtualWinStreak(0);
-        setIsWaitingForVirtualResult(false);
         addLog(reason, 'INFO');
-    }, [setIsBotRunning, addLog, setVirtualLossStreak, setVirtualWinStreak, setIsWaitingForVirtualResult]);
+    }, [setIsBotRunning, addLog]);
 
     const processTickData = useCallback((tick: { quote: string, epoch: number, symbol: string }) => {
         const lastDigit = parseInt(String(tick.quote).replace(/[^\d.]/g, '').slice(-1));
@@ -147,34 +132,69 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         buyContract(contractType, strategyName, signalId, stakeToUse, barrier);
     }, [initialStake, martingaleFactor, buyContract, isMartingaleActive]);
 
+    // MOTOR DE DECISÃO DAS IAs
     useEffect(() => {
         if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isTradeOpen.current) return;
         processedTickEpoch.current = lastTickEpoch;
         
         let contract: ContractType | null = null;
         let strategyName = '';
-        let barrier = digitPrediction;
+        const barrier = digitPrediction;
 
-        // Lógica simplificada para todas as IAs baseada na estratégia ativa
+        const recent = lastDigits.slice(0, 10);
+        const parities = recent.map(d => d % 2 === 0 ? 'E' : 'O');
+
+        // 1. IA WAVE (Trend / Xadrez)
         if (activeStrategy === 'trendSurfer') {
-             const recent = lastDigits.slice(0, 4);
-             if (recent.length === 4) {
-                 const parities = recent.map(d => d % 2 === 0 ? 'E' : 'O');
-                 if (parities.every(p => p === 'E')) { contract = 'DIGITEVEN'; strategyName = "IA Wave"; }
-                 else if (parities.every(p => p === 'O')) { contract = 'DIGITODD'; strategyName = "IA Wave"; }
-             }
-        } else if (activeStrategy === 'probabilistic') {
-             const window = lastDigits.slice(0, probWindow);
-             if (window.length >= probWindow) {
-                 const evens = window.filter(d => d % 2 === 0).length;
-                 const odds = window.length - evens;
-                 contract = evens > odds ? 'DIGITEVEN' : 'DIGITODD';
-                 strategyName = "IA Cycle";
-             }
+            const last4 = parities.slice(0, 4);
+            // Padrão de Tendência (4 iguais)
+            if (last4.every(p => p === 'E')) { contract = 'DIGITEVEN'; strategyName = "IA Wave (Trend)"; }
+            else if (last4.every(p => p === 'O')) { contract = 'DIGITODD'; strategyName = "IA Wave (Trend)"; }
+            // Padrão Xadrez (E-O-E-O)
+            else if (parities[0] === 'E' && parities[1] === 'O' && parities[2] === 'E' && parities[3] === 'O') { contract = 'DIGITODD'; strategyName = "IA Wave (Xadrez)"; }
+            else if (parities[0] === 'O' && parities[1] === 'E' && parities[2] === 'O' && parities[3] === 'E') { contract = 'DIGITEVEN'; strategyName = "IA Wave (Xadrez)"; }
+        }
+
+        // 2. IA CYCLE (Ciclos Estatísticos)
+        else if (activeStrategy === 'probabilistic') {
+            const window = lastDigits.slice(0, probWindow);
+            if (window.length >= probWindow) {
+                const evens = window.filter(d => d % 2 === 0).length;
+                const total = window.length;
+                const evenPerc = (evens / total) * 100;
+                // Só entra se houver um desequilíbrio claro (> 55%)
+                if (evenPerc < 45) { contract = 'DIGITEVEN'; strategyName = "IA Cycle (Recuperação)"; }
+                else if (evenPerc > 55) { contract = 'DIGITODD'; strategyName = "IA Cycle (Recuperação)"; }
+            }
+        }
+
+        // 3. IA RICO (Saturação Neural)
+        else if (activeStrategy === 'neuralRico') {
+            const last6 = parities.slice(0, 6);
+            // Espera 6 iguais para reverter (Saturação Máxima)
+            if (last6.every(p => p === 'E')) { contract = 'DIGITODD'; strategyName = "IA Rico (Reversão)"; }
+            else if (last6.every(p => p === 'O')) { contract = 'DIGITEVEN'; strategyName = "IA Rico (Reversão)"; }
+        }
+
+        // 4. IA TITAN (Probabilidade de Padrão)
+        else if (activeStrategy === 'smartAI') {
+            const currentPattern = parities.slice(0, 3).join('');
+            const history = parities.slice(3, 200);
+            let nextE = 0, nextO = 0;
+            
+            for (let i = 0; i < history.length - 3; i++) {
+                const hPattern = history.slice(i + 1, i + 4).join('');
+                if (hPattern === currentPattern) {
+                    if (history[i] === 'E') nextE++;
+                    else nextO++;
+                }
+            }
+            if (nextE > nextO && nextE > 5) { contract = 'DIGITEVEN'; strategyName = "IA Titan (Probalística)"; }
+            else if (nextO > nextE && nextO > 5) { contract = 'DIGITODD'; strategyName = "IA Titan (Probalística)"; }
         }
 
         if (contract) {
-            const sId = addSignal({ strategy: strategyName, signal: contract === 'DIGITEVEN' ? 'EVEN' : 'ODD', details: 'Automático', winRate: '...' });
+            const sId = addSignal({ strategy: strategyName, signal: contract === 'DIGITEVEN' ? 'EVEN' : 'ODD', details: 'Execução Neural', winRate: 'Alta' });
             isTradeOpen.current = true; executeBuy(contract, strategyName, sId, barrier);
         }
     }, [isBotRunning, lastDigits, lastTickEpoch, activeStrategy, initialStake, martingaleFactor, executeBuy, addSignal, probWindow, digitPrediction]);
