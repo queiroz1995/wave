@@ -3,7 +3,7 @@
 import React from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from '@/lib/utils';
-import { Bot, Zap, Waves, BrainCircuit, Target, Palette, Check, Activity, Cpu, CircuitBoard, Fingerprint } from 'lucide-react';
+import { Activity } from 'lucide-react';
 
 interface StrategyAICardProps {
     id: string;
@@ -12,98 +12,94 @@ interface StrategyAICardProps {
     description: string;
     isActive: boolean;
     onClick: () => void;
-    icon: 'wave' | 'cycle' | 'rico' | 'titan' | 'trigger' | 'chroma';
+    image: string;
     color: string;
 }
 
-const icons = {
-    wave: Waves,
-    cycle: Zap,
-    rico: BrainCircuit,
-    titan: Bot,
-    trigger: Target,
-    chroma: Palette,
-};
-
 export const StrategyAICard: React.FC<StrategyAICardProps> = ({ 
-    id, name, style, description, isActive, onClick, icon: iconKey, color 
+    id, name, style, description, isActive, onClick, image, color 
 }) => {
-    const Icon = icons[iconKey];
-
     const colorClasses: Record<string, string> = {
-        blue: "text-blue-600 bg-blue-50 border-blue-200 neon-border-blue",
-        purple: "text-purple-600 bg-purple-50 border-purple-200 neon-border-purple",
-        cyan: "text-cyan-600 bg-cyan-50 border-cyan-200 neon-border-cyan",
-        orange: "text-orange-600 bg-orange-50 border-orange-200 neon-border-orange",
-        red: "text-red-600 bg-red-50 border-red-200 neon-border-red",
-        green: "text-green-600 bg-green-50 border-green-200 neon-border-green",
+        blue: "border-blue-500/50 shadow-[0_0_20px_rgba(59,130,246,0.2)] bg-blue-50/30",
+        purple: "border-purple-500/50 shadow-[0_0_20px_rgba(168,85,247,0.2)] bg-purple-50/30",
+        cyan: "border-cyan-500/50 shadow-[0_0_20px_rgba(6,182,212,0.2)] bg-cyan-50/30",
+        orange: "border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.2)] bg-orange-50/30",
+        red: "border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.2)] bg-red-50/30",
+        green: "border-green-500/50 shadow-[0_0_20px_rgba(34,197,94,0.2)] bg-green-50/30",
     };
 
     return (
         <Card 
             onClick={onClick}
             className={cn(
-                "relative cursor-pointer transition-all duration-300 overflow-hidden border-2 group glass-panel rounded-[2rem]",
+                "relative cursor-pointer transition-all duration-500 overflow-hidden border-2 group glass-panel rounded-[2.5rem]",
                 isActive 
                     ? colorClasses[color] 
-                    : "border-gray-100 hover:border-gray-200 hover:bg-white"
+                    : "border-gray-100 hover:border-primary/30 hover:shadow-xl"
             )}
         >
-            {/* Efeito de luz de fundo */}
-            <div className={cn(
-                "absolute -right-8 -top-8 w-32 h-32 blur-[40px] rounded-full opacity-10 transition-opacity duration-700 group-hover:opacity-20",
-                `bg-${color}-500`
-            )} />
-
-            <CardContent className="p-6 flex flex-col items-center text-center space-y-4">
-                {/* Ícone Estilizado como Núcleo de Robô */}
-                <div className={cn(
-                    "p-5 rounded-[1.5rem] transition-all duration-500 shadow-lg relative border-2",
-                    isActive 
-                        ? `bg-${color}-500 text-white scale-110 border-white/20 shadow-${color}-500/40` 
-                        : "bg-gray-100 text-gray-400 border-transparent"
-                )}>
-                    <Icon className="h-10 w-10" />
+            <CardContent className="p-0 flex flex-col items-center text-center">
+                {/* Imagem do Robô */}
+                <div className="w-full aspect-square relative overflow-hidden">
+                    <img 
+                        src={image} 
+                        alt={name} 
+                        className={cn(
+                            "w-full h-full object-cover transition-transform duration-700 group-hover:scale-110",
+                            !isActive && "grayscale-[0.3] group-hover:grayscale-0"
+                        )}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                    
+                    {/* Badge de Status na Imagem */}
                     {isActive && (
-                        <div className="absolute -top-1 -right-1 flex h-4 w-4">
+                        <div className="absolute top-4 right-4 flex h-3 w-3">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-4 w-4 bg-white/20"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-white"></span>
                         </div>
                     )}
-                </div>
 
-                <div className="space-y-1 relative z-10">
-                    <h3 className={cn(
-                        "text-xl font-black tracking-tighter uppercase font-mono",
-                        isActive ? `text-${color}-600` : "text-gray-800"
-                    )}>
-                        {name}
-                    </h3>
-                    <div className="flex items-center justify-center gap-1.5">
-                        <Activity className={cn("h-3 w-3", isActive ? `text-${color}-500` : "text-gray-300")} />
-                        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400">
-                            {style}
-                        </p>
+                    {/* Nome flutuando sobre a imagem */}
+                    <div className="absolute bottom-4 left-0 w-full px-4 text-left">
+                         <h3 className={cn(
+                            "text-xl font-black tracking-tighter uppercase font-mono text-white drop-shadow-lg",
+                        )}>
+                            {name}
+                        </h3>
                     </div>
                 </div>
 
-                <p className="text-[11px] leading-relaxed h-12 overflow-hidden line-clamp-2 italic font-medium text-gray-500 px-2">
-                    {description}
-                </p>
+                <div className="p-5 space-y-3 w-full bg-white/50 backdrop-blur-sm">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                            <Activity className={cn("h-3 w-3", isActive ? `text-${color}-500` : "text-gray-400")} />
+                            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500">
+                                {style}
+                            </p>
+                        </div>
+                        {isActive && (
+                             <div className={cn(
+                                "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border",
+                                `bg-${color}-100 text-${color}-600 border-${color}-200`
+                            )}>
+                                ONLINE
+                            </div>
+                        )}
+                    </div>
 
-                {isActive ? (
+                    <p className="text-[10px] leading-relaxed h-12 overflow-hidden line-clamp-3 font-medium text-gray-600 text-left">
+                        {description}
+                    </p>
+                    
                     <div className={cn(
-                        "mt-2 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border flex items-center gap-2",
-                        `bg-${color}-100 text-${color}-600 border-${color}-200`
+                        "w-full py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all",
+                        isActive 
+                            ? `bg-${color}-500 text-white shadow-lg` 
+                            : "bg-gray-100 text-gray-400 group-hover:bg-primary group-hover:text-white"
                     )}>
-                        <div className={cn("h-1.5 w-1.5 rounded-full animate-pulse", `bg-${color}-500`)} />
-                        Sincronizado
+                        {isActive ? "ESPECIALISTA ATIVO" : "ATIVAR NÚCLEO"}
                     </div>
-                ) : (
-                    <div className="mt-2 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-gray-50 text-gray-400 border border-gray-100">
-                        Selecionar
-                    </div>
-                )}
+                </div>
             </CardContent>
         </Card>
     );

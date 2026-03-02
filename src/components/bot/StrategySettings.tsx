@@ -5,7 +5,6 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BrainCircuit, Activity } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
-import { InfoTooltip } from '@/components/InfoTooltip';
 import { ColorPatternConfig } from './ColorPatternConfig';
 import { OverUnderPatternConfig } from './OverUnderPatternConfig';
 import { Slider } from '@/components/ui/slider';
@@ -21,7 +20,7 @@ const strategies = [
         id: "trendSurfer", 
         name: "I.A Wave", 
         style: "Conservador", 
-        icon: "wave" as const, 
+        image: "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&q=80&w=400", 
         color: "blue",
         description: "Especialista em seguir tendências e padrões de xadrez.",
         compatibleModes: ['evenOdd'] 
@@ -30,7 +29,7 @@ const strategies = [
         id: "probabilistic", 
         name: "I.A Cycle", 
         style: "Moderado", 
-        icon: "cycle" as const, 
+        image: "https://images.unsplash.com/photo-1535378620166-273708d44e4c?auto=format&fit=crop&q=80&w=400", 
         color: "purple",
         description: "Analisa ciclos estatísticos e fluxo de mercado dominante.",
         compatibleModes: ['evenOdd'] 
@@ -39,7 +38,7 @@ const strategies = [
         id: "neuralRico", 
         name: "I.A Rico", 
         style: "Estratégico", 
-        icon: "rico" as const, 
+        image: "https://images.unsplash.com/photo-1675271591211-126ad94e495d?auto=format&fit=crop&q=80&w=400", 
         color: "cyan",
         description: "Algoritmo híbrido focado em saturação neural e reversão.",
         compatibleModes: ['evenOdd'] 
@@ -48,7 +47,7 @@ const strategies = [
         id: "smartAI", 
         name: "I.A Titan", 
         style: "Agressivo", 
-        icon: "titan" as const, 
+        image: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=400", 
         color: "orange",
         description: "IA de alto processamento que cataloga padrões lucrativos.",
         compatibleModes: ['evenOdd', 'overUnder'] 
@@ -57,7 +56,7 @@ const strategies = [
         id: "doubleOneTrigger", 
         name: "I.A Trigger", 
         style: "Precisão", 
-        icon: "trigger" as const, 
+        image: "https://images.unsplash.com/photo-1633513213702-860361327171?auto=format&fit=crop&q=80&w=400", 
         color: "red",
         description: "Gatilho de precisão baseado em sequências de dígitos específicos.",
         compatibleModes: ['evenOdd', 'overUnder'] 
@@ -66,7 +65,7 @@ const strategies = [
         id: "colorPattern", 
         name: "I.A Chroma", 
         style: "Analítico", 
-        icon: "chroma" as const, 
+        image: "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&q=80&w=400", 
         color: "green",
         description: "Análise visual de cores e sequências personalizadas.",
         compatibleModes: ['evenOdd', 'overUnder'] 
@@ -75,7 +74,6 @@ const strategies = [
 
 export const StrategySettings = () => {
     const {
-        minWinRate, setMinWinRate, marketStabilityThreshold, setMarketStabilityThreshold,
         activeStrategy, setActiveStrategy,
         digitTradeMode,
         catalogerPatternLength, setCatalogerPatternLength,
@@ -89,6 +87,8 @@ export const StrategySettings = () => {
         neuralRicoThreshold, setNeuralRicoThreshold,
         probWindow, setProbWindow,
         reverseOnLoss, setReverseOnLoss,
+        minWinRate, setMinWinRate,
+        marketStabilityThreshold, setMarketStabilityThreshold
     } = useBotContext();
 
     useEffect(() => {
@@ -112,7 +112,6 @@ export const StrategySettings = () => {
                 </CardTitle>
             </CardHeader>
             <CardContent className="px-0 space-y-8">
-                {/* Filtro de Estabilidade moved here for better context */}
                 <div className="p-4 border-2 border-primary/20 rounded-2xl bg-primary/5 space-y-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -135,7 +134,6 @@ export const StrategySettings = () => {
                     )}
                 </div>
 
-                {/* Grid de IAs */}
                 <div className="grid grid-cols-2 gap-3">
                     {strategies.map((ia) => (
                         <StrategyAICard 
@@ -143,7 +141,7 @@ export const StrategySettings = () => {
                             id={ia.id}
                             name={ia.name}
                             style={ia.style}
-                            icon={ia.icon}
+                            image={ia.image}
                             color={ia.color}
                             description={ia.description}
                             isActive={activeStrategy === ia.id}
@@ -158,7 +156,6 @@ export const StrategySettings = () => {
                     ))}
                 </div>
 
-                {/* Configurações Específicas da IA selecionada */}
                 <div className="pt-6 border-t space-y-6">
                     <h3 className="font-black uppercase tracking-tighter text-sm flex items-center gap-2">
                         <Activity className="h-4 w-4 text-primary" /> Ajustes de Precisão
@@ -167,8 +164,7 @@ export const StrategySettings = () => {
                     <Tabs value={activeStrategy} className="w-full">
                         <TabsContent value="trendSurfer" className="mt-0 space-y-4">
                             <p className="text-xs text-muted-foreground bg-blue-500/5 p-3 rounded-xl border border-blue-500/20">
-                                **Lógica Surfer:** Busca sequências de 4 cores iguais para entrar na 5ª. <br/>
-                                **Lógica Xadrez:** Identifica alternâncias (E-O-E-O) para continuação.
+                                **IA Wave:** Focada em rastrear o momento exato da tendência.
                             </p>
                         </TabsContent>
 
@@ -232,10 +228,6 @@ export const StrategySettings = () => {
 
                         <TabsContent value="colorPattern" className="mt-0 space-y-6">
                             {digitTradeMode === 'evenOdd' ? <ColorPatternConfig /> : <OverUnderPatternConfig />}
-                            <div className="space-y-3 pt-4 border-t">
-                                <div className="flex justify-between items-center text-xs"><Label>Assertividade Mínima</Label><span className="font-black text-primary">{minWinRate}%</span></div>
-                                <Slider value={[Number(minWinRate)]} onValueChange={(val) => setMinWinRate(val[0])} min={50} max={100} step={1}/>
-                            </div>
                         </TabsContent>
                     </Tabs>
 
