@@ -141,82 +141,78 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         let strategyName = '';
         const barrier = digitPrediction;
 
-        const recent = lastDigits.slice(0, 15);
-        const parities = recent.map(d => d % 2 === 0 ? 'E' : 'O');
+        const parities = lastDigits.slice(0, 10).map(d => d % 2 === 0 ? 'E' : 'O');
         const isDeepMode = martingaleLevel.current >= 3;
 
-        // CÁLCULO DE DOMINÂNCIA (O que o mercado está RESPEITANDO agora)
-        const scanWindow = lastDigits.slice(0, 40);
+        // CÁLCULO DE DOMINÂNCIA EXPRESSO (Últimos 30 ticks)
+        const scanWindow = lastDigits.slice(0, 30);
         const evensCount = scanWindow.filter(d => d % 2 === 0).length;
         const dominantSide = evensCount > (scanWindow.length / 2) ? 'DIGITEVEN' : 'DIGITODD';
         const dominancePercent = (Math.max(evensCount, scanWindow.length - evensCount) / scanWindow.length) * 100;
 
-        // 1. IA WAVE (Trend / Xadrez)
+        // 1. IA WAVE (Foco: Velocidade e Tendência)
         if (activeStrategy === 'trendSurfer') {
             if (isDeepMode) {
-                // Recuperação Rápida: Segue o lado que o mercado mais está respeitando nos últimos 40 ticks
                 contract = dominantSide as ContractType;
-                strategyName = `IA Wave (Recuperação Dominante: ${dominancePercent.toFixed(0)}%)`;
-                addLog(`IA Wave: Detectada dominância de ${dominancePercent.toFixed(0)}%. Executando recuperação imediata.`, "INFO");
+                strategyName = `IA Wave (Recuperação Rápida: ${dominancePercent.toFixed(0)}%)`;
             } else {
-                const last4 = parities.slice(0, 4);
-                if (last4.every(p => p === 'E')) { contract = 'DIGITEVEN'; strategyName = "IA Wave (Trend)"; }
-                else if (last4.every(p => p === 'O')) { contract = 'DIGITODD'; strategyName = "IA Wave (Trend)"; }
-                else if (parities[0] === 'E' && parities[1] === 'O' && parities[2] === 'E' && parities[3] === 'O') { contract = 'DIGITODD'; strategyName = "IA Wave (Xadrez)"; }
-                else if (parities[0] === 'O' && parities[1] === 'E' && parities[2] === 'O' && parities[3] === 'E') { contract = 'DIGITEVEN'; strategyName = "IA Wave (Xadrez)"; }
+                const last3 = parities.slice(0, 3);
+                // Tendência Rápida (3 iguais)
+                if (last3.every(p => p === 'E')) { contract = 'DIGITEVEN'; strategyName = "IA Wave (Fast Trend)"; }
+                else if (last3.every(p => p === 'O')) { contract = 'DIGITODD'; strategyName = "IA Wave (Fast Trend)"; }
+                // Xadrez Rápido (E-O-E ou O-E-O)
+                else if (parities[0] === 'E' && parities[1] === 'O' && parities[2] === 'E') { contract = 'DIGITODD'; strategyName = "IA Wave (Fast Chess)"; }
+                else if (parities[0] === 'O' && parities[1] === 'E' && parities[2] === 'O') { contract = 'DIGITEVEN'; strategyName = "IA Wave (Fast Chess)"; }
             }
         }
 
-        // 2. IA CYCLE (Ciclos Estatísticos)
+        // 2. IA CYCLE (Ciclos Curtos)
         else if (activeStrategy === 'probabilistic') {
             if (isDeepMode) {
                 contract = dominantSide as ContractType;
-                strategyName = `IA Cycle (Respeito Neural: ${dominancePercent.toFixed(0)}%)`;
-                addLog(`IA Cycle: Seguindo fluxo respeitado pelo mercado para recuperação rápida.`, "INFO");
+                strategyName = `IA Cycle (Deep Recovery)`;
             } else {
-                const window = lastDigits.slice(0, probWindow);
-                const evens = window.filter(d => d % 2 === 0).length;
-                const evenPerc = (evens / window.length) * 100;
-                if (evenPerc < 45) { contract = 'DIGITEVEN'; strategyName = "IA Cycle (Recuperação)"; }
-                else if (evenPerc > 55) { contract = 'DIGITODD'; strategyName = "IA Cycle (Recuperação)"; }
+                const cycleWindow = lastDigits.slice(0, 20); // Janela menor para mais entradas
+                const evens = cycleWindow.filter(d => d % 2 === 0).length;
+                const evenPerc = (evens / cycleWindow.length) * 100;
+                if (evenPerc < 40) { contract = 'DIGITEVEN'; strategyName = "IA Cycle (Fast Cycle)"; }
+                else if (evenPerc > 60) { contract = 'DIGITODD'; strategyName = "IA Cycle (Fast Cycle)"; }
             }
         }
 
-        // 3. IA RICO (Saturação Neural)
+        // 3. IA RICO (Saturação Neural Curta)
         else if (activeStrategy === 'neuralRico') {
             if (isDeepMode) {
                 contract = dominantSide as ContractType;
-                strategyName = `IA Rico (Deep Flow: ${dominancePercent.toFixed(0)}%)`;
+                strategyName = `IA Rico (Deep Flow)`;
             } else {
-                const lastStreak = parities.slice(0, 6);
-                if (lastStreak.every(p => p === 'E')) { contract = 'DIGITODD'; strategyName = "IA Rico (Reversão)"; }
-                else if (lastStreak.every(p => p === 'O')) { contract = 'DIGITEVEN'; strategyName = "IA Rico (Reversão)"; }
+                const last4 = parities.slice(0, 4); // Saturação mais rápida
+                if (last4.every(p => p === 'E')) { contract = 'DIGITODD'; strategyName = "IA Rico (Fast Reversal)"; }
+                else if (last4.every(p => p === 'O')) { contract = 'DIGITEVEN'; strategyName = "IA Rico (Fast Reversal)"; }
             }
         }
 
-        // 4. IA TITAN (Probabilidade de Padrão)
+        // 4. IA TITAN (Padrão 2-Step)
         else if (activeStrategy === 'smartAI') {
             if (isDeepMode) {
                 contract = dominantSide as ContractType;
-                strategyName = `IA Titan (Analítico Veloz: ${dominancePercent.toFixed(0)}%)`;
+                strategyName = `IA Titan (Analítico Veloz)`;
             } else {
-                const currentPattern = parities.slice(0, 3).join('');
-                const history = parities.slice(3, 200);
-                let nextE = 0, nextO = 0;
-                for (let i = 0; i < history.length - 3; i++) {
-                    const hPattern = history.slice(i + 1, i + 4).join('');
-                    if (hPattern === currentPattern) {
-                        if (history[i] === 'E') nextE++;
-                        else nextO++;
+                const pattern = parities.slice(0, 2).join(''); // Padrão de apenas 2 passos para velocidade
+                const history = parities.slice(2, 100);
+                let nE = 0, nO = 0;
+                for (let i = 0; i < history.length - 2; i++) {
+                    if (history.slice(i + 1, i + 3).join('') === pattern) {
+                        if (history[i] === 'E') nE++; else nO++;
                     }
                 }
-                if (nextE > nextO && nextE > 5) { contract = 'DIGITEVEN'; strategyName = "IA Titan (Probalística)"; }
-                else if (nextO > nextE && nextO > 5) { contract = 'DIGITODD'; strategyName = "IA Titan (Probalística)"; }
+                if (nE > nO && nE > 3) { contract = 'DIGITEVEN'; strategyName = "IA Titan (Fast Pattern)"; }
+                else if (nO > nE && nO > 3) { contract = 'DIGITODD'; strategyName = "IA Titan (Fast Pattern)"; }
             }
         }
 
         if (contract) {
-            const sId = addSignal({ strategy: strategyName, signal: contract === 'DIGITEVEN' ? 'EVEN' : 'ODD', details: 'Execução Neural', winRate: isDeepMode ? 'DOMINANTE' : 'Alta' });
+            const sId = addSignal({ strategy: strategyName, signal: contract === 'DIGITEVEN' ? 'EVEN' : 'ODD', details: 'Momentum Ativado', winRate: 'Alta' });
             isTradeOpen.current = true; executeBuy(contract, strategyName, sId, barrier);
         }
     }, [isBotRunning, lastDigits, lastTickEpoch, activeStrategy, initialStake, martingaleFactor, executeBuy, addSignal, probWindow, digitPrediction]);
