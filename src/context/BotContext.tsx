@@ -141,28 +141,18 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         let strategyName = '';
         const barrier = digitPrediction;
 
-        const recent = lastDigits.slice(0, 10);
+        const recent = lastDigits.slice(0, 15);
         const parities = recent.map(d => d % 2 === 0 ? 'E' : 'O');
+        const isDeepMode = martingaleLevel.current >= 3;
 
         // 1. IA WAVE (Trend / Xadrez)
         if (activeStrategy === 'trendSurfer') {
-            // VERIFICA SE ESTÁ NO 3º GALE (Análise Profunda)
-            if (martingaleLevel.current >= 3) {
-                const last6 = parities.slice(0, 6);
-                if (last6.length === 6) {
-                    if (last6.every(p => p === 'E')) { 
-                        contract = 'DIGITODD'; 
-                        strategyName = "IA Wave (Deep Recovery)"; 
-                        addLog("IA Wave: Iniciando Análise Profunda para Recuperação...", "INFO");
-                    }
-                    else if (last6.every(p => p === 'O')) { 
-                        contract = 'DIGITEVEN'; 
-                        strategyName = "IA Wave (Deep Recovery)"; 
-                        addLog("IA Wave: Iniciando Análise Profunda para Recuperação...", "INFO");
-                    }
-                }
+            if (isDeepMode) {
+                const last7 = parities.slice(0, 7);
+                if (last7.every(p => p === 'E')) { contract = 'DIGITODD'; strategyName = "IA Wave (Deep Recovery)"; }
+                else if (last7.every(p => p === 'O')) { contract = 'DIGITEVEN'; strategyName = "IA Wave (Deep Recovery)"; }
+                if (contract) addLog("IA Wave: Iniciando Análise Profunda para Recuperação...", "INFO");
             } else {
-                // LOGICA PADRÃO PARA NÍVEIS 0, 1, 2
                 const last4 = parities.slice(0, 4);
                 if (last4.every(p => p === 'E')) { contract = 'DIGITEVEN'; strategyName = "IA Wave (Trend)"; }
                 else if (last4.every(p => p === 'O')) { contract = 'DIGITODD'; strategyName = "IA Wave (Trend)"; }
@@ -173,27 +163,31 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         // 2. IA CYCLE (Ciclos Estatísticos)
         else if (activeStrategy === 'probabilistic') {
-            const window = lastDigits.slice(0, probWindow);
-            if (window.length >= probWindow) {
-                const evens = window.filter(d => d % 2 === 0).length;
-                const total = window.length;
-                const evenPerc = (evens / total) * 100;
-                if (evenPerc < 45) { contract = 'DIGITEVEN'; strategyName = "IA Cycle (Recuperação)"; }
-                else if (evenPerc > 55) { contract = 'DIGITODD'; strategyName = "IA Cycle (Recuperação)"; }
-            }
+            const window = lastDigits.slice(0, isDeepMode ? 100 : probWindow);
+            const evens = window.filter(d => d % 2 === 0).length;
+            const evenPerc = (evens / window.length) * 100;
+            const threshold = isDeepMode ? 65 : 55;
+
+            if (evenPerc < (100 - threshold)) { contract = 'DIGITEVEN'; strategyName = isDeepMode ? "IA Cycle (Deep Recovery)" : "IA Cycle (Recuperação)"; }
+            else if (evenPerc > threshold) { contract = 'DIGITODD'; strategyName = isDeepMode ? "IA Cycle (Deep Recovery)" : "IA Cycle (Recuperação)"; }
+            if (contract && isDeepMode) addLog("IA Cycle: Analisando Ciclo Extremo para Recuperação...", "INFO");
         }
 
         // 3. IA RICO (Saturação Neural)
         else if (activeStrategy === 'neuralRico') {
-            const last6 = parities.slice(0, 6);
-            if (last6.every(p => p === 'E')) { contract = 'DIGITODD'; strategyName = "IA Rico (Reversão)"; }
-            else if (last6.every(p => p === 'O')) { contract = 'DIGITEVEN'; strategyName = "IA Rico (Reversão)"; }
+            const streakRequired = isDeepMode ? 8 : 6;
+            const lastStreak = parities.slice(0, streakRequired);
+            if (lastStreak.length === streakRequired) {
+                if (lastStreak.every(p => p === 'E')) { contract = 'DIGITODD'; strategyName = isDeepMode ? "IA Rico (Deep Recovery)" : "IA Rico (Reversão)"; }
+                else if (lastStreak.every(p => p === 'O')) { contract = 'DIGITEVEN'; strategyName = isDeepMode ? "IA Rico (Deep Recovery)" : "IA Rico (Reversão)"; }
+            }
+            if (contract && isDeepMode) addLog("IA Rico: Saturação Neural Máxima Identificada. Recuperando...", "INFO");
         }
 
         // 4. IA TITAN (Probabilidade de Padrão)
         else if (activeStrategy === 'smartAI') {
             const currentPattern = parities.slice(0, 3).join('');
-            const history = parities.slice(3, 200);
+            const history = parities.slice(3, 250);
             let nextE = 0, nextO = 0;
             
             for (let i = 0; i < history.length - 3; i++) {
@@ -203,12 +197,19 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     else nextO++;
                 }
             }
-            if (nextE > nextO && nextE > 5) { contract = 'DIGITEVEN'; strategyName = "IA Titan (Probalística)"; }
-            else if (nextO > nextE && nextO > 5) { contract = 'DIGITODD'; strategyName = "IA Titan (Probalística)"; }
+            const minOccurrences = isDeepMode ? 15 : 5;
+            const minRate = isDeepMode ? 85 : 55;
+            
+            const total = nextE + nextO;
+            if (total >= minOccurrences) {
+                if ((nextE / total * 100) >= minRate) { contract = 'DIGITEVEN'; strategyName = isDeepMode ? "IA Titan (Deep Recovery)" : "IA Titan (Probalística)"; }
+                else if ((nextO / total * 100) >= minRate) { contract = 'DIGITODD'; strategyName = isDeepMode ? "IA Titan (Deep Recovery)" : "IA Titan (Probalística)"; }
+            }
+            if (contract && isDeepMode) addLog("IA Titan: Cruzando Dados Históricos de Alta Precisão...", "INFO");
         }
 
         if (contract) {
-            const sId = addSignal({ strategy: strategyName, signal: contract === 'DIGITEVEN' ? 'EVEN' : 'ODD', details: 'Execução Neural', winRate: 'Alta' });
+            const sId = addSignal({ strategy: strategyName, signal: contract === 'DIGITEVEN' ? 'EVEN' : 'ODD', details: 'Execução Neural', winRate: isDeepMode ? 'MÁXIMA' : 'Alta' });
             isTradeOpen.current = true; executeBuy(contract, strategyName, sId, barrier);
         }
     }, [isBotRunning, lastDigits, lastTickEpoch, activeStrategy, initialStake, martingaleFactor, executeBuy, addSignal, probWindow, digitPrediction]);
