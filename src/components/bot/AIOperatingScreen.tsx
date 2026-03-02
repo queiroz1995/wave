@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Settings, Power, RefreshCw, ChevronDown, Trash2 } from 'lucide-react';
+import { Power, RefreshCw, ChevronDown, Trash2, Settings2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -26,10 +26,8 @@ export const AIOperatingScreen = () => {
 
     const handleStartClick = () => {
         if (isBotRunning) {
-            // Se já estiver rodando, apenas para
             toggleBot();
         } else {
-            // Se não estiver rodando, abre o modal de configuração primeiro
             setIsConfigModalOpen(true);
         }
     };
@@ -40,146 +38,142 @@ export const AIOperatingScreen = () => {
     };
 
     return (
-        <div className="w-full max-w-md mx-auto space-y-4 pb-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="w-full max-w-md mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
             {/* CARD PRINCIPAL (HEADER) */}
-            <Card className="glass-panel border-none shadow-2xl overflow-hidden rounded-[2.5rem]">
-                <CardContent className="p-8 space-y-8 bg-gradient-to-b from-white/10 to-transparent">
-                    {/* Header: Nome e Botões */}
-                    <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-3">
-                            <div className="p-3 bg-primary/10 rounded-2xl">
-                                {selectedAIInfo && <selectedAIInfo.icon className="h-6 w-6 text-primary" />}
+            <Card className="glass-panel border-none shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] overflow-hidden rounded-[3rem]">
+                <CardContent className="p-10 space-y-10">
+                    {/* Header: Nome e Controle de Saída */}
+                    <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3.5 bg-primary/10 rounded-2xl">
+                                {selectedAIInfo && <selectedAIInfo.icon className="h-7 w-7 text-primary" />}
                             </div>
                             <div>
-                                <h2 className="text-xl font-black uppercase tracking-tighter">{selectedAIInfo?.name}</h2>
-                                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{selectedAIInfo?.style}</p>
+                                <h2 className="text-2xl font-black uppercase tracking-tighter">{selectedAIInfo?.name}</h2>
+                                <Badge variant="secondary" className="text-[9px] font-black px-2 py-0 uppercase tracking-widest bg-primary/5 text-primary border-none">
+                                    {selectedAIInfo?.style}
+                                </Badge>
                             </div>
                         </div>
-                        <div className="flex gap-2">
-                            <SettingsSheet />
-                            <Button variant="destructive" size="icon" className="rounded-xl shadow-lg shadow-red-500/20" onClick={exitToSelection}>
-                                <Power className="h-4 w-4" />
-                            </Button>
-                        </div>
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-12 w-12 rounded-2xl hover:bg-red-50 hover:text-red-500 transition-colors" 
+                            onClick={exitToSelection}
+                        >
+                            <Power className="h-6 w-6" />
+                        </Button>
                     </div>
 
-                    {/* Botão INICIAR */}
-                    <Button 
-                        onClick={handleStartClick}
-                        disabled={status.message.includes('Desconectado')}
-                        className={cn(
-                            "w-full h-14 rounded-2xl text-lg font-black uppercase tracking-widest transition-all duration-300 shadow-xl",
-                            isBotRunning 
-                                ? "bg-red-500 hover:bg-red-600 shadow-red-500/30" 
-                                : "bg-green-500 hover:bg-green-600 shadow-green-500/30"
+                    {/* Botão INICIAR / PARAR */}
+                    <div className="relative group">
+                        <Button 
+                            onClick={handleStartClick}
+                            disabled={status.message.includes('Desconectado')}
+                            className={cn(
+                                "w-full h-20 rounded-[2rem] text-xl font-black uppercase tracking-[0.2em] transition-all duration-500 shadow-2xl",
+                                isBotRunning 
+                                    ? "bg-red-500 hover:bg-red-600 shadow-red-500/30 scale-[0.98]" 
+                                    : "bg-primary hover:bg-primary/90 shadow-primary/30"
+                            )}
+                        >
+                            {isBotRunning ? "Parar Sistema" : "Iniciar Operação"}
+                        </Button>
+                        {!isBotRunning && (
+                            <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 opacity-40 group-hover:opacity-100 transition-opacity">
+                                <SettingsSheet trigger={
+                                    <Button variant="link" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                                        <Settings2 className="h-3 w-3" /> Configurações Avançadas
+                                    </Button>
+                                } />
+                            </div>
                         )}
-                    >
-                        {isBotRunning ? "■ PARAR OPERAÇÃO" : "▶ INICIAR IA"}
-                    </Button>
+                    </div>
 
-                    {/* Display de LUCRO */}
-                    <div className="text-center space-y-1 py-4">
-                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">Lucro / Prejuízo</p>
+                    {/* Display de LUCRO CENTRALIZADO */}
+                    <div className="text-center space-y-2 pt-4">
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.5em] opacity-50">Profit Analytics</p>
                         <div className={cn(
-                            "text-6xl font-black tracking-tighter flex items-center justify-center gap-2",
+                            "text-7xl font-black tracking-tighter flex items-center justify-center gap-3",
                             isWin ? "text-green-500" : "text-red-500"
                         )}>
-                            <span className="text-4xl">{isWin ? '↑' : '↓'}</span>
+                            <span className="text-4xl opacity-50">{isWin ? '↑' : '↓'}</span>
                             {isWin ? '+' : ''}{totalProfit.toFixed(2)}
                         </div>
-                        <p className="text-sm font-bold text-muted-foreground/60">USD</p>
+                        <p className="text-xs font-black text-muted-foreground uppercase tracking-widest">Dólares Americanos (USD)</p>
                     </div>
 
                     {/* Saldo Disponível */}
-                    <div className="bg-muted/30 border border-white/20 rounded-2xl p-4 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="bg-primary/20 p-2 rounded-lg">
-                                <RefreshCw className="h-4 w-4 text-primary" />
+                    <div className="bg-gray-50/50 border border-gray-100 rounded-[2rem] p-6 flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <div className="bg-white p-2.5 rounded-xl shadow-sm">
+                                <RefreshCw className="h-5 w-5 text-primary" />
                             </div>
                             <div>
-                                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Saldo Disponível</p>
-                                <p className="text-lg font-black tracking-tight">{accountBalance?.toFixed(2) || '0.00'} <span className="text-xs text-muted-foreground">USD</span></p>
+                                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Banca Atual</p>
+                                <p className="text-xl font-black tracking-tight">{accountBalance?.toFixed(2) || '0.00'} <span className="text-xs font-bold opacity-40">USD</span></p>
                             </div>
                         </div>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => handleConnect(accountType, currentToken)}>
-                            <RefreshCw className="h-4 w-4" />
+                        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl" onClick={() => handleConnect(accountType, currentToken)}>
+                            <RefreshCw className="h-5 w-5" />
                         </Button>
                     </div>
                 </CardContent>
             </Card>
 
-            {/* STATUS DE OPERAÇÃO */}
-            <div className="space-y-2 px-2">
-                <div className={cn(
-                    "p-4 rounded-2xl border flex items-center justify-between transition-all duration-500",
-                    tradeStatus === 'IDLE' ? "bg-white/40 border-white/20" : "bg-blue-500/10 border-blue-500/30"
-                )}>
-                    <span className="text-xs font-bold uppercase tracking-widest">Analisando Mercado</span>
-                    <div className={cn("h-2 w-2 rounded-full", isBotRunning ? "bg-blue-500 animate-pulse" : "bg-gray-300")} />
-                </div>
-                <div className={cn(
-                    "p-4 rounded-2xl border flex items-center justify-between transition-all duration-500",
-                    tradeStatus === 'SENDING' ? "bg-green-500/10 border-green-500/30" : "bg-white/40 border-white/20"
-                )}>
-                    <span className="text-xs font-bold uppercase tracking-widest">Comprando Contrato</span>
-                    <div className={cn("h-2 w-2 rounded-full", tradeStatus === 'SENDING' ? "bg-green-500 animate-bounce" : "bg-gray-300")} />
-                </div>
-                <div className={cn(
-                    "p-4 rounded-2xl border flex items-center justify-between transition-all duration-500",
-                    tradeStatus === 'ACTIVE' ? "bg-yellow-500/10 border-yellow-500/30" : "bg-white/40 border-white/20"
-                )}>
-                    <span className="text-xs font-bold uppercase tracking-widest">Aguardando Resultado</span>
-                    <div className={cn("h-2 w-2 rounded-full", tradeStatus === 'ACTIVE' ? "bg-yellow-500 animate-spin" : "bg-gray-300")} />
-                </div>
+            {/* STATUS DE OPERAÇÃO (TIMELINE) */}
+            <div className="grid grid-cols-3 gap-3 px-2">
+                {[
+                    { label: 'Analisando', active: isBotRunning && tradeStatus === 'IDLE', color: 'bg-blue-500' },
+                    { label: 'Comprando', active: tradeStatus === 'SENDING', color: 'bg-green-500' },
+                    { label: 'Processando', active: tradeStatus === 'ACTIVE', color: 'bg-yellow-500' }
+                ].map((step, i) => (
+                    <div key={i} className={cn(
+                        "p-3 rounded-2xl border flex flex-col items-center gap-2 transition-all duration-500",
+                        step.active ? "bg-white shadow-lg border-primary/20 scale-105 z-10" : "bg-white/40 border-transparent opacity-40"
+                    )}>
+                        <div className={cn("h-1.5 w-1.5 rounded-full", step.active ? step.color : "bg-gray-300", step.active && "animate-pulse")} />
+                        <span className="text-[9px] font-black uppercase tracking-widest">{step.label}</span>
+                    </div>
+                ))}
             </div>
 
-            {/* HISTÓRICO DE OPERAÇÕES */}
-            <Card className="glass-panel border-none rounded-[2rem] overflow-hidden">
-                <div className="p-5 flex justify-between items-center border-b border-white/10">
-                    <div className="flex items-center gap-2">
-                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                        <h3 className="text-xs font-black uppercase tracking-widest">Histórico de Operações</h3>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={clearSignals}>
+            {/* HISTÓRICO MINIMALISTA */}
+            <Card className="glass-panel border-none rounded-[2.5rem] overflow-hidden">
+                <div className="p-6 flex justify-between items-center bg-gray-50/30">
+                    <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground">Log de Contratos</h3>
+                    <div className="flex items-center gap-3">
+                        <div className="flex gap-2 text-[11px] font-black">
+                            <span className="text-green-500">W: {wins}</span>
+                            <span className="text-red-500">L: {losses}</span>
+                        </div>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={clearSignals}>
                             <Trash2 className="h-4 w-4" />
                         </Button>
-                        <div className="flex gap-2 text-[10px] font-black">
-                            <span className="text-green-500">{wins}</span>
-                            <span className="text-muted-foreground">/</span>
-                            <span className="text-red-500">{losses}</span>
-                        </div>
                     </div>
                 </div>
-                <ScrollArea className="h-60">
-                    <div className="p-0">
+                <ScrollArea className="h-56">
+                    <div className="px-6 pb-6">
                         <table className="w-full text-[11px] font-bold">
-                            <thead className="bg-muted/30 text-muted-foreground uppercase text-[9px]">
-                                <tr>
-                                    <th className="p-3 text-left">Hora</th>
-                                    <th className="p-3 text-left">Tipo</th>
-                                    <th className="p-3 text-right">Ganho/Perda</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5">
+                            <tbody className="divide-y divide-gray-50">
                                 {signals.length > 0 ? signals.map((s: any) => (
-                                    <tr key={s.id} className="hover:bg-white/5 transition-colors">
-                                        <td className="p-3 font-mono opacity-60">{s.timestamp}</td>
-                                        <td className="p-3">
-                                            <Badge variant="outline" className={cn(
-                                                "text-[9px] font-black uppercase",
-                                                s.signal === 'EVEN' ? "text-green-500 border-green-500/30" : "text-red-500 border-red-500/30"
+                                    <tr key={s.id}>
+                                        <td className="py-4 font-mono text-[10px] opacity-40">{s.timestamp}</td>
+                                        <td className="py-4">
+                                            <span className={cn(
+                                                "px-2 py-0.5 rounded-md text-[9px] font-black uppercase",
+                                                s.signal === 'EVEN' ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"
                                             )}>
                                                 {s.signal === 'EVEN' ? 'PAR' : 'ÍMPAR'}
-                                            </Badge>
+                                            </span>
                                         </td>
-                                        <td className={cn("p-3 text-right font-black", s.result === 'WIN' ? "text-green-500" : "text-red-500")}>
+                                        <td className={cn("py-4 text-right font-black", s.result === 'WIN' ? "text-green-500" : "text-red-500")}>
                                             {s.profit ? `${s.profit > 0 ? '+' : ''}${s.profit.toFixed(2)}` : '...'}
                                         </td>
                                     </tr>
                                 )) : (
                                     <tr>
-                                        <td colSpan={3} className="p-10 text-center text-muted-foreground uppercase text-[10px] tracking-widest italic opacity-40">Nenhuma Operação</td>
+                                        <td colSpan={3} className="py-20 text-center text-[10px] font-black text-muted-foreground/30 uppercase tracking-[0.3em]">Aguardando Sinais</td>
                                     </tr>
                                 )}
                             </tbody>
@@ -188,7 +182,6 @@ export const AIOperatingScreen = () => {
                 </ScrollArea>
             </Card>
 
-            {/* Modal de Configuração Rápida */}
             <QuickConfigModal 
                 isOpen={isConfigModalOpen}
                 onClose={() => setIsConfigModalOpen(false)}
