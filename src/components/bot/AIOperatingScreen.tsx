@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { SettingsSheet } from './SettingsSheet';
+import { QuickConfigModal } from './QuickConfigModal';
 
 export const AIOperatingScreen = () => {
     const { 
@@ -18,8 +19,25 @@ export const AIOperatingScreen = () => {
         handleConnect, accountType, realToken, demoToken
     } = useBotContext();
 
+    const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+
     const isWin = totalProfit >= 0;
     const currentToken = accountType === 'real' ? realToken : demoToken;
+
+    const handleStartClick = () => {
+        if (isBotRunning) {
+            // Se já estiver rodando, apenas para
+            toggleBot();
+        } else {
+            // Se não estiver rodando, abre o modal de configuração primeiro
+            setIsConfigModalOpen(true);
+        }
+    };
+
+    const confirmStart = () => {
+        setIsConfigModalOpen(false);
+        toggleBot();
+    };
 
     return (
         <div className="w-full max-w-md mx-auto space-y-4 pb-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -30,11 +48,11 @@ export const AIOperatingScreen = () => {
                     <div className="flex justify-between items-start">
                         <div className="flex items-center gap-3">
                             <div className="p-3 bg-primary/10 rounded-2xl">
-                                <selectedAIInfo.icon className="h-6 w-6 text-primary" />
+                                {selectedAIInfo && <selectedAIInfo.icon className="h-6 w-6 text-primary" />}
                             </div>
                             <div>
-                                <h2 className="text-xl font-black uppercase tracking-tighter">{selectedAIInfo.name}</h2>
-                                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{selectedAIInfo.style}</p>
+                                <h2 className="text-xl font-black uppercase tracking-tighter">{selectedAIInfo?.name}</h2>
+                                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{selectedAIInfo?.style}</p>
                             </div>
                         </div>
                         <div className="flex gap-2">
@@ -47,7 +65,7 @@ export const AIOperatingScreen = () => {
 
                     {/* Botão INICIAR */}
                     <Button 
-                        onClick={toggleBot}
+                        onClick={handleStartClick}
                         disabled={status.message.includes('Desconectado')}
                         className={cn(
                             "w-full h-14 rounded-2xl text-lg font-black uppercase tracking-widest transition-all duration-300 shadow-xl",
@@ -169,6 +187,13 @@ export const AIOperatingScreen = () => {
                     </div>
                 </ScrollArea>
             </Card>
+
+            {/* Modal de Configuração Rápida */}
+            <QuickConfigModal 
+                isOpen={isConfigModalOpen}
+                onClose={() => setIsConfigModalOpen(false)}
+                onConfirm={confirmStart}
+            />
         </div>
     );
 };
