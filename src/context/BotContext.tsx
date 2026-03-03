@@ -54,74 +54,34 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
     const [priceHistory, setPriceHistory] = useState<number[]>([]);
 
-    // --- MOTOR DE DECISÃO NEURAL AVANÇADO ---
+    // --- MOTOR DE DECISÃO NEURAL ---
     const getBestNeuralBet = useCallback(() => {
         if (!lastDigits || lastDigits.length < 20 || !priceHistory || priceHistory.length < 10) return null;
 
         const analysis = [];
 
-        // 1. RISE/FALL (Tendência de Preço)
+        // RISE/FALL
         const trend = priceHistory[0] - priceHistory[5];
         const rfProb = 50 + (trend > 0 ? 15 : -15);
-        analysis.push({ 
-            type: rfProb > 50 ? 'CALL' : 'PUT', 
-            prob: rfProb > 50 ? rfProb : 100 - rfProb, 
-            label: rfProb > 50 ? 'RISE' : 'FALL',
-            strategy: 'Trend-Flow I.A',
-            barrier: undefined
-        });
+        analysis.push({ type: rfProb > 50 ? 'CALL' : 'PUT', prob: rfProb > 50 ? rfProb : 100 - rfProb, label: rfProb > 50 ? 'RISE' : 'FALL', strategy: 'Neural Trend', barrier: undefined });
 
-        // 2. EVEN/ODD (Paridade de Dígitos)
+        // EVEN/ODD
         const evens = lastDigits.slice(0, 20).filter(d => d % 2 === 0).length;
         const evenProb = (evens / 20) * 100;
-        analysis.push({ 
-            type: evenProb > 50 ? 'DIGITEVEN' : 'DIGITODD', 
-            prob: evenProb > 50 ? evenProb : 100 - evenProb, 
-            label: evenProb > 50 ? 'EVEN' : 'ODD',
-            strategy: 'Parity-Neural',
-            barrier: undefined
-        });
+        analysis.push({ type: evenProb > 50 ? 'DIGITEVEN' : 'DIGITODD', prob: evenProb > 50 ? evenProb : 100 - evenProb, label: evenProb > 50 ? 'EVEN' : 'ODD', strategy: 'Parity Brain', barrier: undefined });
 
-        // 3. OVER/UNDER (Barreira de Segurança)
-        // Se o último dígito foi muito alto, a probabilidade de UNDER aumenta, e vice-versa.
+        // OVER/UNDER
         const unders = lastDigits.slice(0, 20).filter(d => d < digitPrediction).length;
         const underProb = (unders / 20) * 100;
-        analysis.push({ 
-            type: underProb > 50 ? 'DIGITUNDER' : 'DIGITOVER', 
-            prob: underProb > 50 ? underProb : 100 - underProb, 
-            label: underProb > 50 ? 'UNDER' : 'OVER',
-            strategy: 'Barrier-Guard',
-            barrier: digitPrediction
-        });
+        analysis.push({ type: underProb > 50 ? 'DIGITUNDER' : 'DIGITOVER', prob: underProb > 50 ? underProb : 100 - underProb, label: underProb > 50 ? 'UNDER' : 'OVER', strategy: 'Barrier Sensation', barrier: digitPrediction });
 
-        // 4. DIFFERS (Segurança Máxima)
+        // MATCHES/DIFFERS
         const targetCount = lastDigits.slice(0, 30).filter(d => d === digitPrediction).length;
         const differsProb = 100 - ((targetCount / 30) * 100);
-        analysis.push({ 
-            type: 'DIGITDIFF', 
-            prob: differsProb, 
-            label: 'DIFFERS',
-            strategy: 'Deep-Shield',
-            barrier: digitPrediction
-        });
+        analysis.push({ type: 'DIGITDIFF', prob: differsProb, label: 'DIFFERS', strategy: 'Shield Differs', barrier: digitPrediction });
 
-        // 5. HIGH/LOW (Zonas de Preço)
-        const avg = priceHistory.slice(0, 10).reduce((a, b) => a + b, 0) / 10;
-        const isAbove = priceHistory[0] > avg;
-        analysis.push({ 
-            type: isAbove ? 'CALL' : 'PUT', 
-            prob: isAbove ? 68 : 62, 
-            label: isAbove ? 'HIGH' : 'LOW',
-            strategy: 'Level-Master',
-            barrier: isAbove ? '+0.01' : '-0.01'
-        });
-
-        // ORDENAÇÃO POR PROBABILIDADE (O bot sempre pega o maior valor)
-        // Isso garante que se OVER/UNDER estiver 100%, ele será escolhido sobre o EVEN/ODD de 50%.
-        const sorted = analysis.sort((a, b) => b.prob - a.prob);
-        const best = sorted[0];
-
-        // Filtro de Confiança: Só entra se a probabilidade for maior que 65%
+        // Pega o melhor e entra se > 65%
+        const best = analysis.sort((a, b) => b.prob - a.prob)[0];
         return best.prob >= 65 ? best : null;
     }, [lastDigits, priceHistory, digitPrediction]);
 
@@ -176,11 +136,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 sendMessageRef.current({ ticks: asset, subscribe: 1 });
                 sendMessageRef.current({ ticks_history: asset, end: "latest", count: 250, style: "ticks" });
             } else if (data?.msg_type === 'history') {
-                if (data.history?.prices) {
-                   const prices = data.history.prices;
-                   setLastDigits(prices.map((p: any) => parseInt(String(p).slice(-1))).reverse());
-                   setPriceHistory([...prices].reverse());
-                }
+                if (data.history?.prices) setLastDigits(data.history.prices.map((p: any) => parseInt(String(p).slice(-1))).reverse());
             } else if (data?.msg_type === 'tick') {
                 if (data.tick?.symbol === asset) processTickData(data.tick);
             } else if (data?.msg_type === 'buy') {
@@ -208,53 +164,33 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, barrier: number | string | undefined) => {
         if (!isConnected) return;
-        const baseStake = parseFloat(initialStake) || 0.35;
-        let stakeToUse = baseStake;
-        if (isMartingaleActive && martingaleLevel.current > 0) {
-            stakeToUse = baseStake * Math.pow(parseFloat(martingaleFactor) || 2.2, martingaleLevel.current);
-        }
-        
-        const stakeNum = parseFloat(stakeToUse.toFixed(2));
+        const stakeNum = parseFloat(parseFloat(initialStake).toFixed(2));
         const params: any = { amount: stakeNum, basis: 'stake', contract_type: contractType, currency: 'USD', duration: 1, duration_unit: 't', symbol: asset };
         if (barrier !== undefined) params.barrier = String(barrier);
-        
         lastTradeDetails.current = { stake: stakeNum, strategyName, signalId, contractType, barrier };
         setTradeStatus('SENDING');
         sendMessage({ buy: 1, price: stakeNum, parameters: params });
-    }, [sendMessage, asset, setTradeStatus, isConnected, initialStake, isMartingaleActive, martingaleFactor]);
+    }, [sendMessage, asset, setTradeStatus, isConnected, initialStake]);
 
     useEffect(() => {
         if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isTradeOpen.current) return;
         processedTickEpoch.current = lastTickEpoch;
         
         let decision = null;
-
-        // PRIORIDADE 1: MODO MULTI-MODAL (Busca a melhor probabilidade entre os 7 tipos)
         if (digitTradeMode === 'multimodal') {
             decision = getBestNeuralBet();
-        } 
-        // PRIORIDADE 2: MODOS FIXOS (Se o usuário escolheu um modo específico)
-        else if (digitTradeMode === 'evenOdd') {
+        } else if (digitTradeMode === 'evenOdd') {
             const evens = lastDigits.slice(0, 10).filter(d => d % 2 === 0).length;
-            if (evens >= 7) decision = { type: 'DIGITODD', strategy: 'IA Parity Focus', barrier: undefined, prob: 70, label: 'ODD' };
-            else if (evens <= 3) decision = { type: 'DIGITEVEN', strategy: 'IA Parity Focus', barrier: undefined, prob: 70, label: 'EVEN' };
-        } else if (digitTradeMode === 'overUnder') {
-            const unders = lastDigits.slice(0, 10).filter(d => d < digitPrediction).length;
-            if (unders >= 7) decision = { type: 'DIGITOVER', strategy: 'IA Barrier Focus', barrier: digitPrediction, prob: 70, label: 'OVER' };
-            else if (unders <= 3) decision = { type: 'DIGITUNDER', strategy: 'IA Barrier Focus', barrier: digitPrediction, prob: 70, label: 'UNDER' };
+            if (evens >= 7) decision = { type: 'DIGITODD', strategy: 'IA Focus', barrier: undefined, prob: 70, label: 'ODD' };
+            else if (evens <= 3) decision = { type: 'DIGITEVEN', strategy: 'IA Focus', barrier: undefined, prob: 70, label: 'EVEN' };
         }
 
         if (decision) {
-            const sId = addSignal({ 
-                strategy: decision.strategy, 
-                signal: decision.label as any, 
-                details: `Neural Conf: ${decision.prob.toFixed(0)}%`, 
-                winRate: `${decision.prob.toFixed(0)}%` 
-            });
+            const sId = addSignal({ strategy: decision.strategy, signal: decision.label as any, details: `Neural Conf: ${decision.prob.toFixed(0)}%`, winRate: `${decision.prob.toFixed(0)}%` });
             isTradeOpen.current = true; 
             executeBuy(decision.type as ContractType, decision.strategy, sId, decision.barrier);
         }
-    }, [isBotRunning, lastDigits, lastTickEpoch, digitTradeMode, getBestNeuralBet, executeBuy, addSignal, digitPrediction]);
+    }, [isBotRunning, lastDigits, lastTickEpoch, digitTradeMode, getBestNeuralBet, executeBuy, addSignal]);
 
     useEffect(() => {
         if (!lastCompletedContract) return;
@@ -268,28 +204,14 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         totalProfitRef.current += parseFloat(profit);
         setTotalProfit(totalProfitRef.current);
 
-        if (isLoss) {
-            setLosses(prev => prev + 1);
-            if (isMartingaleActive) martingaleLevel.current += 1;
-        } else {
-            setWins(prev => prev + 1); martingaleLevel.current = 0;
-        }
-        
+        if (isLoss) setLosses(prev => prev + 1); else setWins(prev => prev + 1);
         if (lastTrade?.signalId) updateSignalResult(lastTrade.signalId, isLoss ? 'LOSS' : 'WIN', parseFloat(profit), lastTrade.stake, exitDigit);
         isTradeOpen.current = false; setActiveContract(null); setTradeStatus('IDLE'); setLastCompletedContract(null);
-
         if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Meta Batida!");
-        if (martingaleLevel.current > maxLevels) martingaleLevel.current = 0;
-    }, [lastCompletedContract, activeContract, takeProfit, maxLevels, isMartingaleActive, stopBot, setTotalProfit, setWins, setLosses, setAccountBalance, setActiveContract, setTradeStatus, updateSignalResult]);
+    }, [lastCompletedContract, activeContract, takeProfit, stopBot, setTotalProfit, setWins, setLosses, setAccountBalance, setActiveContract, setTradeStatus, updateSignalResult]);
 
-    const selectAI = useCallback((ia: any) => {
-        setSelectedAIInfo(ia); setActiveStrategy(ia.id); setAppFlow('operating');
-    }, [setActiveStrategy]);
-
-    const exitToSelection = useCallback(() => {
-        stopBot("Sessão Encerrada"); setAppFlow('selection'); setSelectedAIInfo(null);
-    }, [stopBot]);
-
+    const selectAI = useCallback((ia: any) => { setSelectedAIInfo(ia); setActiveStrategy(ia.id); setAppFlow('operating'); }, [setActiveStrategy]);
+    const exitToSelection = useCallback(() => { stopBot("Sessão Encerrada"); setAppFlow('selection'); setSelectedAIInfo(null); }, [stopBot]);
     const handleConnect = useCallback((targetType?: 'real' | 'demo', targetToken?: string) => {
         const type = targetType || accountType;
         const token = targetToken || (type === 'real' ? realToken : demoToken);
@@ -299,15 +221,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const toggleBot = useCallback(() => {
         if (!isConnected) return;
         if (isBotRunning) stopBot("Parado");
-        else { 
-            setIsBotRunning(true); totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0); martingaleLevel.current = 0; 
-        }
+        else { setIsBotRunning(true); totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0); }
     }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses]);
 
-    const contextValue = useMemo(() => ({
-        ...stateAndSetters, isConnected, status, handleConnect, handleDisconnect: disconnect, 
-        toggleBot, appFlow, setAppFlow, selectedAIInfo, selectAI, exitToSelection, priceHistory
-    }), [stateAndSetters, isConnected, status, handleConnect, disconnect, toggleBot, appFlow, selectedAIInfo, selectAI, exitToSelection, priceHistory]);
-
+    const contextValue = useMemo(() => ({ ...stateAndSetters, isConnected, status, handleConnect, handleDisconnect: disconnect, toggleBot, appFlow, setAppFlow, selectedAIInfo, selectAI, exitToSelection, priceHistory }), [stateAndSetters, isConnected, status, handleConnect, disconnect, toggleBot, appFlow, selectedAIInfo, selectAI, exitToSelection, priceHistory]);
     return <BotContext.Provider value={contextValue}>{children}</BotContext.Provider>;
 };
