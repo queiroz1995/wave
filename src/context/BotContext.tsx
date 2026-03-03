@@ -30,6 +30,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const lastTradeDetails = useRef<{ stake: number, strategyName: string, signalId: string | null, contractType: ContractType | null, barrier?: number } | null>(null);
     const reconnectAttemptsRef = useRef(0);
     const sendMessageRef = useRef<(payload: any) => void>(() => {});
+    const previousAsset = useRef<string | null>(null);
 
     const {
         addLog, setAccountBalance, setLastDigits, setIsBotRunning,
@@ -55,6 +56,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const fetchInitialTicks = useCallback(async () => {
         if (!asset) return;
         try {
+            // Limpa dados antigos antes de buscar novos para o novo ativo
+            setLastDigits([]);
+            setLastTickEpoch(null);
+            
             const { data, error } = await supabase.from('ticks').select('digit, epoch').eq('symbol', asset).order('epoch', { ascending: false }).limit(250);
             if (!error && data?.length > 0) {
                 setLastDigits(data.map(t => t.digit));
@@ -63,7 +68,17 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } catch (e) {}
     }, [asset, setLastDigits, setLastTickEpoch]);
 
-    useEffect(() => { fetchInitialTicks(); }, [fetchInitialTicks]);
+    useEffect(() => { 
+        fetchInitialTicks(); 
+        
+        // Se trocar de ativo enquanto conectado, desinscreve do antigo e inscreve no novo
+        if (isConnected && previousAsset.current && previousAsset.current !== asset) {
+            sendMessageRef.current({ forget_all: 'ticks' });
+            sendMessageRef.current({ ticks: asset, subscribe: 1 });
+            addLog(`Sincronizando com novo mercado: ${asset}`, 'INFO');
+        }
+        previousAsset.current = asset;
+    }, [asset, fetchInitialTicks, isConnected, addLog]);
 
     const stopBot = useCallback((reason: string) => {
         setIsBotRunning(false);
@@ -86,8 +101,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setIsConnected(true); 
                 setStatus({ message: `Conectado - ${data.authorize.is_virtual ? 'Demo' : 'Real'}`, color: 'bg-green-500' });
                 if (data.authorize.balance) setAccountBalance(data.authorize.balance);
+                // Inscreve no ativo atual ao autorizar
                 sendMessageRef.current({ ticks: asset, subscribe: 1 });
             } else if (data?.msg_type === 'tick') {
+                // Processa apenas se o tick for do ativo selecionado
                 if (data.tick?.symbol === asset) processTickData(data.tick);
             } else if (data?.msg_type === 'buy') {
                 if (data.buy) { 
@@ -132,7 +149,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         buyContract(contractType, strategyName, signalId, stakeToUse, barrier);
     }, [initialStake, martingaleFactor, buyContract, isMartingaleActive]);
 
-    // MOTOR DE DECISÃO DAS IAs
     useEffect(() => {
         if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isTradeOpen.current) return;
         processedTickEpoch.current = lastTickEpoch;
@@ -144,35 +160,30 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const parities = lastDigits.slice(0, 10).map(d => d % 2 === 0 ? 'E' : 'O');
         const isDeepMode = martingaleLevel.current >= 3;
 
-        // CÁLCULO DE DOMINÂNCIA EXPRESSO (Últimos 30 ticks)
         const scanWindow = lastDigits.slice(0, 30);
         const evensCount = scanWindow.filter(d => d % 2 === 0).length;
         const dominantSide = evensCount > (scanWindow.length / 2) ? 'DIGITEVEN' : 'DIGITODD';
         const dominancePercent = (Math.max(evensCount, scanWindow.length - evensCount) / scanWindow.length) * 100;
 
-        // 1. IA WAVE (Foco: Velocidade e Tendência)
         if (activeStrategy === 'trendSurfer') {
             if (isDeepMode) {
                 contract = dominantSide as ContractType;
                 strategyName = `IA Wave (Recuperação Rápida: ${dominancePercent.toFixed(0)}%)`;
             } else {
                 const last3 = parities.slice(0, 3);
-                // Tendência Rápida (3 iguais)
                 if (last3.every(p => p === 'E')) { contract = 'DIGITEVEN'; strategyName = "IA Wave (Fast Trend)"; }
                 else if (last3.every(p => p === 'O')) { contract = 'DIGITODD'; strategyName = "IA Wave (Fast Trend)"; }
-                // Xadrez Rápido (E-O-E ou O-E-O)
                 else if (parities[0] === 'E' && parities[1] === 'O' && parities[2] === 'E') { contract = 'DIGITODD'; strategyName = "IA Wave (Fast Chess)"; }
                 else if (parities[0] === 'O' && parities[1] === 'E' && parities[2] === 'O') { contract = 'DIGITEVEN'; strategyName = "IA Wave (Fast Chess)"; }
             }
         }
 
-        // 2. IA CYCLE (Ciclos Curtos)
         else if (activeStrategy === 'probabilistic') {
             if (isDeepMode) {
                 contract = dominantSide as ContractType;
                 strategyName = `IA Cycle (Deep Recovery)`;
             } else {
-                const cycleWindow = lastDigits.slice(0, 20); // Janela menor para mais entradas
+                const cycleWindow = lastDigits.slice(0, 20);
                 const evens = cycleWindow.filter(d => d % 2 === 0).length;
                 const evenPerc = (evens / cycleWindow.length) * 100;
                 if (evenPerc < 40) { contract = 'DIGITEVEN'; strategyName = "IA Cycle (Fast Cycle)"; }
@@ -180,25 +191,23 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
         }
 
-        // 3. IA RICO (Saturação Neural Curta)
         else if (activeStrategy === 'neuralRico') {
             if (isDeepMode) {
                 contract = dominantSide as ContractType;
                 strategyName = `IA Rico (Deep Flow)`;
             } else {
-                const last4 = parities.slice(0, 4); // Saturação mais rápida
+                const last4 = parities.slice(0, 4);
                 if (last4.every(p => p === 'E')) { contract = 'DIGITODD'; strategyName = "IA Rico (Fast Reversal)"; }
                 else if (last4.every(p => p === 'O')) { contract = 'DIGITEVEN'; strategyName = "IA Rico (Fast Reversal)"; }
             }
         }
 
-        // 4. IA TITAN (Padrão 2-Step)
         else if (activeStrategy === 'smartAI') {
             if (isDeepMode) {
                 contract = dominantSide as ContractType;
                 strategyName = `IA Titan (Analítico Veloz)`;
             } else {
-                const pattern = parities.slice(0, 2).join(''); // Padrão de apenas 2 passos para velocidade
+                const pattern = parities.slice(0, 2).join('');
                 const history = parities.slice(2, 100);
                 let nE = 0, nO = 0;
                 for (let i = 0; i < history.length - 2; i++) {

@@ -13,14 +13,29 @@ import { InfoTooltip } from '../InfoTooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from '@/components/ui/slider';
 
+const AVAILABLE_ASSETS = [
+    { value: '1HZ10V', label: 'Volatility 10 (1s) Index' },
+    { value: '1HZ25V', label: 'Volatility 25 (1s) Index' },
+    { value: '1HZ50V', label: 'Volatility 50 (1s) Index' },
+    { value: '1HZ75V', label: 'Volatility 75 (1s) Index' },
+    { value: '1HZ100V', label: 'Volatility 100 (1s) Index' },
+    { value: 'R_10', label: 'Volatility 10 Index' },
+    { value: 'R_25', label: 'Volatility 25 Index' },
+    { value: 'R_50', label: 'Volatility 50 Index' },
+    { value: 'R_75', label: 'Volatility 75 Index' },
+    { value: 'R_100', label: 'Volatility 100 Index' },
+];
+
 export const TradeParameters = () => {
     const {
+        asset, setAsset,
         setDuration, setInitialStake,
         isManualMode, setIsManualMode,
         isManualGaleActive, setIsManualGaleActive,
         digitTradeMode, setDigitTradeMode,
         digitPrediction, setDigitPrediction,
         overUnderDirection, setOverUnderDirection,
+        isBotRunning
     } = useBotContext();
 
     const resetParams = () => {
@@ -29,21 +44,25 @@ export const TradeParameters = () => {
         toast.info("Parâmetros de trade (Stake e Duração) foram resetados para o padrão.");
     };
 
-    // Determine min/max for digitPrediction slider based on overUnderDirection
-    // OVER: Barreira pode ser 0 a 8. (Acima de 9 é impossível)
-    // UNDER: Barreira pode ser 1 a 9. (Abaixo de 0 é impossível)
+    const handleAssetChange = (newAsset: string) => {
+        if (isBotRunning) {
+            toast.error("Pare o bot antes de trocar de mercado.");
+            return;
+        }
+        setAsset(newAsset);
+        const assetLabel = AVAILABLE_ASSETS.find(a => a.value === newAsset)?.label;
+        toast.success(`Mercado alterado para: ${assetLabel}`);
+    };
+
     const digitPredictionMin = overUnderDirection === 'OVER' ? 0 : 1;
     const digitPredictionMax = overUnderDirection === 'OVER' ? 8 : 9;
 
-    // Effect to adjust digitPrediction if it becomes invalid after changing overUnderDirection
     useEffect(() => {
         if (digitTradeMode === 'overUnder') {
             if (overUnderDirection === 'OVER' && digitPrediction === 9) {
                 setDigitPrediction(8);
-                toast.info("Dígito Alvo ajustado para 8 (máximo para 'Acima').");
             } else if (overUnderDirection === 'UNDER' && digitPrediction === 0) {
                 setDigitPrediction(1);
-                toast.info("Dígito Alvo ajustado para 1 (mínimo para 'Abaixo').");
             }
         }
     }, [overUnderDirection, digitPrediction, digitTradeMode, setDigitPrediction]);
@@ -55,6 +74,25 @@ export const TradeParameters = () => {
                 <Button variant="ghost" size="icon" onClick={resetParams}><RotateCcw className="h-4 w-4" /><span className="sr-only">Resetar</span></Button>
             </CardHeader>
             <CardContent className="space-y-4">
+                <div className="space-y-2">
+                    <div className="flex items-center gap-1.5">
+                        <Label>Ativo em Operação</Label>
+                        <InfoTooltip infoText="Escolha o índice de volatilidade para operar. Cada índice tem uma velocidade de ticks diferente." />
+                    </div>
+                    <Select value={asset} onValueChange={handleAssetChange} disabled={isBotRunning}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Selecione um mercado" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {AVAILABLE_ASSETS.map((a) => (
+                                <SelectItem key={a.value} value={a.value}>
+                                    {a.label}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+
                 <div className="space-y-2">
                     <Label>Tipo de Operação</Label>
                     <Select value={digitTradeMode} onValueChange={(v) => setDigitTradeMode(v as 'evenOdd' | 'overUnder')}>
@@ -91,24 +129,9 @@ export const TradeParameters = () => {
                                 max={digitPredictionMax}
                                 step={1}
                             />
-                            <InfoTooltip 
-                                infoText={
-                                    overUnderDirection === 'OVER' 
-                                        ? `Aposta em dígitos MAIORES que a barreira. Se a barreira for ${digitPrediction}, você ganha com ${digitPrediction + 1} a 9. Você perde com ${digitPrediction} ou menos.`
-                                        : `Aposta em dígitos MENORES que a barreira. Se a barreira for ${digitPrediction}, você ganha com ${digitPrediction - 1} a 0. Você perde com ${digitPrediction} ou mais.`
-                                } 
-                            />
                         </div>
                     </div>
                 )}
-                
-                <div className="space-y-2">
-                    <div className="flex items-center gap-1.5">
-                        <Label>Ativo em Operação</Label>
-                        <InfoTooltip infoText="O bot está configurado para operar exclusivamente no Índice de Volatilidade 100 (1s)." />
-                    </div>
-                    <Input value="Volatility 100 (1s)" disabled />
-                </div>
 
                 <div className="space-y-3 pt-4 border-t">
                     <div className="flex items-center justify-between">
@@ -119,18 +142,12 @@ export const TradeParameters = () => {
                             onCheckedChange={setIsManualMode}
                         />
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                        Quando desativado, os botões de compra manual (Par/Ímpar) serão ocultados.
-                    </p>
                 </div>
 
                 {isManualMode && (
                     <div className="space-y-3 pt-4 border-t">
                         <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-1.5">
-                                <Label htmlFor="manual-gale-switch" className="font-semibold">Habilitar Martingale Manual</Label>
-                                <InfoTooltip infoText="Se ativo, após uma perda manual, a próxima aposta manual terá o valor de Martingale calculado automaticamente." />
-                            </div>
+                            <Label htmlFor="manual-gale-switch" className="font-semibold">Habilitar Martingale Manual</Label>
                             <Switch
                                 id="manual-gale-switch"
                                 checked={isManualGaleActive}
