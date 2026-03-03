@@ -54,28 +54,73 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
     const [priceHistory, setPriceHistory] = useState<number[]>([]);
 
-    // --- MOTOR NEURAL DE DECISÃO ---
+    // --- MOTOR NEURAL DE DECISÃO INTEGRADO (7 MODALIDADES) ---
     const getBestNeuralBet = useCallback(() => {
-        if (lastDigits.length < 20 || priceHistory.length < 10) return null;
+        if (!lastDigits || !priceHistory || lastDigits.length < 20 || priceHistory.length < 10) return null;
 
-        const results = [];
+        const candidates = [];
         
         // 1. RISE/FALL
-        const rfProb = 50 + (priceHistory[0] > priceHistory[4] ? 10 : -10);
-        results.push({ type: rfProb > 50 ? 'CALL' : 'PUT', prob: rfProb > 50 ? rfProb : 100 - rfProb, strategy: 'Neural Trend', barrier: undefined });
+        const shortTrend = priceHistory[0] - priceHistory[4];
+        const momentum = priceHistory[0] - priceHistory[9];
+        const rfProb = 50 + (shortTrend > 0 ? 5 : -5) + (momentum > 0 ? 10 : -10);
+        candidates.push({ 
+            type: rfProb > 50 ? 'CALL' : 'PUT', 
+            prob: rfProb > 50 ? rfProb : 100 - rfProb, 
+            strategy: 'Neural Trend', 
+            barrier: undefined,
+            label: rfProb > 50 ? 'RISE' : 'FALL'
+        });
 
         // 2. ODD/EVEN
         const evens = lastDigits.slice(0, 20).filter(d => d % 2 === 0).length;
         const evenProb = (evens / 20) * 100;
-        results.push({ type: evenProb > 50 ? 'DIGITEVEN' : 'DIGITODD', prob: evenProb > 50 ? evenProb : 100 - evenProb, strategy: 'Digit Parity', barrier: undefined });
+        candidates.push({ 
+            type: evenProb > 50 ? 'DIGITEVEN' : 'DIGITODD', 
+            prob: evenProb > 50 ? evenProb : 100 - evenProb, 
+            strategy: 'Digit Parity', 
+            barrier: undefined,
+            label: evenProb > 50 ? 'EVEN' : 'ODD'
+        });
 
         // 3. OVER/UNDER
         const unders = lastDigits.slice(0, 20).filter(d => d < digitPrediction).length;
         const underProb = (unders / 20) * 100;
-        results.push({ type: underProb > 50 ? 'DIGITUNDER' : 'DIGITOVER', prob: underProb > 50 ? underProb : 100 - underProb, strategy: 'Barrier Sensation', barrier: digitPrediction });
+        candidates.push({ 
+            type: underProb > 50 ? 'DIGITUNDER' : 'DIGITOVER', 
+            prob: underProb > 50 ? underProb : 100 - underProb, 
+            strategy: 'Barrier Flow', 
+            barrier: digitPrediction,
+            label: underProb > 50 ? 'UNDER' : 'OVER'
+        });
 
-        // Ordena por maior probabilidade
-        return results.sort((a, b) => b.prob - a.prob)[0];
+        // 4. MATCHES/DIFFERS (Alta probabilidade)
+        const targetCount = lastDigits.slice(0, 30).filter(d => d === digitPrediction).length;
+        const differsProb = 100 - ((targetCount / 30) * 100);
+        candidates.push({ 
+            type: 'DIGITDIFF', 
+            prob: differsProb, 
+            strategy: 'Safety Differs', 
+            barrier: digitPrediction,
+            label: 'DIFFERS'
+        });
+
+        // 5. HIGH/LOW (Adaptado via CALL/PUT com barreira)
+        const avg = priceHistory.slice(0, 10).reduce((a, b) => a + b, 0) / 10;
+        const hlProb = priceHistory[0] > avg ? 62 : 58;
+        candidates.push({ 
+            type: priceHistory[0] > avg ? 'CALL' : 'PUT', 
+            prob: hlProb, 
+            strategy: 'Level Analysis', 
+            barrier: priceHistory[0] > avg ? '+0.01' : '-0.01',
+            label: priceHistory[0] > avg ? 'HIGH' : 'LOW'
+        });
+
+        // Ordena por maior probabilidade absoluta
+        const best = candidates.sort((a, b) => b.prob - a.prob)[0];
+        
+        // Só entra se a probabilidade for significativa (>65%)
+        return best.prob >= 65 ? best : null;
     }, [lastDigits, priceHistory, digitPrediction]);
 
     const fetchInitialTicks = useCallback(async () => {
@@ -129,7 +174,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 sendMessageRef.current({ ticks: asset, subscribe: 1 });
                 sendMessageRef.current({ ticks_history: asset, end: "latest", count: 250, style: "ticks" });
             } else if (data?.msg_type === 'history') {
-                if (data.history?.prices) setLastDigits(data.history.prices.map((p: any) => parseInt(String(p).slice(-1))).reverse());
+                if (data.history?.prices) {
+                   const prices = data.history.prices;
+                   setLastDigits(prices.map((p: any) => parseInt(String(p).slice(-1))).reverse());
+                   setPriceHistory([...prices].reverse());
+                }
             } else if (data?.msg_type === 'tick') {
                 if (data.tick?.symbol === asset) processTickData(data.tick);
             } else if (data?.msg_type === 'buy') {
@@ -182,15 +231,15 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             decision = getBestNeuralBet();
         } else if (digitTradeMode === 'evenOdd') {
             const evens = lastDigits.slice(0, 10).filter(d => d % 2 === 0).length;
-            if (evens >= 7) decision = { type: 'DIGITODD', strategy: 'IA Digit Focus', barrier: undefined, prob: 70 };
-            else if (evens <= 3) decision = { type: 'DIGITEVEN', strategy: 'IA Digit Focus', barrier: undefined, prob: 70 };
+            if (evens >= 7) decision = { type: 'DIGITODD', strategy: 'IA Digit Focus', barrier: undefined, prob: 70, label: 'ODD' };
+            else if (evens <= 3) decision = { type: 'DIGITEVEN', strategy: 'IA Digit Focus', barrier: undefined, prob: 70, label: 'EVEN' };
         }
 
         if (decision) {
             const sId = addSignal({ 
                 strategy: decision.strategy, 
-                signal: decision.type.includes('DIGIT') ? (decision.type === 'DIGITEVEN' ? 'EVEN' : 'ODD') : (decision.type === 'CALL' ? 'CALL' : 'PUT'), 
-                details: `Neural Prob: ${decision.prob.toFixed(0)}%`, 
+                signal: decision.label as any, 
+                details: `Prob Neural: ${decision.prob.toFixed(0)}%`, 
                 winRate: `${decision.prob.toFixed(0)}%` 
             });
             isTradeOpen.current = true; 
