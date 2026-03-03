@@ -57,24 +57,40 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const fetchInitialTicks = useCallback(async () => {
         if (!asset) return;
         try {
-            setLastDigits([]);
-            setLastTickEpoch(null);
-            setPriceHistory([]);
-            
+            // Se o banco falhar (Erro 402), não travamos o bot.
             const { data, error } = await supabase.from('ticks').select('digit, epoch').eq('symbol', asset).order('epoch', { ascending: false }).limit(250);
-            if (!error && data?.length > 0) {
+            
+            if (error) {
+                console.warn("[Bot] Supabase Error, requesting history from Deriv:", error);
+                // Fallback: Solicita histórico via WebSocket
+                if (isConnected) {
+                    sendMessageRef.current({ 
+                        ticks_history: asset, 
+                        end: "latest", 
+                        count: 250, 
+                        style: "ticks" 
+                    });
+                }
+                return;
+            }
+
+            if (data?.length > 0) {
                 setLastDigits(data.map(t => t.digit));
                 setLastTickEpoch(data[0].epoch);
             }
-        } catch (e) {}
-    }, [asset, setLastDigits, setLastTickEpoch]);
+        } catch (e) {
+            console.error("[Bot] Failed to fetch initial ticks:", e);
+        }
+    }, [asset, isConnected, setLastDigits, setLastTickEpoch]);
 
     useEffect(() => { 
         fetchInitialTicks(); 
         if (isConnected && previousAsset.current && previousAsset.current !== asset) {
             sendMessageRef.current({ forget_all: 'ticks' });
             sendMessageRef.current({ ticks: asset, subscribe: 1 });
-            addLog(`Sincronizando com novo mercado: ${asset}`, 'INFO');
+            // Força busca de histórico ao trocar de mercado
+            sendMessageRef.current({ ticks_history: asset, end: "latest", count: 250, style: "ticks" });
+            addLog(`Sincronizando mercado: ${asset}`, 'INFO');
         }
         previousAsset.current = asset;
     }, [asset, fetchInitialTicks, isConnected, addLog]);
@@ -103,6 +119,14 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setStatus({ message: `Conectado - ${data.authorize.is_virtual ? 'Demo' : 'Real'}`, color: 'bg-green-500' });
                 if (data.authorize.balance) setAccountBalance(data.authorize.balance);
                 sendMessageRef.current({ ticks: asset, subscribe: 1 });
+                // Solicita histórico imediato após autorizar
+                sendMessageRef.current({ ticks_history: asset, end: "latest", count: 250, style: "ticks" });
+            } else if (data?.msg_type === 'history') {
+                if (data.history?.prices) {
+                    const digits = data.history.prices.map((p: any) => parseInt(String(p).slice(-1))).reverse();
+                    setLastDigits(digits);
+                    addLog("Sincronização neural concluída via Deriv Cloud.", "INFO");
+                }
             } else if (data?.msg_type === 'tick') {
                 if (data.tick?.symbol === asset) processTickData(data.tick);
             } else if (data?.msg_type === 'buy') {
@@ -123,7 +147,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             }
         }
-    }, [addLog, setAccountBalance, setActiveContract, setTradeStatus, asset, processTickData]);
+    }, [addLog, setAccountBalance, setActiveContract, setTradeStatus, asset, processTickData, setLastDigits]);
 
     const ws = useTradingWebSocketManager({ isConnected, status, setIsConnected, setStatus, setAccountBalance, onMessage: handleWebSocketMessage, reconnectAttemptsRef });
     const { sendMessage, connect, disconnect } = ws;
@@ -134,11 +158,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const stakeNum = parseFloat(stakeAmount.toFixed(2));
         const params: any = { amount: stakeNum, basis: 'stake', contract_type: contractType, currency: 'USD', duration: 1, duration_unit: 't', symbol: asset };
         
-        // CORREÇÃO: A barreira só é incluída se for explicitamente definida e o contrato a suportar
         const barrierAllowedTypes = ['DIGITOVER', 'DIGITUNDER', 'CALL', 'PUT'];
         if (barrier !== undefined && barrierAllowedTypes.includes(contractType)) {
-            // No caso de CALL/PUT, se for Rise/Fall (ATM), a barreira não deve ser enviada. 
-            // Mas aqui estamos usando para Higher/Lower, então enviamos.
             params.barrier = String(barrier);
         }
         
@@ -164,14 +185,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         let strategyName = '';
         let barrierToUse: number | string | undefined = undefined;
 
-        // --- ANALISADOR MULTIMODAL ---
         const isStrongUp = priceHistory.length > 8 && priceHistory[0] > priceHistory[7];
         const isStrongDown = priceHistory.length > 8 && priceHistory[0] < priceHistory[7];
         const isGentleUp = priceHistory.length > 5 && priceHistory[0] > priceHistory[4];
         const isGentleDown = priceHistory.length > 5 && priceHistory[0] < priceHistory[4];
         const parities = lastDigits.slice(0, 10).map(d => d % 2 === 0 ? 'E' : 'O');
         const evensCount = parities.filter(p => p === 'E').length;
-        // -----------------------------
 
         if (digitTradeMode === 'multimodal') {
             if (isStrongUp) { 
