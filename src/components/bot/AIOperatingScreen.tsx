@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, ChevronDown, Trash2, Bot } from 'lucide-react';
+import { Power, RefreshCw, Trash2, Bot, Target, Zap, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -15,7 +15,8 @@ export const AIOperatingScreen = () => {
         selectedAIInfo, totalProfit, accountBalance, 
         isBotRunning, toggleBot, exitToSelection, 
         status, tradeStatus, wins, losses, signals, clearSignals,
-        handleConnect, accountType, realToken, demoToken
+        handleConnect, accountType, realToken, demoToken,
+        digitTradeMode
     } = useBotContext();
 
     const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
@@ -36,11 +37,27 @@ export const AIOperatingScreen = () => {
         toggleBot();
     };
 
+    // Identifica a modalidade atual com base nos sinais mais recentes
+    const activeModality = useMemo(() => {
+        if (!isBotRunning) return { label: 'Em Espera', icon: Bot, color: 'text-gray-400' };
+        
+        const lastSignal = signals[0];
+        if (!lastSignal) return { label: 'Analisando Mercado', icon: Zap, color: 'text-primary' };
+
+        if (lastSignal.signal === 'CALL' || lastSignal.signal === 'PUT') {
+            if (lastSignal.details?.includes('Barrier')) {
+                return { label: 'Volatilidade (Higher/Lower)', icon: Target, color: 'text-orange-500' };
+            }
+            return { label: 'Tendência (Rise/Fall)', icon: TrendingUp, color: 'text-cyan-500' };
+        }
+        return { label: 'Análise de Dígitos', icon: Zap, color: 'text-green-500' };
+    }, [isBotRunning, signals]);
+
     return (
         <div className="w-full max-w-md mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
             {/* CARD PRINCIPAL */}
             <Card className="glass-panel border-none shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] overflow-hidden rounded-[3rem]">
-                <CardContent className="p-10 space-y-10">
+                <CardContent className="p-10 space-y-8">
                     {/* Header Simplificado */}
                     <div className="flex justify-between items-center">
                         <div className="flex items-center gap-4">
@@ -74,6 +91,14 @@ export const AIOperatingScreen = () => {
                         </Button>
                     </div>
 
+                    {/* INDICADOR DE MODALIDADE ATIVA */}
+                    <div className="flex items-center justify-center gap-2 p-3 bg-gray-50/80 rounded-2xl border border-dashed border-gray-200">
+                        <activeModality.icon className={cn("h-4 w-4", activeModality.color)} />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+                            Foco: <span className={cn("ml-1", activeModality.color)}>{activeModality.label}</span>
+                        </span>
+                    </div>
+
                     {/* Botão de Ação Único */}
                     <Button 
                         onClick={handleStartClick}
@@ -89,7 +114,7 @@ export const AIOperatingScreen = () => {
                     </Button>
 
                     {/* Display de Lucro */}
-                    <div className="text-center space-y-2 pt-4">
+                    <div className="text-center space-y-2 pt-2">
                         <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.5em] opacity-50">Live Profit</p>
                         <div className={cn(
                             "text-7xl font-black tracking-tighter flex items-center justify-center gap-3",
@@ -158,9 +183,9 @@ export const AIOperatingScreen = () => {
                                         <td className="py-4">
                                             <span className={cn(
                                                 "px-2 py-0.5 rounded-md text-[9px] font-black uppercase",
-                                                s.signal === 'EVEN' ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"
+                                                (s.signal === 'EVEN' || s.signal === 'CALL') ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"
                                             )}>
-                                                {s.signal === 'EVEN' ? 'PAR' : 'ÍMPAR'}
+                                                {s.signal}
                                             </span>
                                         </td>
                                         <td className={cn("py-4 text-right font-black", s.result === 'WIN' ? "text-green-500" : "text-red-500")}>
