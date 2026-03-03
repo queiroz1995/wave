@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { QuickConfigModal } from './QuickConfigModal';
+import { NeuralAnalytics } from './NeuralAnalytics';
 
 export const AIOperatingScreen = () => {
     const { 
@@ -16,7 +17,6 @@ export const AIOperatingScreen = () => {
         isBotRunning, toggleBot, exitToSelection, 
         status, tradeStatus, wins, losses, signals, clearSignals,
         handleConnect, accountType, realToken, demoToken,
-        digitTradeMode
     } = useBotContext();
 
     const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
@@ -37,7 +37,6 @@ export const AIOperatingScreen = () => {
         toggleBot();
     };
 
-    // Identifica a modalidade atual com base nos sinais mais recentes
     const activeModality = useMemo(() => {
         if (!isBotRunning) return { label: 'Em Espera', icon: Bot, color: 'text-gray-400' };
         
@@ -54,11 +53,10 @@ export const AIOperatingScreen = () => {
     }, [isBotRunning, signals]);
 
     return (
-        <div className="w-full max-w-md mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
+        <div className="w-full max-w-md mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-700 pb-20">
             {/* CARD PRINCIPAL */}
             <Card className="glass-panel border-none shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] overflow-hidden rounded-[3rem]">
                 <CardContent className="p-10 space-y-8">
-                    {/* Header Simplificado */}
                     <div className="flex justify-between items-center">
                         <div className="flex items-center gap-4">
                             <div className="h-14 w-14 bg-primary/10 rounded-2xl overflow-hidden border-2 border-white/50 shadow-sm">
@@ -91,7 +89,6 @@ export const AIOperatingScreen = () => {
                         </Button>
                     </div>
 
-                    {/* INDICADOR DE MODALIDADE ATIVA */}
                     <div className="flex items-center justify-center gap-2 p-3 bg-gray-50/80 rounded-2xl border border-dashed border-gray-200">
                         <activeModality.icon className={cn("h-4 w-4", activeModality.color)} />
                         <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">
@@ -99,7 +96,6 @@ export const AIOperatingScreen = () => {
                         </span>
                     </div>
 
-                    {/* Botão de Ação Único */}
                     <Button 
                         onClick={handleStartClick}
                         disabled={status.message.includes('Desconectado')}
@@ -113,7 +109,6 @@ export const AIOperatingScreen = () => {
                         {isBotRunning ? "Interromper" : "Play Operação"}
                     </Button>
 
-                    {/* Display de Lucro */}
                     <div className="text-center space-y-2 pt-2">
                         <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.5em] opacity-50">Live Profit</p>
                         <div className={cn(
@@ -124,7 +119,6 @@ export const AIOperatingScreen = () => {
                         </div>
                     </div>
 
-                    {/* Saldo */}
                     <div className="bg-gray-50/50 border border-gray-100 rounded-[2rem] p-6 flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             <div className="bg-white p-2.5 rounded-xl shadow-sm">
@@ -142,7 +136,9 @@ export const AIOperatingScreen = () => {
                 </CardContent>
             </Card>
 
-            {/* Timelines de Status */}
+            {/* Painel Neural - NOVO */}
+            <NeuralAnalytics />
+
             <div className="grid grid-cols-3 gap-3 px-2">
                 {[
                     { label: 'Análise', active: isBotRunning && tradeStatus === 'IDLE', color: 'bg-blue-500' },
@@ -159,7 +155,6 @@ export const AIOperatingScreen = () => {
                 ))}
             </div>
 
-            {/* Histórico */}
             <Card className="glass-panel border-none rounded-[2.5rem] overflow-hidden">
                 <div className="p-6 flex justify-between items-center bg-gray-50/30">
                     <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-muted-foreground">Relatório de Voo</h3>
