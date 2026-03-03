@@ -113,7 +113,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 } else if (data.error) {
                     isTradeOpen.current = false;
                     setTradeStatus('IDLE');
-                    addLog(`Erro: ${data.error.message}`, "ERROR");
+                    addLog(`Erro API: ${data.error.message}`, "ERROR");
                 }
             } else if (data?.msg_type === 'proposal_open_contract') {
                 const poc = data.proposal_open_contract;
@@ -129,12 +129,16 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { sendMessage, connect, disconnect } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
-    const buyContract = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, stakeAmount: number, barrier: number | string) => {
+    const buyContract = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, stakeAmount: number, barrier: number | string | undefined) => {
         if (!isConnected) return;
         const stakeNum = parseFloat(stakeAmount.toFixed(2));
         const params: any = { amount: stakeNum, basis: 'stake', contract_type: contractType, currency: 'USD', duration: 1, duration_unit: 't', symbol: asset };
         
-        if (barrier !== undefined) {
+        // CORREÇÃO: A barreira só é incluída se for explicitamente definida e o contrato a suportar
+        const barrierAllowedTypes = ['DIGITOVER', 'DIGITUNDER', 'CALL', 'PUT'];
+        if (barrier !== undefined && barrierAllowedTypes.includes(contractType)) {
+            // No caso de CALL/PUT, se for Rise/Fall (ATM), a barreira não deve ser enviada. 
+            // Mas aqui estamos usando para Higher/Lower, então enviamos.
             params.barrier = String(barrier);
         }
         
@@ -143,7 +147,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sendMessage({ buy: 1, price: stakeNum, parameters: params });
     }, [sendMessage, asset, setTradeStatus, isConnected]);
 
-    const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, barrier: number | string) => {
+    const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, barrier: number | string | undefined) => {
         const baseStake = parseFloat(initialStake) || 0.35;
         let stakeToUse = baseStake;
         if (isMartingaleActive && martingaleLevel.current > 0) {
@@ -158,7 +162,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         
         let contract: ContractType | null = null;
         let strategyName = '';
-        let barrierToUse: number | string = digitPrediction;
+        let barrierToUse: number | string | undefined = undefined;
 
         // --- ANALISADOR MULTIMODAL ---
         const isStrongUp = priceHistory.length > 8 && priceHistory[0] > priceHistory[7];
@@ -169,24 +173,17 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const evensCount = parities.filter(p => p === 'E').length;
         // -----------------------------
 
-        // Se o usuário selecionou multimodal, a IA varre todas as possibilidades
         if (digitTradeMode === 'multimodal') {
-            
-            // Prioridade 1: Superior/Inferior (Higher/Lower) - Maior Lucro
             if (isStrongUp) { 
                 contract = 'CALL'; barrierToUse = '+0.1'; strategyName = `${activeStrategy} (Higher Breakout)`; 
             } else if (isStrongDown) { 
                 contract = 'PUT'; barrierToUse = '-0.1'; strategyName = `${activeStrategy} (Lower Breakout)`; 
             } 
-            
-            // Prioridade 2: Subida/Descida (Rise/Fall)
             else if (isGentleUp) { 
-                contract = 'CALL'; barrierToUse = undefined!; strategyName = `${activeStrategy} (Rise Trend)`; 
+                contract = 'CALL'; strategyName = `${activeStrategy} (Rise Trend)`; 
             } else if (isGentleDown) { 
-                contract = 'PUT'; barrierToUse = undefined!; strategyName = `${activeStrategy} (Fall Trend)`; 
+                contract = 'PUT'; strategyName = `${activeStrategy} (Fall Trend)`; 
             }
-
-            // Prioridade 3: Dígitos (Par/Ímpar e Over/Under)
             else {
                 if (evensCount >= 7) { 
                     contract = 'DIGITODD'; strategyName = `${activeStrategy} (Digit Reversal)`; 
@@ -199,21 +196,22 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             }
         } 
-        
-        // Modos restritos
         else if (digitTradeMode === 'evenOdd') {
             if (evensCount >= 7) { contract = 'DIGITODD'; strategyName = "IA Digit Focus"; }
             else if (evensCount <= 3) { contract = 'DIGITEVEN'; strategyName = "IA Digit Focus"; }
         } else if (digitTradeMode === 'riseFall') {
             if (isGentleUp) { contract = 'CALL'; strategyName = "IA Trend Focus"; }
             else if (isGentleDown) { contract = 'PUT'; strategyName = "IA Trend Focus"; }
+        } else if (digitTradeMode === 'overUnder') {
+             if (lastDigits[0] > 7) { contract = 'DIGITUNDER'; barrierToUse = digitPrediction; strategyName = "IA OverUnder Focus"; }
+             else if (lastDigits[0] < 2) { contract = 'DIGITOVER'; barrierToUse = digitPrediction; strategyName = "IA OverUnder Focus"; }
         }
 
         if (contract) {
             const sId = addSignal({ 
                 strategy: strategyName, 
                 signal: contract.includes('DIGIT') ? (contract === 'DIGITEVEN' ? 'EVEN' : 'ODD') : (contract === 'CALL' ? 'CALL' : 'PUT'), 
-                details: `Target: ${barrierToUse || 'Market'}`, 
+                details: `Mode: ${contract} ${barrierToUse ? `(${barrierToUse})` : ''}`, 
                 winRate: 'Analisada' 
             });
             isTradeOpen.current = true; 
