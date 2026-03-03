@@ -11,7 +11,7 @@ export interface LogEntry {
     strategyName?: string;
     exitDigit?: number;
     contractType?: ContractType;
-    barrier?: number;
+    barrier?: number | string;
 }
 
 export type SignalType = 'EVEN' | 'ODD' | 'OVER' | 'UNDER' | 'CALL' | 'PUT';
