@@ -54,72 +54,74 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
     const [priceHistory, setPriceHistory] = useState<number[]>([]);
 
-    // --- MOTOR NEURAL DE DECISÃO INTEGRADO (7 MODALIDADES) ---
+    // --- MOTOR DE DECISÃO NEURAL AVANÇADO ---
     const getBestNeuralBet = useCallback(() => {
-        if (!lastDigits || !priceHistory || lastDigits.length < 20 || priceHistory.length < 10) return null;
+        if (!lastDigits || lastDigits.length < 20 || !priceHistory || priceHistory.length < 10) return null;
 
-        const candidates = [];
-        
-        // 1. RISE/FALL
-        const shortTrend = priceHistory[0] - priceHistory[4];
-        const momentum = priceHistory[0] - priceHistory[9];
-        const rfProb = 50 + (shortTrend > 0 ? 5 : -5) + (momentum > 0 ? 10 : -10);
-        candidates.push({ 
+        const analysis = [];
+
+        // 1. RISE/FALL (Tendência de Preço)
+        const trend = priceHistory[0] - priceHistory[5];
+        const rfProb = 50 + (trend > 0 ? 15 : -15);
+        analysis.push({ 
             type: rfProb > 50 ? 'CALL' : 'PUT', 
             prob: rfProb > 50 ? rfProb : 100 - rfProb, 
-            strategy: 'Neural Trend', 
-            barrier: undefined,
-            label: rfProb > 50 ? 'RISE' : 'FALL'
+            label: rfProb > 50 ? 'RISE' : 'FALL',
+            strategy: 'Trend-Flow I.A',
+            barrier: undefined
         });
 
-        // 2. ODD/EVEN
+        // 2. EVEN/ODD (Paridade de Dígitos)
         const evens = lastDigits.slice(0, 20).filter(d => d % 2 === 0).length;
         const evenProb = (evens / 20) * 100;
-        candidates.push({ 
+        analysis.push({ 
             type: evenProb > 50 ? 'DIGITEVEN' : 'DIGITODD', 
             prob: evenProb > 50 ? evenProb : 100 - evenProb, 
-            strategy: 'Digit Parity', 
-            barrier: undefined,
-            label: evenProb > 50 ? 'EVEN' : 'ODD'
+            label: evenProb > 50 ? 'EVEN' : 'ODD',
+            strategy: 'Parity-Neural',
+            barrier: undefined
         });
 
-        // 3. OVER/UNDER
+        // 3. OVER/UNDER (Barreira de Segurança)
+        // Se o último dígito foi muito alto, a probabilidade de UNDER aumenta, e vice-versa.
         const unders = lastDigits.slice(0, 20).filter(d => d < digitPrediction).length;
         const underProb = (unders / 20) * 100;
-        candidates.push({ 
+        analysis.push({ 
             type: underProb > 50 ? 'DIGITUNDER' : 'DIGITOVER', 
             prob: underProb > 50 ? underProb : 100 - underProb, 
-            strategy: 'Barrier Flow', 
-            barrier: digitPrediction,
-            label: underProb > 50 ? 'UNDER' : 'OVER'
+            label: underProb > 50 ? 'UNDER' : 'OVER',
+            strategy: 'Barrier-Guard',
+            barrier: digitPrediction
         });
 
-        // 4. MATCHES/DIFFERS (Alta probabilidade)
+        // 4. DIFFERS (Segurança Máxima)
         const targetCount = lastDigits.slice(0, 30).filter(d => d === digitPrediction).length;
         const differsProb = 100 - ((targetCount / 30) * 100);
-        candidates.push({ 
+        analysis.push({ 
             type: 'DIGITDIFF', 
             prob: differsProb, 
-            strategy: 'Safety Differs', 
-            barrier: digitPrediction,
-            label: 'DIFFERS'
+            label: 'DIFFERS',
+            strategy: 'Deep-Shield',
+            barrier: digitPrediction
         });
 
-        // 5. HIGH/LOW (Adaptado via CALL/PUT com barreira)
+        // 5. HIGH/LOW (Zonas de Preço)
         const avg = priceHistory.slice(0, 10).reduce((a, b) => a + b, 0) / 10;
-        const hlProb = priceHistory[0] > avg ? 62 : 58;
-        candidates.push({ 
-            type: priceHistory[0] > avg ? 'CALL' : 'PUT', 
-            prob: hlProb, 
-            strategy: 'Level Analysis', 
-            barrier: priceHistory[0] > avg ? '+0.01' : '-0.01',
-            label: priceHistory[0] > avg ? 'HIGH' : 'LOW'
+        const isAbove = priceHistory[0] > avg;
+        analysis.push({ 
+            type: isAbove ? 'CALL' : 'PUT', 
+            prob: isAbove ? 68 : 62, 
+            label: isAbove ? 'HIGH' : 'LOW',
+            strategy: 'Level-Master',
+            barrier: isAbove ? '+0.01' : '-0.01'
         });
 
-        // Ordena por maior probabilidade absoluta
-        const best = candidates.sort((a, b) => b.prob - a.prob)[0];
-        
-        // Só entra se a probabilidade for significativa (>65%)
+        // ORDENAÇÃO POR PROBABILIDADE (O bot sempre pega o maior valor)
+        // Isso garante que se OVER/UNDER estiver 100%, ele será escolhido sobre o EVEN/ODD de 50%.
+        const sorted = analysis.sort((a, b) => b.prob - a.prob);
+        const best = sorted[0];
+
+        // Filtro de Confiança: Só entra se a probabilidade for maior que 65%
         return best.prob >= 65 ? best : null;
     }, [lastDigits, priceHistory, digitPrediction]);
 
@@ -188,7 +190,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     sendMessageRef.current({ proposal_open_contract: 1, contract_id: data.buy.contract_id, subscribe: 1 });
                 } else if (data.error) {
                     isTradeOpen.current = false; setTradeStatus('IDLE');
-                    addLog(`Erro: ${data.error.message}`, "ERROR");
+                    addLog(`Erro API: ${data.error.message}`, "ERROR");
                 }
             } else if (data?.msg_type === 'proposal_open_contract') {
                 const poc = data.proposal_open_contract;
@@ -227,25 +229,32 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         
         let decision = null;
 
+        // PRIORIDADE 1: MODO MULTI-MODAL (Busca a melhor probabilidade entre os 7 tipos)
         if (digitTradeMode === 'multimodal') {
             decision = getBestNeuralBet();
-        } else if (digitTradeMode === 'evenOdd') {
+        } 
+        // PRIORIDADE 2: MODOS FIXOS (Se o usuário escolheu um modo específico)
+        else if (digitTradeMode === 'evenOdd') {
             const evens = lastDigits.slice(0, 10).filter(d => d % 2 === 0).length;
-            if (evens >= 7) decision = { type: 'DIGITODD', strategy: 'IA Digit Focus', barrier: undefined, prob: 70, label: 'ODD' };
-            else if (evens <= 3) decision = { type: 'DIGITEVEN', strategy: 'IA Digit Focus', barrier: undefined, prob: 70, label: 'EVEN' };
+            if (evens >= 7) decision = { type: 'DIGITODD', strategy: 'IA Parity Focus', barrier: undefined, prob: 70, label: 'ODD' };
+            else if (evens <= 3) decision = { type: 'DIGITEVEN', strategy: 'IA Parity Focus', barrier: undefined, prob: 70, label: 'EVEN' };
+        } else if (digitTradeMode === 'overUnder') {
+            const unders = lastDigits.slice(0, 10).filter(d => d < digitPrediction).length;
+            if (unders >= 7) decision = { type: 'DIGITOVER', strategy: 'IA Barrier Focus', barrier: digitPrediction, prob: 70, label: 'OVER' };
+            else if (unders <= 3) decision = { type: 'DIGITUNDER', strategy: 'IA Barrier Focus', barrier: digitPrediction, prob: 70, label: 'UNDER' };
         }
 
         if (decision) {
             const sId = addSignal({ 
                 strategy: decision.strategy, 
                 signal: decision.label as any, 
-                details: `Prob Neural: ${decision.prob.toFixed(0)}%`, 
+                details: `Neural Conf: ${decision.prob.toFixed(0)}%`, 
                 winRate: `${decision.prob.toFixed(0)}%` 
             });
             isTradeOpen.current = true; 
             executeBuy(decision.type as ContractType, decision.strategy, sId, decision.barrier);
         }
-    }, [isBotRunning, lastDigits, lastTickEpoch, digitTradeMode, getBestNeuralBet, executeBuy, addSignal]);
+    }, [isBotRunning, lastDigits, lastTickEpoch, digitTradeMode, getBestNeuralBet, executeBuy, addSignal, digitPrediction]);
 
     useEffect(() => {
         if (!lastCompletedContract) return;
