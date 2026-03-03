@@ -54,46 +54,54 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
     const [priceHistory, setPriceHistory] = useState<number[]>([]);
 
+    // --- MOTOR NEURAL DE DECISÃO ---
+    const getBestNeuralBet = useCallback(() => {
+        if (lastDigits.length < 20 || priceHistory.length < 10) return null;
+
+        const results = [];
+        
+        // 1. RISE/FALL
+        const rfProb = 50 + (priceHistory[0] > priceHistory[4] ? 10 : -10);
+        results.push({ type: rfProb > 50 ? 'CALL' : 'PUT', prob: rfProb > 50 ? rfProb : 100 - rfProb, strategy: 'Neural Trend', barrier: undefined });
+
+        // 2. ODD/EVEN
+        const evens = lastDigits.slice(0, 20).filter(d => d % 2 === 0).length;
+        const evenProb = (evens / 20) * 100;
+        results.push({ type: evenProb > 50 ? 'DIGITEVEN' : 'DIGITODD', prob: evenProb > 50 ? evenProb : 100 - evenProb, strategy: 'Digit Parity', barrier: undefined });
+
+        // 3. OVER/UNDER
+        const unders = lastDigits.slice(0, 20).filter(d => d < digitPrediction).length;
+        const underProb = (unders / 20) * 100;
+        results.push({ type: underProb > 50 ? 'DIGITUNDER' : 'DIGITOVER', prob: underProb > 50 ? underProb : 100 - underProb, strategy: 'Barrier Sensation', barrier: digitPrediction });
+
+        // Ordena por maior probabilidade
+        return results.sort((a, b) => b.prob - a.prob)[0];
+    }, [lastDigits, priceHistory, digitPrediction]);
+
     const fetchInitialTicks = useCallback(async () => {
         if (!asset) return;
         try {
-            // Se o banco falhar (Erro 402), não travamos o bot.
             const { data, error } = await supabase.from('ticks').select('digit, epoch').eq('symbol', asset).order('epoch', { ascending: false }).limit(250);
-            
             if (error) {
-                console.warn("[Bot] Supabase Error, requesting history from Deriv:", error);
-                // Fallback: Solicita histórico via WebSocket
-                if (isConnected) {
-                    sendMessageRef.current({ 
-                        ticks_history: asset, 
-                        end: "latest", 
-                        count: 250, 
-                        style: "ticks" 
-                    });
-                }
+                if (isConnected) sendMessageRef.current({ ticks_history: asset, end: "latest", count: 250, style: "ticks" });
                 return;
             }
-
             if (data?.length > 0) {
                 setLastDigits(data.map(t => t.digit));
                 setLastTickEpoch(data[0].epoch);
             }
-        } catch (e) {
-            console.error("[Bot] Failed to fetch initial ticks:", e);
-        }
+        } catch (e) { console.error(e); }
     }, [asset, isConnected, setLastDigits, setLastTickEpoch]);
 
     useEffect(() => { 
         fetchInitialTicks(); 
-        if (isConnected && previousAsset.current && previousAsset.current !== asset) {
+        if (isConnected && previousAsset.current !== asset) {
             sendMessageRef.current({ forget_all: 'ticks' });
             sendMessageRef.current({ ticks: asset, subscribe: 1 });
-            // Força busca de histórico ao trocar de mercado
             sendMessageRef.current({ ticks_history: asset, end: "latest", count: 250, style: "ticks" });
-            addLog(`Sincronizando mercado: ${asset}`, 'INFO');
         }
         previousAsset.current = asset;
-    }, [asset, fetchInitialTicks, isConnected, addLog]);
+    }, [asset, fetchInitialTicks, isConnected]);
 
     const stopBot = useCallback((reason: string) => {
         setIsBotRunning(false);
@@ -119,14 +127,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setStatus({ message: `Conectado - ${data.authorize.is_virtual ? 'Demo' : 'Real'}`, color: 'bg-green-500' });
                 if (data.authorize.balance) setAccountBalance(data.authorize.balance);
                 sendMessageRef.current({ ticks: asset, subscribe: 1 });
-                // Solicita histórico imediato após autorizar
                 sendMessageRef.current({ ticks_history: asset, end: "latest", count: 250, style: "ticks" });
             } else if (data?.msg_type === 'history') {
-                if (data.history?.prices) {
-                    const digits = data.history.prices.map((p: any) => parseInt(String(p).slice(-1))).reverse();
-                    setLastDigits(digits);
-                    addLog("Sincronização neural concluída via Deriv Cloud.", "INFO");
-                }
+                if (data.history?.prices) setLastDigits(data.history.prices.map((p: any) => parseInt(String(p).slice(-1))).reverse());
             } else if (data?.msg_type === 'tick') {
                 if (data.tick?.symbol === asset) processTickData(data.tick);
             } else if (data?.msg_type === 'buy') {
@@ -135,9 +138,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     setActiveContract({ contract_id: data.buy.contract_id }); 
                     sendMessageRef.current({ proposal_open_contract: 1, contract_id: data.buy.contract_id, subscribe: 1 });
                 } else if (data.error) {
-                    isTradeOpen.current = false;
-                    setTradeStatus('IDLE');
-                    addLog(`Erro API: ${data.error.message}`, "ERROR");
+                    isTradeOpen.current = false; setTradeStatus('IDLE');
+                    addLog(`Erro: ${data.error.message}`, "ERROR");
                 }
             } else if (data?.msg_type === 'proposal_open_contract') {
                 const poc = data.proposal_open_contract;
@@ -153,90 +155,48 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { sendMessage, connect, disconnect } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
-    const buyContract = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, stakeAmount: number, barrier: number | string | undefined) => {
-        if (!isConnected) return;
-        const stakeNum = parseFloat(stakeAmount.toFixed(2));
-        const params: any = { amount: stakeNum, basis: 'stake', contract_type: contractType, currency: 'USD', duration: 1, duration_unit: 't', symbol: asset };
-        
-        const barrierAllowedTypes = ['DIGITOVER', 'DIGITUNDER', 'CALL', 'PUT'];
-        if (barrier !== undefined && barrierAllowedTypes.includes(contractType)) {
-            params.barrier = String(barrier);
-        }
-        
-        lastTradeDetails.current = { stake: stakeNum, strategyName, signalId, contractType, barrier };
-        setTradeStatus('SENDING');
-        sendMessage({ buy: 1, price: stakeNum, parameters: params });
-    }, [sendMessage, asset, setTradeStatus, isConnected]);
-
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, barrier: number | string | undefined) => {
+        if (!isConnected) return;
         const baseStake = parseFloat(initialStake) || 0.35;
         let stakeToUse = baseStake;
         if (isMartingaleActive && martingaleLevel.current > 0) {
             stakeToUse = baseStake * Math.pow(parseFloat(martingaleFactor) || 2.2, martingaleLevel.current);
         }
-        buyContract(contractType, strategyName, signalId, stakeToUse, barrier);
-    }, [initialStake, martingaleFactor, buyContract, isMartingaleActive]);
+        
+        const stakeNum = parseFloat(stakeToUse.toFixed(2));
+        const params: any = { amount: stakeNum, basis: 'stake', contract_type: contractType, currency: 'USD', duration: 1, duration_unit: 't', symbol: asset };
+        if (barrier !== undefined) params.barrier = String(barrier);
+        
+        lastTradeDetails.current = { stake: stakeNum, strategyName, signalId, contractType, barrier };
+        setTradeStatus('SENDING');
+        sendMessage({ buy: 1, price: stakeNum, parameters: params });
+    }, [sendMessage, asset, setTradeStatus, isConnected, initialStake, isMartingaleActive, martingaleFactor]);
 
     useEffect(() => {
         if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isTradeOpen.current) return;
         processedTickEpoch.current = lastTickEpoch;
         
-        let contract: ContractType | null = null;
-        let strategyName = '';
-        let barrierToUse: number | string | undefined = undefined;
-
-        const isStrongUp = priceHistory.length > 8 && priceHistory[0] > priceHistory[7];
-        const isStrongDown = priceHistory.length > 8 && priceHistory[0] < priceHistory[7];
-        const isGentleUp = priceHistory.length > 5 && priceHistory[0] > priceHistory[4];
-        const isGentleDown = priceHistory.length > 5 && priceHistory[0] < priceHistory[4];
-        const parities = lastDigits.slice(0, 10).map(d => d % 2 === 0 ? 'E' : 'O');
-        const evensCount = parities.filter(p => p === 'E').length;
+        let decision = null;
 
         if (digitTradeMode === 'multimodal') {
-            if (isStrongUp) { 
-                contract = 'CALL'; barrierToUse = '+0.1'; strategyName = `${activeStrategy} (Higher Breakout)`; 
-            } else if (isStrongDown) { 
-                contract = 'PUT'; barrierToUse = '-0.1'; strategyName = `${activeStrategy} (Lower Breakout)`; 
-            } 
-            else if (isGentleUp) { 
-                contract = 'CALL'; strategyName = `${activeStrategy} (Rise Trend)`; 
-            } else if (isGentleDown) { 
-                contract = 'PUT'; strategyName = `${activeStrategy} (Fall Trend)`; 
-            }
-            else {
-                if (evensCount >= 7) { 
-                    contract = 'DIGITODD'; strategyName = `${activeStrategy} (Digit Reversal)`; 
-                } else if (evensCount <= 3) { 
-                    contract = 'DIGITEVEN'; strategyName = `${activeStrategy} (Digit Reversal)`; 
-                } else if (lastDigits[0] > 7) {
-                    contract = 'DIGITUNDER'; barrierToUse = 6; strategyName = `${activeStrategy} (Under Safety)`;
-                } else if (lastDigits[0] < 2) {
-                    contract = 'DIGITOVER'; barrierToUse = 3; strategyName = `${activeStrategy} (Over Safety)`;
-                }
-            }
-        } 
-        else if (digitTradeMode === 'evenOdd') {
-            if (evensCount >= 7) { contract = 'DIGITODD'; strategyName = "IA Digit Focus"; }
-            else if (evensCount <= 3) { contract = 'DIGITEVEN'; strategyName = "IA Digit Focus"; }
-        } else if (digitTradeMode === 'riseFall') {
-            if (isGentleUp) { contract = 'CALL'; strategyName = "IA Trend Focus"; }
-            else if (isGentleDown) { contract = 'PUT'; strategyName = "IA Trend Focus"; }
-        } else if (digitTradeMode === 'overUnder') {
-             if (lastDigits[0] > 7) { contract = 'DIGITUNDER'; barrierToUse = digitPrediction; strategyName = "IA OverUnder Focus"; }
-             else if (lastDigits[0] < 2) { contract = 'DIGITOVER'; barrierToUse = digitPrediction; strategyName = "IA OverUnder Focus"; }
+            decision = getBestNeuralBet();
+        } else if (digitTradeMode === 'evenOdd') {
+            const evens = lastDigits.slice(0, 10).filter(d => d % 2 === 0).length;
+            if (evens >= 7) decision = { type: 'DIGITODD', strategy: 'IA Digit Focus', barrier: undefined, prob: 70 };
+            else if (evens <= 3) decision = { type: 'DIGITEVEN', strategy: 'IA Digit Focus', barrier: undefined, prob: 70 };
         }
 
-        if (contract) {
+        if (decision) {
             const sId = addSignal({ 
-                strategy: strategyName, 
-                signal: contract.includes('DIGIT') ? (contract === 'DIGITEVEN' ? 'EVEN' : 'ODD') : (contract === 'CALL' ? 'CALL' : 'PUT'), 
-                details: `Mode: ${contract} ${barrierToUse ? `(${barrierToUse})` : ''}`, 
-                winRate: 'Analisada' 
+                strategy: decision.strategy, 
+                signal: decision.type.includes('DIGIT') ? (decision.type === 'DIGITEVEN' ? 'EVEN' : 'ODD') : (decision.type === 'CALL' ? 'CALL' : 'PUT'), 
+                details: `Neural Prob: ${decision.prob.toFixed(0)}%`, 
+                winRate: `${decision.prob.toFixed(0)}%` 
             });
             isTradeOpen.current = true; 
-            executeBuy(contract, strategyName, sId, barrierToUse);
+            executeBuy(decision.type as ContractType, decision.strategy, sId, decision.barrier);
         }
-    }, [isBotRunning, lastDigits, lastTickEpoch, activeStrategy, digitTradeMode, initialStake, martingaleFactor, executeBuy, addSignal, priceHistory, digitPrediction]);
+    }, [isBotRunning, lastDigits, lastTickEpoch, digitTradeMode, getBestNeuralBet, executeBuy, addSignal]);
 
     useEffect(() => {
         if (!lastCompletedContract) return;
@@ -254,8 +214,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setLosses(prev => prev + 1);
             if (isMartingaleActive) martingaleLevel.current += 1;
         } else {
-            setWins(prev => prev + 1); 
-            martingaleLevel.current = 0;
+            setWins(prev => prev + 1); martingaleLevel.current = 0;
         }
         
         if (lastTrade?.signalId) updateSignalResult(lastTrade.signalId, isLoss ? 'LOSS' : 'WIN', parseFloat(profit), lastTrade.stake, exitDigit);
@@ -266,15 +225,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, [lastCompletedContract, activeContract, takeProfit, maxLevels, isMartingaleActive, stopBot, setTotalProfit, setWins, setLosses, setAccountBalance, setActiveContract, setTradeStatus, updateSignalResult]);
 
     const selectAI = useCallback((ia: any) => {
-        setSelectedAIInfo(ia);
-        setActiveStrategy(ia.id);
-        setAppFlow('operating');
+        setSelectedAIInfo(ia); setActiveStrategy(ia.id); setAppFlow('operating');
     }, [setActiveStrategy]);
 
     const exitToSelection = useCallback(() => {
-        stopBot("Sessão Encerrada");
-        setAppFlow('selection');
-        setSelectedAIInfo(null);
+        stopBot("Sessão Encerrada"); setAppFlow('selection'); setSelectedAIInfo(null);
     }, [stopBot]);
 
     const handleConnect = useCallback((targetType?: 'real' | 'demo', targetToken?: string) => {
@@ -287,9 +242,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!isConnected) return;
         if (isBotRunning) stopBot("Parado");
         else { 
-            setIsBotRunning(true); 
-            totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0); 
-            martingaleLevel.current = 0; 
+            setIsBotRunning(true); totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0); martingaleLevel.current = 0; 
         }
     }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses]);
 
