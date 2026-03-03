@@ -9,9 +9,6 @@ import { supabase } from '@/integrations/supabase/client';
 
 const BotContext = createContext<any>(undefined);
 
-// Mercados que o bot vai monitorar simultaneamente no modo Multi-Mercado
-const VOLATILITY_SCAN_LIST = ['1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V'];
-
 export const useBotContext = () => {
     const context = useContext(BotContext);
     if (!context) throw new Error('useBotContext must be used within a BotProvider');
@@ -26,27 +23,27 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [selectedAIInfo, setSelectedAIInfo] = useState<any>(null);
 
     const isTradeOpen = useRef(false);
+    const processedTickEpoch = useRef<number | null>(null);
     const totalProfitRef = useRef(0.00);
     const martingaleLevel = useRef(0);
     const [lastCompletedContract, setLastCompletedContract] = useState<any>(null);
-    const lastTradeDetails = useRef<{ stake: number, strategyName: string, signalId: string | null, contractType: ContractType | null, barrier?: number | string, asset: string } | null>(null);
+    const lastTradeDetails = useRef<{ stake: number, strategyName: string, signalId: string | null, contractType: ContractType | null, barrier?: number } | null>(null);
     const reconnectAttemptsRef = useRef(0);
     const sendMessageRef = useRef<(payload: any) => void>(() => {});
-
-    // Memória Multi-Mercado
-    const marketData = useRef<Record<string, { lastDigits: number[], priceHistory: number[] }>>({});
+    const previousAsset = useRef<string | null>(null);
 
     const {
         addLog, setAccountBalance, setLastDigits, setIsBotRunning,
         setTotalProfit, setWins, setLosses,
         asset, initialStake, addSignal, updateSignalResult,
         lastDigits, setActiveContract,
+        setCurrentSignal,
         martingaleFactor,
         setLastTickEpoch, lastTickEpoch,
         setTradeStatus,
         digitPrediction,
         activeContract, isBotRunning,
-        setActiveStrategy,
+        activeStrategy, setActiveStrategy,
         realToken, demoToken, accountType,
         takeProfit, maxLevels,
         isMartingaleActive,
@@ -55,153 +52,167 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const [isConnected, setIsConnected] = useState(false);
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
+    const [priceHistory, setPriceHistory] = useState<number[]>([]);
 
-    // --- MOTOR DE SCANNER MULTI-MERCADO ---
-    const scanAllMarkets = useCallback(() => {
-        const results: any[] = [];
+    const fetchInitialTicks = useCallback(async () => {
+        if (!asset) return;
+        try {
+            setLastDigits([]);
+            setLastTickEpoch(null);
+            setPriceHistory([]);
+            
+            const { data, error } = await supabase.from('ticks').select('digit, epoch').eq('symbol', asset).order('epoch', { ascending: false }).limit(250);
+            if (!error && data?.length > 0) {
+                setLastDigits(data.map(t => t.digit));
+                setLastTickEpoch(data[0].epoch);
+            }
+        } catch (e) {}
+    }, [asset, setLastDigits, setLastTickEpoch]);
 
-        VOLATILITY_SCAN_LIST.forEach(symbol => {
-            const data = marketData.current[symbol];
-            if (!data || data.lastDigits.length < 20 || data.priceHistory.length < 10) return;
-
-            const { lastDigits: ld, priceHistory: ph } = data;
-            const currentAnalysis = [];
-
-            // 1. RISE/FALL
-            const trend = ph[0] - ph[5];
-            const rfProb = 50 + (trend > 0 ? 15 : -15);
-            currentAnalysis.push({ symbol, type: rfProb > 50 ? 'CALL' : 'PUT', prob: rfProb > 50 ? rfProb : 100 - rfProb, label: rfProb > 50 ? 'RISE' : 'FALL', strategy: 'Global Trend' });
-
-            // 2. EVEN/ODD
-            const evens = ld.slice(0, 20).filter(d => d % 2 === 0).length;
-            const evenProb = (evens / 20) * 100;
-            currentAnalysis.push({ symbol, type: evenProb > 50 ? 'DIGITEVEN' : 'DIGITODD', prob: evenProb > 50 ? evenProb : 100 - evenProb, label: evenProb > 50 ? 'EVEN' : 'ODD', strategy: 'Global Parity' });
-
-            // 3. OVER/UNDER
-            const unders = ld.slice(0, 20).filter(d => d < digitPrediction).length;
-            const underProb = (unders / 20) * 100;
-            currentAnalysis.push({ symbol, type: underProb > 50 ? 'DIGITUNDER' : 'DIGITOVER', prob: underProb > 50 ? underProb : 100 - underProb, label: underProb > 50 ? 'UNDER' : 'OVER', strategy: 'Global Barrier', barrier: digitPrediction });
-
-            // 4. DIFFERS
-            const targetCount = ld.slice(0, 30).filter(d => d === digitPrediction).length;
-            const differsProb = 100 - ((targetCount / 30) * 100);
-            currentAnalysis.push({ symbol, type: 'DIGITDIFF', prob: differsProb, label: 'DIFFERS', strategy: 'Global Shield', barrier: digitPrediction });
-
-            const bestInThisMarket = currentAnalysis.sort((a, b) => b.prob - a.prob)[0];
-            results.push(bestInThisMarket);
-        });
-
-        const globalBest = results.sort((a, b) => b.prob - a.prob)[0];
-        return globalBest?.prob >= 75 ? globalBest : null;
-    }, [digitPrediction]);
-
-    // --- WEB SOCKET & SUBSCRIPTIONS ---
-    useEffect(() => {
-        if (isConnected) {
-            // Cancela tudo e assina todos os mercados da lista de scan
+    useEffect(() => { 
+        fetchInitialTicks(); 
+        if (isConnected && previousAsset.current && previousAsset.current !== asset) {
             sendMessageRef.current({ forget_all: 'ticks' });
-            VOLATILITY_SCAN_LIST.forEach(symbol => {
-                sendMessageRef.current({ ticks: symbol, subscribe: 1 });
-                sendMessageRef.current({ ticks_history: symbol, end: "latest", count: 100, style: "ticks" });
-            });
+            sendMessageRef.current({ ticks: asset, subscribe: 1 });
+            addLog(`Sincronizando com novo mercado: ${asset}`, 'INFO');
         }
-    }, [isConnected]);
+        previousAsset.current = asset;
+    }, [asset, fetchInitialTicks, isConnected, addLog]);
+
+    const stopBot = useCallback((reason: string) => {
+        setIsBotRunning(false);
+        isTradeOpen.current = false;
+        martingaleLevel.current = 0;
+        addLog(reason, 'INFO');
+    }, [setIsBotRunning, addLog]);
 
     const processTickData = useCallback((tick: { quote: string, epoch: number, symbol: string }) => {
-        const symbol = tick.symbol;
         const price = parseFloat(tick.quote);
         const lastDigit = parseInt(String(tick.quote).replace(/[^\d.]/g, '').slice(-1));
-        
-        if (!marketData.current[symbol]) marketData.current[symbol] = { lastDigits: [], priceHistory: [] };
-        
-        const data = marketData.current[symbol];
-        data.lastDigits = [lastDigit, ...data.lastDigits].slice(0, 100);
-        data.priceHistory = [price, ...data.priceHistory].slice(0, 100);
-
-        // Atualiza a UI se for o ativo principal
-        if (symbol === asset) {
-            setLastDigits(data.lastDigits);
-            setLastTickEpoch(tick.epoch);
-        }
-    }, [asset, setLastDigits, setLastTickEpoch]);
+        if (isNaN(lastDigit)) return;
+        setLastDigits(prev => [lastDigit, ...prev].slice(0, 250));
+        setPriceHistory(prev => [price, ...prev].slice(0, 100));
+        setLastTickEpoch(tick.epoch);
+    }, [setLastDigits, setLastTickEpoch]);
 
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
         const data = event.payload;
         if (event.type === 'message') {
             if (data?.msg_type === 'authorize') {
-                setIsConnected(true);
-                setStatus({ message: `Scaneando: ${data.authorize.is_virtual ? 'Demo' : 'Real'}`, color: 'bg-green-500' });
+                setIsConnected(true); 
+                setStatus({ message: `Conectado - ${data.authorize.is_virtual ? 'Demo' : 'Real'}`, color: 'bg-green-500' });
                 if (data.authorize.balance) setAccountBalance(data.authorize.balance);
-            } else if (data?.msg_type === 'history') {
-                const symbol = data.echo_req.ticks_history;
-                if (data.history?.prices) {
-                    marketData.current[symbol] = {
-                        lastDigits: data.history.prices.map((p: any) => parseInt(String(p).slice(-1))).reverse(),
-                        priceHistory: [...data.history.prices].reverse()
-                    };
-                }
+                sendMessageRef.current({ ticks: asset, subscribe: 1 });
             } else if (data?.msg_type === 'tick') {
-                processTickData(data.tick);
+                if (data.tick?.symbol === asset) processTickData(data.tick);
             } else if (data?.msg_type === 'buy') {
-                if (data.buy) {
-                    setTradeStatus('ACTIVE');
-                    setActiveContract({ contract_id: data.buy.contract_id });
+                if (data.buy) { 
+                    setTradeStatus('ACTIVE'); 
+                    setActiveContract({ contract_id: data.buy.contract_id }); 
                     sendMessageRef.current({ proposal_open_contract: 1, contract_id: data.buy.contract_id, subscribe: 1 });
                 } else if (data.error) {
-                    isTradeOpen.current = false; setTradeStatus('IDLE');
+                    isTradeOpen.current = false;
+                    setTradeStatus('IDLE');
                     addLog(`Erro: ${data.error.message}`, "ERROR");
                 }
             } else if (data?.msg_type === 'proposal_open_contract') {
                 const poc = data.proposal_open_contract;
-                if (poc?.is_sold) setLastCompletedContract(poc);
+                if (poc?.is_sold) {
+                    setLastCompletedContract(poc);
+                    if (data.subscription?.id) sendMessageRef.current({ forget: data.subscription.id });
+                }
             }
         }
-    }, [addLog, setAccountBalance, setActiveContract, setTradeStatus, processTickData]);
+    }, [addLog, setAccountBalance, setActiveContract, setTradeStatus, asset, processTickData]);
 
     const ws = useTradingWebSocketManager({ isConnected, status, setIsConnected, setStatus, setAccountBalance, onMessage: handleWebSocketMessage, reconnectAttemptsRef });
     const { sendMessage, connect, disconnect } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
-    const executeBuy = useCallback((symbol: string, contractType: ContractType, strategyName: string, signalId: string | null, barrier: number | string | undefined) => {
+    const buyContract = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, stakeAmount: number, barrier: number) => {
         if (!isConnected) return;
+        const stakeNum = parseFloat(stakeAmount.toFixed(2));
+        const params: any = { amount: stakeNum, basis: 'stake', contract_type: contractType, currency: 'USD', duration: 1, duration_unit: 't', symbol: asset };
+        
+        if (contractType === 'DIGITOVER' || contractType === 'DIGITUNDER') {
+            params.barrier = String(barrier);
+        }
+        
+        lastTradeDetails.current = { stake: stakeNum, strategyName, signalId, contractType, barrier };
+        setTradeStatus('SENDING');
+        sendMessage({ buy: 1, price: stakeNum, parameters: params });
+    }, [sendMessage, asset, setTradeStatus, isConnected]);
+
+    const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, barrier: number) => {
         const baseStake = parseFloat(initialStake) || 0.35;
         let stakeToUse = baseStake;
         if (isMartingaleActive && martingaleLevel.current > 0) {
             stakeToUse = baseStake * Math.pow(parseFloat(martingaleFactor) || 2.2, martingaleLevel.current);
         }
-        
-        const stakeNum = parseFloat(stakeToUse.toFixed(2));
-        const params: any = { amount: stakeNum, basis: 'stake', contract_type: contractType, currency: 'USD', duration: 1, duration_unit: 't', symbol };
-        if (barrier !== undefined) params.barrier = String(barrier);
-        
-        lastTradeDetails.current = { stake: stakeNum, strategyName, signalId, contractType, barrier, asset: symbol };
-        setTradeStatus('SENDING');
-        sendMessage({ buy: 1, price: stakeNum, parameters: params });
-    }, [sendMessage, initialStake, isMartingaleActive, martingaleFactor, isConnected]);
+        buyContract(contractType, strategyName, signalId, stakeToUse, barrier);
+    }, [initialStake, martingaleFactor, buyContract, isMartingaleActive]);
 
-    // LOOP DE EXECUÇÃO NEURAL
     useEffect(() => {
-        if (!isBotRunning || isTradeOpen.current) return;
+        if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isTradeOpen.current) return;
+        processedTickEpoch.current = lastTickEpoch;
         
-        const decision = scanAllMarkets();
-        if (decision) {
-            const sId = addSignal({ 
-                strategy: `${decision.strategy} [${decision.symbol.replace('1HZ', 'V')}]`, 
-                signal: decision.label as any, 
-                details: `Neural: ${decision.prob.toFixed(0)}%`, 
-                winRate: `${decision.prob.toFixed(0)}%` 
-            });
-            isTradeOpen.current = true;
-            addLog(`Gatilho detectado em ${decision.symbol}: ${decision.label}`, 'TRADE');
-            executeBuy(decision.symbol, decision.type as ContractType, decision.strategy, sId, decision.barrier);
+        let contract: ContractType | null = null;
+        let strategyName = '';
+        const barrier = digitPrediction;
+
+        // Análise de Tendência para CALL/PUT
+        const isUpTrend = priceHistory.length > 5 && priceHistory[0] > priceHistory[4];
+        const isDownTrend = priceHistory.length > 5 && priceHistory[0] < priceHistory[4];
+
+        // Análise de Dígitos
+        const parities = lastDigits.slice(0, 10).map(d => d % 2 === 0 ? 'E' : 'O');
+        const isDeepMode = martingaleLevel.current >= 3;
+
+        if (activeStrategy === 'trendSurfer') {
+            if (isUpTrend) { contract = 'CALL'; strategyName = "IA Wave (Rise/Fall Trend)"; }
+            else if (isDownTrend) { contract = 'PUT'; strategyName = "IA Wave (Rise/Fall Trend)"; }
+            else {
+                const last3 = parities.slice(0, 3);
+                if (last3.every(p => p === 'E')) { contract = 'DIGITEVEN'; strategyName = "IA Wave (Digit Trend)"; }
+                else if (last3.every(p => p === 'O')) { contract = 'DIGITODD'; strategyName = "IA Wave (Digit Trend)"; }
+            }
         }
-    }, [isBotRunning, scanAllMarkets, executeBuy, addSignal, addLog]);
+
+        else if (activeStrategy === 'probabilistic') {
+            const cycleWindow = lastDigits.slice(0, 20);
+            const evens = cycleWindow.filter(d => d % 2 === 0).length;
+            const evenPerc = (evens / cycleWindow.length) * 100;
+            
+            if (evenPerc < 40) { contract = 'DIGITEVEN'; strategyName = "IA Cycle (Digit Balance)"; }
+            else if (evenPerc > 60) { contract = 'DIGITODD'; strategyName = "IA Cycle (Digit Balance)"; }
+            else if (isUpTrend) { contract = 'CALL'; strategyName = "IA Cycle (Market Flow)"; }
+            else if (isDownTrend) { contract = 'PUT'; strategyName = "IA Cycle (Market Flow)"; }
+        }
+
+        else if (activeStrategy === 'neuralRico') {
+            const last4 = parities.slice(0, 4);
+            if (last4.every(p => p === 'E')) { contract = 'DIGITODD'; strategyName = "IA Rico (Digit Reversal)"; }
+            else if (last4.every(p => p === 'O')) { contract = 'DIGITEVEN'; strategyName = "IA Rico (Digit Reversal)"; }
+            else if (isUpTrend && lastDigits[0] < 5) { contract = 'CALL'; strategyName = "IA Rico (Hybrid Entry)"; }
+            else if (isDownTrend && lastDigits[0] > 4) { contract = 'PUT'; strategyName = "IA Rico (Hybrid Entry)"; }
+        }
+
+        if (contract) {
+            const sId = addSignal({ 
+                strategy: strategyName, 
+                signal: contract.includes('DIGIT') ? (contract === 'DIGITEVEN' ? 'EVEN' : 'ODD') : (contract === 'CALL' ? 'CALL' : 'PUT'), 
+                details: 'Modo Multi-Modal Ativado', 
+                winRate: 'Otimizada' 
+            });
+            isTradeOpen.current = true; 
+            executeBuy(contract, strategyName, sId, barrier);
+        }
+    }, [isBotRunning, lastDigits, lastTickEpoch, activeStrategy, initialStake, martingaleFactor, executeBuy, addSignal, priceHistory, digitPrediction]);
 
     useEffect(() => {
         if (!lastCompletedContract) return;
         const { profit, status, contract_id, exit_tick } = lastCompletedContract;
         if (activeContract?.contract_id !== contract_id) return;
-        
         const isLoss = status === 'lost';
         const exitDigit = parseInt(String(exit_tick).slice(-1));
         const lastTrade = lastTradeDetails.current;
@@ -214,22 +225,29 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setLosses(prev => prev + 1);
             if (isMartingaleActive) martingaleLevel.current += 1;
         } else {
-            setWins(prev => prev + 1);
+            setWins(prev => prev + 1); 
             martingaleLevel.current = 0;
         }
-
+        
         if (lastTrade?.signalId) updateSignalResult(lastTrade.signalId, isLoss ? 'LOSS' : 'WIN', parseFloat(profit), lastTrade.stake, exitDigit);
         isTradeOpen.current = false; setActiveContract(null); setTradeStatus('IDLE'); setLastCompletedContract(null);
-        
-        if (totalProfitRef.current >= parseFloat(takeProfit)) {
-            setIsBotRunning(false);
-            addLog("Meta Diária Batida!", "WIN");
-        }
-        if (martingaleLevel.current > maxLevels) martingaleLevel.current = 0;
-    }, [lastCompletedContract, activeContract, takeProfit, maxLevels, isMartingaleActive, setTotalProfit, setWins, setLosses, setAccountBalance, setActiveContract, setTradeStatus, updateSignalResult, setIsBotRunning, addLog]);
 
-    const selectAI = useCallback((ia: any) => { setSelectedAIInfo(ia); setActiveStrategy(ia.id); setAppFlow('operating'); }, [setActiveStrategy]);
-    const exitToSelection = useCallback(() => { setIsBotRunning(false); setAppFlow('selection'); setSelectedAIInfo(null); }, [setIsBotRunning]);
+        if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Meta Batida!");
+        if (martingaleLevel.current > maxLevels) martingaleLevel.current = 0;
+    }, [lastCompletedContract, activeContract, takeProfit, maxLevels, isMartingaleActive, stopBot, setTotalProfit, setWins, setLosses, setAccountBalance, setActiveContract, setTradeStatus, updateSignalResult]);
+
+    const selectAI = useCallback((ia: any) => {
+        setSelectedAIInfo(ia);
+        setActiveStrategy(ia.id);
+        setAppFlow('operating');
+    }, [setActiveStrategy]);
+
+    const exitToSelection = useCallback(() => {
+        stopBot("Sessão Encerrada");
+        setAppFlow('selection');
+        setSelectedAIInfo(null);
+    }, [stopBot]);
+
     const handleConnect = useCallback((targetType?: 'real' | 'demo', targetToken?: string) => {
         const type = targetType || accountType;
         const token = targetToken || (type === 'real' ? realToken : demoToken);
@@ -238,19 +256,18 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const toggleBot = useCallback(() => {
         if (!isConnected) return;
-        if (isBotRunning) {
-            setIsBotRunning(false);
-            isTradeOpen.current = false;
-        } else {
-            setIsBotRunning(true);
-            totalProfitRef.current = 0;
-            setTotalProfit(0);
-            setWins(0);
-            setLosses(0);
-            martingaleLevel.current = 0;
+        if (isBotRunning) stopBot("Parado");
+        else { 
+            setIsBotRunning(true); 
+            totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0); 
+            martingaleLevel.current = 0; 
         }
-    }, [isConnected, isBotRunning, setIsBotRunning, setTotalProfit, setWins, setLosses]);
+    }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses]);
 
-    const contextValue = useMemo(() => ({ ...stateAndSetters, isConnected, status, handleConnect, handleDisconnect: disconnect, toggleBot, appFlow, setAppFlow, selectedAIInfo, selectAI, exitToSelection }), [stateAndSetters, isConnected, status, handleConnect, disconnect, toggleBot, appFlow, selectedAIInfo, selectAI, exitToSelection]);
+    const contextValue = useMemo(() => ({
+        ...stateAndSetters, isConnected, status, handleConnect, handleDisconnect: disconnect, 
+        toggleBot, appFlow, setAppFlow, selectedAIInfo, selectAI, exitToSelection
+    }), [stateAndSetters, isConnected, status, handleConnect, disconnect, toggleBot, appFlow, selectedAIInfo, selectAI, exitToSelection]);
+
     return <BotContext.Provider value={contextValue}>{children}</BotContext.Provider>;
 };

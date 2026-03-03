@@ -22,8 +22,8 @@ const strategies = [
         style: "Conservador", 
         image: "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&q=80&w=400", 
         color: "blue",
-        description: "Especialista em seguir tendências e padrões de xadrez em qualquer modalidade.",
-        compatibleModes: ['evenOdd', 'overUnder', 'multimodal', 'riseFall', 'highLow'] 
+        description: "Especialista em seguir tendências e padrões de xadrez.",
+        compatibleModes: ['evenOdd'] 
     },
     { 
         id: "probabilistic", 
@@ -31,8 +31,8 @@ const strategies = [
         style: "Moderado", 
         image: "https://images.unsplash.com/photo-1535378620166-273708d44e4c?auto=format&fit=crop&q=80&w=400", 
         color: "purple",
-        description: "Analisa ciclos estatísticos e fluxo de mercado em todas as janelas neurais.",
-        compatibleModes: ['evenOdd', 'overUnder', 'multimodal', 'riseFall', 'highLow'] 
+        description: "Analisa ciclos estatísticos e fluxo de mercado dominante.",
+        compatibleModes: ['evenOdd'] 
     },
     { 
         id: "neuralRico", 
@@ -40,8 +40,8 @@ const strategies = [
         style: "Estratégico", 
         image: "https://images.unsplash.com/photo-1675271591211-126ad94e495d?auto=format&fit=crop&q=80&w=400", 
         color: "cyan",
-        description: "Algoritmo híbrido focado em saturação neural e reversão multi-modal.",
-        compatibleModes: ['evenOdd', 'overUnder', 'multimodal', 'riseFall', 'highLow'] 
+        description: "Algoritmo híbrido focado em saturação neural e reversão.",
+        compatibleModes: ['evenOdd'] 
     },
     { 
         id: "smartAI", 
@@ -49,8 +49,8 @@ const strategies = [
         style: "Agressivo", 
         image: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=400", 
         color: "orange",
-        description: "IA de alto processamento que opera no sinal de maior probabilidade detectado.",
-        compatibleModes: ['evenOdd', 'overUnder', 'multimodal', 'riseFall', 'highLow'] 
+        description: "IA de alto processamento que cataloga padrões lucrativos.",
+        compatibleModes: ['evenOdd', 'overUnder'] 
     },
     { 
         id: "doubleOneTrigger", 
@@ -58,8 +58,8 @@ const strategies = [
         style: "Precisão", 
         image: "https://images.unsplash.com/photo-1633513213702-860361327171?auto=format&fit=crop&q=80&w=400", 
         color: "red",
-        description: "Gatilho de precisão compatível com todas as modalidades de operação.",
-        compatibleModes: ['evenOdd', 'overUnder', 'multimodal', 'riseFall', 'highLow'] 
+        description: "Gatilho de precisão baseado em sequências de dígitos específicos.",
+        compatibleModes: ['evenOdd', 'overUnder'] 
     },
     { 
         id: "colorPattern", 
@@ -67,8 +67,8 @@ const strategies = [
         style: "Analítico", 
         image: "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&q=80&w=400", 
         color: "green",
-        description: "Análise visual de cores e sequências adaptada para múltiplos mercados.",
-        compatibleModes: ['evenOdd', 'overUnder', 'multimodal', 'riseFall', 'highLow'] 
+        description: "Análise visual de cores e sequências personalizadas.",
+        compatibleModes: ['evenOdd', 'overUnder'] 
     },
 ];
 
@@ -99,7 +99,7 @@ export const StrategySettings = () => {
             const compatible = strategies.filter(s => s.compatibleModes.includes(digitTradeMode));
             if (compatible.length > 0) {
                 setActiveStrategy(compatible[0].id as any);
-                toast.info(`Estratégia alterada para '${compatible[0].name}', compatível com o modo selecionado.`);
+                toast.info(`Estratégia alterada para '${compatible[0].name}', compatível com ${digitTradeMode === 'evenOdd' ? 'Par/Ímpar' : 'Acima/Abaixo'}.`);
             }
         }
     }, [digitTradeMode, activeStrategy, setActiveStrategy]);
@@ -149,7 +149,7 @@ export const StrategySettings = () => {
                                 if (ia.compatibleModes.includes(digitTradeMode)) {
                                     setActiveStrategy(ia.id as any);
                                 } else {
-                                    toast.error(`A ${ia.name} não é compatível com o modo selecionado.`);
+                                    toast.error(`A ${ia.name} não é compatível com o modo ${digitTradeMode === 'evenOdd' ? 'Par/Ímpar' : 'Acima/Abaixo'}.`);
                                 }
                             }}
                         />

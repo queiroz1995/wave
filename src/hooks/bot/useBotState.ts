@@ -11,7 +11,7 @@ const DEFAULTS = {
     asset: '1HZ100V',
     duration: 1,
     initialStake: '0.35',
-    digitTradeMode: 'multimodal' as 'evenOdd' | 'overUnder' | 'multimodal' | 'riseFall' | 'highLow',
+    digitTradeMode: 'evenOdd' as 'evenOdd' | 'overUnder',
     digitPrediction: 1,
     overUnderDirection: 'OVER' as 'OVER' | 'UNDER',
     isManualMode: true,
@@ -124,7 +124,7 @@ export const useBotState = () => {
     const [durationUnit] = useState<'t'>('t');
     const [initialStake, setInitialStake] = useState(initialState.initialStake);
     const [tradeType] = useState<TradeType>('digit');
-    const [digitTradeMode, setDigitTradeMode] = useState<'evenOdd' | 'overUnder' | 'multimodal' | 'riseFall' | 'highLow'>(initialState.digitTradeMode);
+    const [digitTradeMode, setDigitTradeMode] = useState<'evenOdd' | 'overUnder'>(initialState.digitTradeMode);
     const [digitPrediction, setDigitPrediction] = useState<number>(initialState.digitPrediction);
     const [overUnderDirection, setOverUnderDirection] = useState<'OVER' | 'UNDER'>(initialState.overUnderDirection);
     const [isManualMode, setIsManualMode] = useState(initialState.isManualMode);
@@ -214,7 +214,7 @@ export const useBotState = () => {
     const [sorosLevel, setSorosLevel] = useState(0);
     const [lastTradeProfit, setLastTradeProfit] = useState(0);
 
-    const addLog = useCallback((message: string, type: LogType, details?: { stake?: number, profit?: number, strategyName?: string, exitDigit?: number, contractType?: ContractType, barrier?: number | string }) => {
+    const addLog = useCallback((message: string, type: LogType, details?: { stake?: number, profit?: number, strategyName?: string, exitDigit?: number, contractType?: ContractType, barrier?: number }) => {
         setLogs(prev => [...prev, { timestamp: new Date().toLocaleTimeString('pt-BR', { hour12: false }), message, type, ...details }].slice(-100));
     }, []);
     const clearLogs = useCallback(() => setLogs([]), []);
