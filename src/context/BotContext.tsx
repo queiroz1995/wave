@@ -295,8 +295,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const contextValue = useMemo(() => ({
         ...stateAndSetters, isConnected, status, handleConnect, handleDisconnect: disconnect, 
-        toggleBot, appFlow, setAppFlow, selectedAIInfo, selectAI, exitToSelection
-    }), [stateAndSetters, isConnected, status, handleConnect, disconnect, toggleBot, appFlow, selectedAIInfo, selectAI, exitToSelection]);
+        toggleBot, appFlow, setAppFlow, selectedAIInfo, selectAI, exitToSelection, priceHistory
+    }), [stateAndSetters, isConnected, status, handleConnect, disconnect, toggleBot, appFlow, selectedAIInfo, selectAI, exitToSelection, priceHistory]);
 
     return <BotContext.Provider value={contextValue}>{children}</BotContext.Provider>;
 };

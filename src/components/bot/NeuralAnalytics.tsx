@@ -9,10 +9,10 @@ import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 
 export const NeuralAnalytics = () => {
-    const { lastDigits, priceHistory, isBotRunning, digitPrediction } = useBotContext();
+    const { lastDigits = [], priceHistory = [], isBotRunning, digitPrediction } = useBotContext();
 
     const analysis = useMemo(() => {
-        if (lastDigits.length < 20 || priceHistory.length < 10) return null;
+        if (!lastDigits || !priceHistory || lastDigits.length < 20 || priceHistory.length < 10) return null;
 
         // 1. RISE/FALL Logic
         const shortTrend = priceHistory[0] - priceHistory[4];
