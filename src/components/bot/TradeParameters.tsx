@@ -41,7 +41,7 @@ export const TradeParameters = () => {
     const resetParams = () => {
         setDuration(1);
         setInitialStake('0.35');
-        toast.info("Parâmetros de trade (Stake e Duração) foram resetados para o padrão.");
+        toast.info("Parâmetros de trade resetados.");
     };
 
     const handleAssetChange = (newAsset: string) => {
@@ -57,49 +57,36 @@ export const TradeParameters = () => {
     const digitPredictionMin = overUnderDirection === 'OVER' ? 0 : 1;
     const digitPredictionMax = overUnderDirection === 'OVER' ? 8 : 9;
 
-    useEffect(() => {
-        if (digitTradeMode === 'overUnder') {
-            if (overUnderDirection === 'OVER' && digitPrediction === 9) {
-                setDigitPrediction(8);
-            } else if (overUnderDirection === 'UNDER' && digitPrediction === 0) {
-                setDigitPrediction(1);
-            }
-        }
-    }, [overUnderDirection, digitPrediction, digitTradeMode, setDigitPrediction]);
-
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="flex items-center gap-2 text-primary"><Settings className="h-5 w-5" />Parâmetros de Trade</CardTitle>
-                <Button variant="ghost" size="icon" onClick={resetParams}><RotateCcw className="h-4 w-4" /><span className="sr-only">Resetar</span></Button>
+                <Button variant="ghost" size="icon" onClick={resetParams}><RotateCcw className="h-4 w-4" /></Button>
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="space-y-2">
-                    <div className="flex items-center gap-1.5">
-                        <Label>Ativo em Operação</Label>
-                        <InfoTooltip infoText="Escolha o índice de volatilidade para operar. Cada índice tem uma velocidade de ticks diferente." />
-                    </div>
+                    <Label>Ativo em Operação</Label>
                     <Select value={asset} onValueChange={handleAssetChange} disabled={isBotRunning}>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Selecione um mercado" />
-                        </SelectTrigger>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                             {AVAILABLE_ASSETS.map((a) => (
-                                <SelectItem key={a.value} value={a.value}>
-                                    {a.label}
-                                </SelectItem>
+                                <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
                 </div>
 
                 <div className="space-y-2">
-                    <Label>Tipo de Operação</Label>
-                    <Select value={digitTradeMode} onValueChange={(v) => setDigitTradeMode(v as 'evenOdd' | 'overUnder')}>
+                    <div className="flex items-center gap-1.5">
+                        <Label>Modalidade Analítica</Label>
+                        <InfoTooltip infoText="Multimodal permite que a I.A decida entre Par/Ímpar, Rise/Fall ou Acima/Abaixo com base na oportunidade." />
+                    </div>
+                    <Select value={digitTradeMode} onValueChange={(v) => setDigitTradeMode(v as any)}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="evenOdd">Dígitos (Par/Ímpar)</SelectItem>
-                            <SelectItem value="overUnder">Dígitos (Acima/Abaixo)</SelectItem>
+                            <SelectItem value="multimodal">Multi-Modal (I.A Decida)</SelectItem>
+                            <SelectItem value="evenOdd">Apenas Dígitos (Par/Ímpar)</SelectItem>
+                            <SelectItem value="overUnder">Apenas Dígitos (Acima/Abaixo)</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -107,7 +94,7 @@ export const TradeParameters = () => {
                 {digitTradeMode === 'overUnder' && (
                     <div className="space-y-4 pt-4 border-t">
                         <div className="space-y-2">
-                            <Label>Direção da Operação</Label>
+                            <Label>Direção (Acima/Abaixo)</Label>
                             <Select value={overUnderDirection} onValueChange={(v) => setOverUnderDirection(v as 'OVER' | 'UNDER')}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
@@ -118,45 +105,20 @@ export const TradeParameters = () => {
                         </div>
                         <div className="space-y-2">
                             <div className="flex justify-between items-center">
-                                <Label htmlFor="digit-prediction">Dígito Alvo (Barreira)</Label>
+                                <Label>Barreira</Label>
                                 <span className="font-bold text-primary">{digitPrediction}</span>
                             </div>
-                            <Slider
-                                id="digit-prediction"
-                                value={[digitPrediction]}
-                                onValueChange={(val) => setDigitPrediction(val[0])}
-                                min={digitPredictionMin}
-                                max={digitPredictionMax}
-                                step={1}
-                            />
+                            <Slider value={[digitPrediction]} onValueChange={(val) => setDigitPrediction(val[0])} min={digitPredictionMin} max={digitPredictionMax} step={1} />
                         </div>
                     </div>
                 )}
 
                 <div className="space-y-3 pt-4 border-t">
                     <div className="flex items-center justify-between">
-                        <Label htmlFor="manual-mode-switch" className="font-semibold">Habilitar Entradas Manuais</Label>
-                        <Switch
-                            id="manual-mode-switch"
-                            checked={isManualMode}
-                            onCheckedChange={setIsManualMode}
-                        />
+                        <Label className="font-semibold">Habilitar Entradas Manuais</Label>
+                        <Switch checked={isManualMode} onCheckedChange={setIsManualMode} />
                     </div>
                 </div>
-
-                {isManualMode && (
-                    <div className="space-y-3 pt-4 border-t">
-                        <div className="flex items-center justify-between">
-                            <Label htmlFor="manual-gale-switch" className="font-semibold">Habilitar Martingale Manual</Label>
-                            <Switch
-                                id="manual-gale-switch"
-                                checked={isManualGaleActive}
-                                onCheckedChange={setIsManualGaleActive}
-                            />
-                        </div>
-                    </div>
-                )}
-                
             </CardContent>
         </Card>
     );
