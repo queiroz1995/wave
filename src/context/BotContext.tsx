@@ -165,6 +165,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const currentPrice = priceHistory[0];
         const isStrongUp = priceHistory.length > 8 && priceHistory[0] > priceHistory[7];
         const isStrongDown = priceHistory.length > 8 && priceHistory[0] < priceHistory[7];
+        const isGentleUp = priceHistory.length > 5 && priceHistory[0] > priceHistory[4];
+        const isGentleDown = priceHistory.length > 5 && priceHistory[0] < priceHistory[4];
 
         // Análise de Dígitos
         const parities = lastDigits.slice(0, 10).map(d => d % 2 === 0 ? 'E' : 'O');
@@ -172,15 +174,22 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Lógica de Decisão IA Multimodal
         if (activeStrategy === 'trendSurfer') {
             if (isStrongUp) { 
-                // Se tendência for muito forte, tenta High/Low (Higher) para lucro maior
                 contract = 'CALL'; 
-                barrierToUse = '+0.1'; // Barreira superior
+                barrierToUse = '+0.1'; // Higher (Superior)
                 strategyName = "IA Wave (Higher Breakout)"; 
             }
             else if (isStrongDown) { 
                 contract = 'PUT'; 
-                barrierToUse = '-0.1'; // Barreira inferior
+                barrierToUse = '-0.1'; // Lower (Inferior)
                 strategyName = "IA Wave (Lower Breakout)"; 
+            }
+            else if (isGentleUp) {
+                contract = 'CALL';
+                strategyName = "IA Wave (Rise Trend)"; // Rise/Fall Puro
+            }
+            else if (isGentleDown) {
+                contract = 'PUT';
+                strategyName = "IA Wave (Fall Trend)"; // Rise/Fall Puro
             }
             else {
                 const last3 = parities.slice(0, 3);
@@ -196,21 +205,23 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             
             if (evenPerc < 35) { contract = 'DIGITEVEN'; strategyName = "IA Cycle (Statistical Correction)"; }
             else if (evenPerc > 65) { contract = 'DIGITODD'; strategyName = "IA Cycle (Statistical Correction)"; }
-            else if (isStrongUp) { contract = 'CALL'; barrierToUse = '+0.05'; strategyName = "IA Cycle (Trend Following)"; }
+            else if (isGentleUp) { contract = 'CALL'; strategyName = "IA Cycle (Rise Market Flow)"; }
+            else if (isGentleDown) { contract = 'PUT'; strategyName = "IA Cycle (Fall Market Flow)"; }
         }
 
         else if (activeStrategy === 'neuralRico') {
             const last5 = parities.slice(0, 5);
             if (last5.every(p => p === 'E')) { contract = 'DIGITODD'; strategyName = "IA Rico (Hyper Reversal)"; }
             else if (last5.every(p => p === 'O')) { contract = 'DIGITEVEN'; strategyName = "IA Rico (Hyper Reversal)"; }
-            else if (isStrongUp && lastDigits[0] < 5) { contract = 'CALL'; strategyName = "IA Rico (Smart Pulse)"; }
+            else if (isGentleUp && lastDigits[0] < 5) { contract = 'CALL'; strategyName = "IA Rico (Trend Pulse)"; }
+            else if (isGentleDown && lastDigits[0] > 4) { contract = 'PUT'; strategyName = "IA Rico (Trend Pulse)"; }
         }
 
         if (contract) {
             const sId = addSignal({ 
                 strategy: strategyName, 
                 signal: contract.includes('DIGIT') ? (contract === 'DIGITEVEN' ? 'EVEN' : 'ODD') : (contract === 'CALL' ? 'CALL' : 'PUT'), 
-                details: `Barrier: ${barrierToUse}`, 
+                details: contract === 'CALL' && barrierToUse !== undefined ? `Barrier: ${barrierToUse}` : 'Rise/Fall Mode', 
                 winRate: 'Otimizada' 
             });
             isTradeOpen.current = true; 
