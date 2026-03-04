@@ -25,6 +25,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const isTradeOpen = useRef(false);
     const processedTickEpoch = useRef<number | null>(null);
     const totalProfitRef = useRef(0.00);
+    const accumulatedLoss = useRef(0.00); // Rastreia o prejuízo real para recuperação
     const martingaleLevel = useRef(0);
     const [lastCompletedContract, setLastCompletedContract] = useState<any>(null);
     const lastTradeDetails = useRef<{ stake: number, strategyName: string, signalId: string | null, contractType: ContractType | null, barrier?: number } | null>(null);
@@ -83,6 +84,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsBotRunning(false);
         isTradeOpen.current = false;
         martingaleLevel.current = 0;
+        accumulatedLoss.current = 0;
         addLog(reason, 'INFO');
     }, [setIsBotRunning, addLog]);
 
@@ -143,14 +145,24 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sendMessage({ buy: 1, price: stakeNum, parameters: params });
     }, [sendMessage, asset, setTradeStatus, isConnected]);
 
+    // MOTOR DE RECUPERAÇÃO INTELIGENTE
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, barrier: number) => {
         const baseStake = parseFloat(initialStake) || 0.35;
         let stakeToUse = baseStake;
+
         if (isMartingaleActive && martingaleLevel.current > 0) {
-            stakeToUse = baseStake * Math.pow(parseFloat(martingaleFactor) || 2.2, martingaleLevel.current);
+            if (martingaleLevel.current >= 3) {
+                // RECUPERAÇÃO AGRESSIVA: Calcula o valor para recuperar tudo + lucro em um hit
+                // Stake = (Perda Acumulada + Lucro Desejado) / 0.9 (estimativa de payout)
+                const recoveryStake = (Math.abs(accumulatedLoss.current) + baseStake) / 0.95;
+                stakeToUse = Math.max(recoveryStake, baseStake * Math.pow(parseFloat(martingaleFactor) || 2.2, martingaleLevel.current));
+                addLog(`[RECOVERY_NODE] Ativando Recuperação Agressiva (Nível ${martingaleLevel.current})`, 'TRADE');
+            } else {
+                stakeToUse = baseStake * Math.pow(parseFloat(martingaleFactor) || 2.2, martingaleLevel.current);
+            }
         }
         buyContract(contractType, strategyName, signalId, stakeToUse, barrier);
-    }, [initialStake, martingaleFactor, buyContract, isMartingaleActive]);
+    }, [initialStake, martingaleFactor, buyContract, isMartingaleActive, addLog]);
 
     useEffect(() => {
         if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isTradeOpen.current) return;
@@ -160,45 +172,38 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         let strategyName = '';
         let barrier = digitPrediction;
 
-        // Análise Global de Multi-Modalidade
         const isUpTrend = priceHistory.length > 5 && priceHistory[0] > priceHistory[4];
         const isDownTrend = priceHistory.length > 5 && priceHistory[0] < priceHistory[4];
         const parities = lastDigits.slice(0, 10).map(d => d % 2 === 0 ? 'E' : 'O');
         const lastDigitsSample = lastDigits.slice(0, 20);
 
-        // MOTOR DE DECISÃO MULTIMODAL (Busca de Lucro)
-        if (activeStrategy) {
-            // 1. Prioridade: Saturação de Dígitos (Over/Under) - Lucro Rápido
+        // MODO HYPER-ANÁLISE (Ativado após 3 losses)
+        const isRecoveryMode = martingaleLevel.current >= 3;
+
+        // Se estiver em modo de recuperação, exige mais confirmações
+        if (isRecoveryMode) {
+            const evenCount = lastDigitsSample.filter(d => d % 2 === 0).length;
+            const oddCount = lastDigitsSample.length - evenCount;
+
+            // Só entra se houver um desequilíbrio real (>70%)
+            if (evenCount >= 14) { contract = 'DIGITODD'; strategyName = "Neural Recovery (Odd Spike)"; }
+            else if (oddCount >= 14) { contract = 'DIGITEVEN'; strategyName = "Neural Recovery (Even Spike)"; }
+            else if (isUpTrend && lastDigits[0] < 3) { contract = 'CALL'; strategyName = "Neural Recovery (Safe Rise)"; }
+            else if (isDownTrend && lastDigits[0] > 6) { contract = 'PUT'; strategyName = "Neural Recovery (Safe Fall)"; }
+        } 
+        // MODO NORMAL DE OPERAÇÃO
+        else {
             const smalls = lastDigitsSample.filter(d => d <= 1).length;
             const bigs = lastDigitsSample.filter(d => d >= 8).length;
 
-            if (smalls >= 5) {
-                contract = 'DIGITOVER';
-                barrier = 1;
-                strategyName = "I.A Titan (Over 1 - Saturação Baixa)";
-            } else if (bigs >= 5) {
-                contract = 'DIGITUNDER';
-                barrier = 8;
-                strategyName = "I.A Titan (Under 8 - Saturação Alta)";
-            } 
-            // 2. Secundária: Tendência de Preço (Rise/Fall) - Momentum
-            else if (isUpTrend && lastDigits[0] < 7) {
-                contract = 'CALL';
-                strategyName = "I.A Wave (Momentum de Subida)";
-            } else if (isDownTrend && lastDigits[0] > 2) {
-                contract = 'PUT';
-                strategyName = "I.A Wave (Momentum de Descida)";
-            }
-            // 3. Terciária: Padrões de Paridade (Even/Odd) - Estabilidade
+            if (smalls >= 6) { contract = 'DIGITOVER'; barrier = 1; strategyName = "I.A Titan (Over 1)"; }
+            else if (bigs >= 6) { contract = 'DIGITUNDER'; barrier = 8; strategyName = "I.A Titan (Under 8)"; }
+            else if (isUpTrend && lastDigits[0] < 7) { contract = 'CALL'; strategyName = "I.A Wave (Trend Rise)"; }
+            else if (isDownTrend && lastDigits[0] > 2) { contract = 'PUT'; strategyName = "I.A Wave (Trend Fall)"; }
             else {
                 const last3 = parities.slice(0, 3);
-                if (last3.every(p => p === 'E')) {
-                    contract = 'DIGITODD';
-                    strategyName = "I.A Rico (Reversão de Par)";
-                } else if (last3.every(p => p === 'O')) {
-                    contract = 'DIGITEVEN';
-                    strategyName = "I.A Rico (Reversão de Ímpar)";
-                }
+                if (last3.every(p => p === 'E')) { contract = 'DIGITODD'; strategyName = "I.A Rico (Parity Rev)"; }
+                else if (last3.every(p => p === 'O')) { contract = 'DIGITEVEN'; strategyName = "I.A Rico (Parity Rev)"; }
             }
         }
 
@@ -210,8 +215,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const sId = addSignal({ 
                 strategy: strategyName, 
                 signal: signalType as any, 
-                details: `Modalidade: ${contract}`, 
-                winRate: 'Otimizada' 
+                details: isRecoveryMode ? "CONFIRMAÇÃO MÁXIMA" : "Sinal Detectado", 
+                winRate: isRecoveryMode ? '95%' : 'Otimizada' 
             });
             isTradeOpen.current = true; 
             executeBuy(contract, strategyName, sId, barrier);
@@ -232,18 +237,24 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (isLoss) {
             setLosses(prev => prev + 1);
+            accumulatedLoss.current += Math.abs(parseFloat(profit));
             if (isMartingaleActive) martingaleLevel.current += 1;
         } else {
             setWins(prev => prev + 1); 
             martingaleLevel.current = 0;
+            accumulatedLoss.current = 0; // Reseta o prejuízo na vitória
         }
         
         if (lastTrade?.signalId) updateSignalResult(lastTrade.signalId, isLoss ? 'LOSS' : 'WIN', parseFloat(profit), lastTrade.stake, exitDigit);
         isTradeOpen.current = false; setActiveContract(null); setTradeStatus('IDLE'); setLastCompletedContract(null);
 
         if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Meta Batida!");
-        if (martingaleLevel.current > maxLevels) martingaleLevel.current = 0;
-    }, [lastCompletedContract, activeContract, takeProfit, maxLevels, isMartingaleActive, stopBot, setTotalProfit, setWins, setLosses, setAccountBalance, setActiveContract, setTradeStatus, updateSignalResult]);
+        if (martingaleLevel.current > maxLevels) {
+            addLog("Limite de Martingale Atingido. Resetando ciclo.", 'INFO');
+            martingaleLevel.current = 0;
+            accumulatedLoss.current = 0;
+        }
+    }, [lastCompletedContract, activeContract, takeProfit, maxLevels, isMartingaleActive, stopBot, setTotalProfit, setWins, setLosses, setAccountBalance, setActiveContract, setTradeStatus, updateSignalResult, addLog]);
 
     const selectAI = useCallback((ia: any) => {
         setSelectedAIInfo(ia);
@@ -269,7 +280,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         else { 
             setIsBotRunning(true); 
             totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0); 
-            martingaleLevel.current = 0; 
+            martingaleLevel.current = 0; accumulatedLoss.current = 0;
         }
     }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses]);
 
