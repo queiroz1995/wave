@@ -23,6 +23,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [selectedAIInfo, setSelectedAIInfo] = useState<any>(null);
 
     const isTradeOpen = useRef(false);
+    const tradeTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Timer de segurança
     const processedTickEpoch = useRef<number | null>(null);
     const totalProfitRef = useRef(0.00);
     const accumulatedLoss = useRef(0.00); 
@@ -52,7 +53,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const [isConnected, setIsConnected] = useState(false);
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
-    const [priceHistory, setPriceHistory] = useState<number[]>([]);
 
     const fetchInitialTicks = useCallback(async () => {
         if (!asset) return;
@@ -76,6 +76,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const stopBot = useCallback((reason: string) => {
         setIsBotRunning(false);
         isTradeOpen.current = false;
+        if (tradeTimeoutRef.current) clearTimeout(tradeTimeoutRef.current);
         martingaleLevel.current = 0;
         accumulatedLoss.current = 0;
         addLog(reason, 'INFO');
@@ -103,6 +104,18 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     setTradeStatus('ACTIVE'); 
                     setActiveContract({ contract_id: data.buy.contract_id }); 
                     sendMessageRef.current({ proposal_open_contract: 1, contract_id: data.buy.contract_id, subscribe: 1 });
+                    
+                    // Watchdog: Se em 12 segundos o contrato não fechar, algo deu errado
+                    if (tradeTimeoutRef.current) clearTimeout(tradeTimeoutRef.current);
+                    tradeTimeoutRef.current = setTimeout(() => {
+                        if (isTradeOpen.current) {
+                            addLog("Tempo limite atingido. Resetando trava de segurança.", "ERROR");
+                            isTradeOpen.current = false;
+                            setTradeStatus('IDLE');
+                            setActiveContract(null);
+                        }
+                    }, 12000);
+
                 } else if (data.error) {
                     isTradeOpen.current = false;
                     setTradeStatus('IDLE');
@@ -112,6 +125,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 if (data.proposal_open_contract?.is_sold) {
                     setLastCompletedContract(data.proposal_open_contract);
                     if (data.subscription?.id) sendMessageRef.current({ forget: data.subscription.id });
+                    if (tradeTimeoutRef.current) clearTimeout(tradeTimeoutRef.current);
                 }
             }
         }
@@ -127,10 +141,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const baseStake = parseFloat(initialStake) || 0.35;
         let stakeToUse = baseStake;
 
-        // Lógica de Recuperação Turbo (Pós-3 Losses)
         if (martingaleLevel.current >= 3) {
             stakeToUse = (Math.abs(accumulatedLoss.current) + baseStake) / 0.95;
-            addLog(`[RECUPERAÇÃO ATIVADA] Stake calculada para retorno imediato: $${stakeToUse.toFixed(2)}`, 'TRADE');
+            addLog(`[RECUPERAÇÃO] $${stakeToUse.toFixed(2)}`, 'TRADE');
         } else if (martingaleLevel.current > 0) {
             stakeToUse = baseStake * Math.pow(parseFloat(martingaleFactor) || 2.2, martingaleLevel.current);
         }
@@ -144,7 +157,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params });
     }, [isConnected, initialStake, asset, martingaleFactor, sendMessage, setTradeStatus, addLog]);
 
-    // Motor de Análise Agressivo
     useEffect(() => {
         if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isTradeOpen.current) return;
         processedTickEpoch.current = lastTickEpoch;
@@ -157,18 +169,17 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         let strategyName = '';
         let barrier = digitPrediction;
 
-        // Lógica Multimodal buscando lucro em todas as frentes
-        if (evens >= 3) { contract = 'DIGITODD'; strategyName = "IA Neural (Reversão Par)"; }
-        else if (evens <= 1) { contract = 'DIGITEVEN'; strategyName = "IA Neural (Reversão Ímpar)"; }
-        else if (lastDigit >= 8) { contract = 'DIGITUNDER'; barrier = 8; strategyName = "IA Safe (Abaixo de 8)"; }
-        else if (lastDigit <= 1) { contract = 'DIGITOVER'; barrier = 1; strategyName = "IA Safe (Acima de 1)"; }
+        if (evens >= 3) { contract = 'DIGITODD'; strategyName = "Neural_Rev (Par)"; }
+        else if (evens <= 1) { contract = 'DIGITEVEN'; strategyName = "Neural_Rev (Ímpar)"; }
+        else if (lastDigit >= 8) { contract = 'DIGITUNDER'; barrier = 8; strategyName = "Safe_D (8)"; }
+        else if (lastDigit <= 1) { contract = 'DIGITOVER'; barrier = 1; strategyName = "Safe_D (1)"; }
 
         if (contract) {
             const sId = addSignal({ 
                 strategy: strategyName, 
                 signal: contract.includes('EVEN') ? 'EVEN' : contract.includes('ODD') ? 'ODD' : contract.includes('OVER') ? 'OVER' : 'UNDER', 
-                details: 'Busca por Lucro Ativa', 
-                winRate: martingaleLevel.current >= 3 ? '99%' : '85%' 
+                details: 'Neural_Entry', 
+                winRate: '85%' 
             });
             executeBuy(contract, strategyName, sId, barrier);
         }
@@ -203,8 +214,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setActiveContract(null); 
         setTradeStatus('IDLE'); 
         setLastCompletedContract(null);
+        if (tradeTimeoutRef.current) clearTimeout(tradeTimeoutRef.current);
 
-        if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Meta de Lucro Atingida!");
+        if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Alvo Alcançado!");
     }, [lastCompletedContract, activeContract, takeProfit, stopBot, setTotalProfit, setWins, setLosses, setAccountBalance, setActiveContract, setTradeStatus, updateSignalResult]);
 
     const selectAI = useCallback((ia: any) => {
@@ -214,7 +226,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, [setActiveStrategy]);
 
     const exitToSelection = useCallback(() => {
-        stopBot("Encerrado pelo usuário");
+        stopBot("Sessão Terminada");
         setAppFlow('selection');
     }, [stopBot]);
 
@@ -231,7 +243,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setIsBotRunning(true); 
             totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0); 
             martingaleLevel.current = 0; accumulatedLoss.current = 0;
-            addLog("Iniciando Operações Multimodais...", "INFO");
+            addLog("Iniciando Ciclo de Operações...", "INFO");
         }
     }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, addLog]);
 
