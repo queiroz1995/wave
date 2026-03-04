@@ -158,50 +158,59 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         
         let contract: ContractType | null = null;
         let strategyName = '';
-        const barrier = digitPrediction;
+        let barrier = digitPrediction;
 
-        // Análise de Tendência para CALL/PUT
+        // Análise Global de Multi-Modalidade
         const isUpTrend = priceHistory.length > 5 && priceHistory[0] > priceHistory[4];
         const isDownTrend = priceHistory.length > 5 && priceHistory[0] < priceHistory[4];
-
-        // Análise de Dígitos
         const parities = lastDigits.slice(0, 10).map(d => d % 2 === 0 ? 'E' : 'O');
-        const isDeepMode = martingaleLevel.current >= 3;
+        const lastDigitsSample = lastDigits.slice(0, 20);
 
-        if (activeStrategy === 'trendSurfer') {
-            if (isUpTrend) { contract = 'CALL'; strategyName = "IA Wave (Rise/Fall Trend)"; }
-            else if (isDownTrend) { contract = 'PUT'; strategyName = "IA Wave (Rise/Fall Trend)"; }
+        // MOTOR DE DECISÃO MULTIMODAL (Busca de Lucro)
+        if (activeStrategy) {
+            // 1. Prioridade: Saturação de Dígitos (Over/Under) - Lucro Rápido
+            const smalls = lastDigitsSample.filter(d => d <= 1).length;
+            const bigs = lastDigitsSample.filter(d => d >= 8).length;
+
+            if (smalls >= 5) {
+                contract = 'DIGITOVER';
+                barrier = 1;
+                strategyName = "I.A Titan (Over 1 - Saturação Baixa)";
+            } else if (bigs >= 5) {
+                contract = 'DIGITUNDER';
+                barrier = 8;
+                strategyName = "I.A Titan (Under 8 - Saturação Alta)";
+            } 
+            // 2. Secundária: Tendência de Preço (Rise/Fall) - Momentum
+            else if (isUpTrend && lastDigits[0] < 7) {
+                contract = 'CALL';
+                strategyName = "I.A Wave (Momentum de Subida)";
+            } else if (isDownTrend && lastDigits[0] > 2) {
+                contract = 'PUT';
+                strategyName = "I.A Wave (Momentum de Descida)";
+            }
+            // 3. Terciária: Padrões de Paridade (Even/Odd) - Estabilidade
             else {
                 const last3 = parities.slice(0, 3);
-                if (last3.every(p => p === 'E')) { contract = 'DIGITEVEN'; strategyName = "IA Wave (Digit Trend)"; }
-                else if (last3.every(p => p === 'O')) { contract = 'DIGITODD'; strategyName = "IA Wave (Digit Trend)"; }
+                if (last3.every(p => p === 'E')) {
+                    contract = 'DIGITODD';
+                    strategyName = "I.A Rico (Reversão de Par)";
+                } else if (last3.every(p => p === 'O')) {
+                    contract = 'DIGITEVEN';
+                    strategyName = "I.A Rico (Reversão de Ímpar)";
+                }
             }
         }
 
-        else if (activeStrategy === 'probabilistic') {
-            const cycleWindow = lastDigits.slice(0, 20);
-            const evens = cycleWindow.filter(d => d % 2 === 0).length;
-            const evenPerc = (evens / cycleWindow.length) * 100;
-            
-            if (evenPerc < 40) { contract = 'DIGITEVEN'; strategyName = "IA Cycle (Digit Balance)"; }
-            else if (evenPerc > 60) { contract = 'DIGITODD'; strategyName = "IA Cycle (Digit Balance)"; }
-            else if (isUpTrend) { contract = 'CALL'; strategyName = "IA Cycle (Market Flow)"; }
-            else if (isDownTrend) { contract = 'PUT'; strategyName = "IA Cycle (Market Flow)"; }
-        }
-
-        else if (activeStrategy === 'neuralRico') {
-            const last4 = parities.slice(0, 4);
-            if (last4.every(p => p === 'E')) { contract = 'DIGITODD'; strategyName = "IA Rico (Digit Reversal)"; }
-            else if (last4.every(p => p === 'O')) { contract = 'DIGITEVEN'; strategyName = "IA Rico (Digit Reversal)"; }
-            else if (isUpTrend && lastDigits[0] < 5) { contract = 'CALL'; strategyName = "IA Rico (Hybrid Entry)"; }
-            else if (isDownTrend && lastDigits[0] > 4) { contract = 'PUT'; strategyName = "IA Rico (Hybrid Entry)"; }
-        }
-
         if (contract) {
+            const signalType = contract.includes('DIGIT') 
+                ? (contract === 'DIGITEVEN' ? 'EVEN' : contract === 'DIGITODD' ? 'ODD' : contract === 'DIGITOVER' ? 'OVER' : 'UNDER')
+                : (contract === 'CALL' ? 'CALL' : 'PUT');
+
             const sId = addSignal({ 
                 strategy: strategyName, 
-                signal: contract.includes('DIGIT') ? (contract === 'DIGITEVEN' ? 'EVEN' : 'ODD') : (contract === 'CALL' ? 'CALL' : 'PUT'), 
-                details: 'Modo Multi-Modal Ativado', 
+                signal: signalType as any, 
+                details: `Modalidade: ${contract}`, 
                 winRate: 'Otimizada' 
             });
             isTradeOpen.current = true; 
