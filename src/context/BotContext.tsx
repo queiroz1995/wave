@@ -28,6 +28,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const totalProfitRef = useRef(0.00);
     const accumulatedLoss = useRef(0.00); 
     const martingaleLevel = useRef(0);
+    
+    // Estados para Soros
+    const lastProfitRef = useRef(0.00);
+    const lastResultRef = useRef<'WIN' | 'LOSS' | null>(null);
+
     const [lastCompletedContract, setLastCompletedContract] = useState<any>(null);
     const lastTradeDetails = useRef<{ stake: number, strategyName: string, signalId: string | null, contractType: ContractType | null, barrier?: number } | null>(null);
     const reconnectAttemptsRef = useRef(0);
@@ -79,6 +84,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (tradeTimeoutRef.current) clearTimeout(tradeTimeoutRef.current);
         martingaleLevel.current = 0;
         accumulatedLoss.current = 0;
+        lastResultRef.current = null;
+        lastProfitRef.current = 0;
         addLog(reason, 'INFO');
     }, [setIsBotRunning, addLog]);
 
@@ -134,24 +141,25 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { sendMessage, connect, disconnect } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
-    // LÓGICA DE GALE ATRASADO (DELAYED GALE)
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, barrier: number) => {
         if (!isConnected || isTradeOpen.current) return;
 
         const baseStake = parseFloat(initialStake) || 0.35;
         let stakeToUse = baseStake;
 
-        // MartingaleLevel 0, 1, 2 = Stake Normal
-        // MartingaleLevel 3 = Recuperação dos 3 anteriores
+        // PRIORIDADE 1: GALE ATRASADO (RECUPERAÇÃO)
         if (martingaleLevel.current >= 3) {
             stakeToUse = (Math.abs(accumulatedLoss.current) + baseStake) / 0.95;
-            addLog(`[GALE ATRASADO] Recuperando $${accumulatedLoss.current.toFixed(2)} acumulados.`, 'TRADE');
-        } else {
-            // Se for nível 1 ou 2, mantém a stake normal conforme solicitado
+            addLog(`[RECUPERAÇÃO] $${stakeToUse.toFixed(2)} (Atrás de 3 losses)`, 'TRADE');
+        } 
+        // PRIORIDADE 2: SOROS (PÓS-VITÓRIA)
+        else if (lastResultRef.current === 'WIN' && lastProfitRef.current > 0) {
+            stakeToUse = baseStake + lastProfitRef.current;
+            addLog(`[SOROS ATIVADO] $${stakeToUse.toFixed(2)} (Stake + Lucro Anterior)`, 'TRADE');
+        } 
+        // PRIORIDADE 3: ENTRADA NORMAL
+        else {
             stakeToUse = baseStake;
-            if (martingaleLevel.current > 0) {
-                addLog(`[CONTROLE] Tentativa ${martingaleLevel.current + 1} com stake normal.`, 'INFO');
-            }
         }
 
         const params: any = { amount: parseFloat(stakeToUse.toFixed(2)), basis: 'stake', contract_type: contractType, currency: 'USD', duration: 1, duration_unit: 't', symbol: asset };
@@ -167,9 +175,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isTradeOpen.current) return;
         processedTickEpoch.current = lastTickEpoch;
         
-        const lastDigit = lastDigits[0];
-        const last4 = lastDigits.slice(0, 4);
-        const evens = last4.filter(d => d % 2 === 0).length;
+        const lastDigitsArray = lastDigits.slice(0, 4);
+        if (lastDigitsArray.length < 4) return;
+
+        const lastDigit = lastDigitsArray[0];
+        const evens = lastDigitsArray.filter(d => d % 2 === 0).length;
         
         let contract: ContractType | null = null;
         let strategyName = '';
@@ -199,22 +209,28 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const isLoss = status === 'lost';
         const exitDigit = parseInt(String(exit_tick).slice(-1));
         const lastTrade = lastTradeDetails.current;
+        const profitValue = parseFloat(profit);
 
-        setAccountBalance(prev => prev !== null ? prev + parseFloat(profit) : null);
-        totalProfitRef.current += parseFloat(profit);
+        setAccountBalance(prev => prev !== null ? prev + profitValue : null);
+        totalProfitRef.current += profitValue;
         setTotalProfit(totalProfitRef.current);
 
         if (isLoss) {
             setLosses(prev => prev + 1);
-            accumulatedLoss.current += Math.abs(parseFloat(profit));
+            accumulatedLoss.current += Math.abs(profitValue);
             martingaleLevel.current += 1;
+            lastResultRef.current = 'LOSS';
+            lastProfitRef.current = 0;
+            addLog(`Loss: Resetando Soros. Tentativa ${martingaleLevel.current} no nível normal.`, 'INFO');
         } else {
             setWins(prev => prev + 1); 
             martingaleLevel.current = 0;
             accumulatedLoss.current = 0;
+            lastResultRef.current = 'WIN';
+            lastProfitRef.current = profitValue;
         }
         
-        if (lastTrade?.signalId) updateSignalResult(lastTrade.signalId, isLoss ? 'LOSS' : 'WIN', parseFloat(profit), lastTrade.stake, exitDigit);
+        if (lastTrade?.signalId) updateSignalResult(lastTrade.signalId, isLoss ? 'LOSS' : 'WIN', profitValue, lastTrade.stake, exitDigit);
         
         isTradeOpen.current = false; 
         setActiveContract(null); 
@@ -249,7 +265,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setIsBotRunning(true); 
             totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0); 
             martingaleLevel.current = 0; accumulatedLoss.current = 0;
-            addLog("Iniciando Ciclo de Operações...", "INFO");
+            lastResultRef.current = null; lastProfitRef.current = 0;
+            addLog("Iniciando Ciclo (Soros + Gale Atrasado)...", "INFO");
         }
     }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, addLog]);
 
