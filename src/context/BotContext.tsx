@@ -23,7 +23,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [selectedAIInfo, setSelectedAIInfo] = useState<any>(null);
 
     const isTradeOpen = useRef(false);
-    const tradeTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Timer de segurança
+    const tradeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const processedTickEpoch = useRef<number | null>(null);
     const totalProfitRef = useRef(0.00);
     const accumulatedLoss = useRef(0.00); 
@@ -105,11 +105,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     setActiveContract({ contract_id: data.buy.contract_id }); 
                     sendMessageRef.current({ proposal_open_contract: 1, contract_id: data.buy.contract_id, subscribe: 1 });
                     
-                    // Watchdog: Se em 12 segundos o contrato não fechar, algo deu errado
                     if (tradeTimeoutRef.current) clearTimeout(tradeTimeoutRef.current);
                     tradeTimeoutRef.current = setTimeout(() => {
                         if (isTradeOpen.current) {
-                            addLog("Tempo limite atingido. Resetando trava de segurança.", "ERROR");
+                            addLog("Resetando trava de segurança.", "ERROR");
                             isTradeOpen.current = false;
                             setTradeStatus('IDLE');
                             setActiveContract(null);
@@ -119,7 +118,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 } else if (data.error) {
                     isTradeOpen.current = false;
                     setTradeStatus('IDLE');
-                    addLog(`Erro na Compra: ${data.error.message}`, "ERROR");
+                    addLog(`Erro: ${data.error.message}`, "ERROR");
                 }
             } else if (data?.msg_type === 'proposal_open_contract') {
                 if (data.proposal_open_contract?.is_sold) {
@@ -135,17 +134,24 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { sendMessage, connect, disconnect } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
+    // LÓGICA DE GALE ATRASADO (DELAYED GALE)
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, barrier: number) => {
         if (!isConnected || isTradeOpen.current) return;
 
         const baseStake = parseFloat(initialStake) || 0.35;
         let stakeToUse = baseStake;
 
+        // MartingaleLevel 0, 1, 2 = Stake Normal
+        // MartingaleLevel 3 = Recuperação dos 3 anteriores
         if (martingaleLevel.current >= 3) {
             stakeToUse = (Math.abs(accumulatedLoss.current) + baseStake) / 0.95;
-            addLog(`[RECUPERAÇÃO] $${stakeToUse.toFixed(2)}`, 'TRADE');
-        } else if (martingaleLevel.current > 0) {
-            stakeToUse = baseStake * Math.pow(parseFloat(martingaleFactor) || 2.2, martingaleLevel.current);
+            addLog(`[GALE ATRASADO] Recuperando $${accumulatedLoss.current.toFixed(2)} acumulados.`, 'TRADE');
+        } else {
+            // Se for nível 1 ou 2, mantém a stake normal conforme solicitado
+            stakeToUse = baseStake;
+            if (martingaleLevel.current > 0) {
+                addLog(`[CONTROLE] Tentativa ${martingaleLevel.current + 1} com stake normal.`, 'INFO');
+            }
         }
 
         const params: any = { amount: parseFloat(stakeToUse.toFixed(2)), basis: 'stake', contract_type: contractType, currency: 'USD', duration: 1, duration_unit: 't', symbol: asset };
@@ -155,7 +161,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isTradeOpen.current = true;
         setTradeStatus('SENDING');
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params });
-    }, [isConnected, initialStake, asset, martingaleFactor, sendMessage, setTradeStatus, addLog]);
+    }, [isConnected, initialStake, asset, sendMessage, setTradeStatus, addLog]);
 
     useEffect(() => {
         if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isTradeOpen.current) return;
