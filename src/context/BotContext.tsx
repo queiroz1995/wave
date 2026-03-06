@@ -168,24 +168,23 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         
         // 1. ANALISADOR DE MOMENTUM (Entradas rápidas)
         const lastTwo = rawDigits.slice(0, 2);
-        const lastThree = rawDigits.slice(0, 3);
         
         let contract: ContractType | null = null;
         let strategyName = "Vortex Hunter";
         let barrier = 0;
 
-        // GATILHO A: SURF DE TENDÊNCIA (Se repetiu 2, aposta no 3º igual)
+        // GATILHO A: SURF DE TENDÊNCIA
         if (lastTwo[0] % 2 === 0 && lastTwo[1] % 2 === 0) {
             contract = 'DIGITEVEN'; strategyName = "VORTEX: Trend Even";
         } else if (lastTwo[0] % 2 !== 0 && lastTwo[1] % 2 !== 0) {
             contract = 'DIGITODD'; strategyName = "VORTEX: Trend Odd";
         }
-        // GATILHO B: QUEBRA DE CICLO (Se deu Par-Ímpar, aposta na quebra)
+        // GATILHO B: QUEBRA DE CICLO
         else if (lastTwo[0] % 2 !== lastTwo[1] % 2) {
             contract = lastTwo[0] % 2 === 0 ? 'DIGITODD' : 'DIGITEVEN';
             strategyName = "VORTEX: Cycle Break";
         }
-        // GATILHO C: AGRESSIVE OVER/UNDER (Baseado no valor do último dígito)
+        // GATILHO C: AGRESSIVE OVER/UNDER
         if (!contract) {
             if (lastTwo[0] >= 8) { contract = 'DIGITUNDER'; barrier = 7; strategyName = "VORTEX: Under Attack"; }
             else if (lastTwo[0] <= 1) { contract = 'DIGITOVER'; barrier = 2; strategyName = "VORTEX: Over Attack"; }
@@ -220,14 +219,24 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             accumulatedLoss.current += Math.abs(profitValue);
             martingaleLevel.current += 1;
             lastResultRef.current = 'LOSS';
-            addLog(`Vortex: Ajustando Alvo para Ataque Imediato...`, 'ERROR');
+            
+            // TRAVA DE SEGURANÇA: RESET APÓS 2 LOSS
+            if (martingaleLevel.current >= 2) {
+                addLog(`CRÍTICO: 2 Loss Consecutivos. Resetando para Stake Inicial para proteção.`, 'ERROR');
+                martingaleLevel.current = 0;
+                accumulatedLoss.current = 0;
+            } else {
+                addLog(`Vortex: Ajustando Alvo para Ataque Imediato...`, 'ERROR');
+            }
         } else {
             setWins(prev => prev + 1); 
             martingaleLevel.current = 0;
             accumulatedLoss.current = 0;
             lastResultRef.current = 'WIN';
             lastProfitRef.current = profitValue;
-            if (martingaleLevel.current > 0) addLog("Vortex: Alvo Destruído. Recuperado!", "WIN");
+            if (lastTradeDetails.current?.stake && lastTradeDetails.current.stake > (parseFloat(initialStake) || 0.35)) {
+                addLog("Vortex: Alvo Destruído. Recuperado!", "WIN");
+            }
         }
         
         if (lastTradeDetails.current?.signalId) {
@@ -240,7 +249,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setLastCompletedContract(null);
 
         if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Alvo Alcançado. Operação Encerrada!");
-    }, [lastCompletedContract, activeContract, takeProfit, stopBot, setTotalProfit, setWins, setLosses, setAccountBalance, setActiveContract, setTradeStatus, updateSignalResult, addLog]);
+    }, [lastCompletedContract, activeContract, takeProfit, stopBot, setTotalProfit, setWins, setLosses, setAccountBalance, setActiveContract, setTradeStatus, updateSignalResult, addLog, initialStake]);
 
     const selectAI = useCallback((ia: any) => {
         setSelectedAIInfo(ia);
@@ -267,7 +276,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0); 
             martingaleLevel.current = 0; accumulatedLoss.current = 0;
             lastResultRef.current = null;
-            addLog("Motor Vortex Hunter Ativado: Iniciando Caçada...", "INFO");
+            addLog("Vortex Hunter Online: Limite de 2 perdas por ciclo ativado.", "INFO");
         }
     }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, addLog]);
 
