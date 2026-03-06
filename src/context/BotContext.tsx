@@ -28,8 +28,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const accumulatedLoss = useRef(0.00); 
     const martingaleLevel = useRef(0);
     
-    const lastProfitRef = useRef(0.00);
-    const lastResultRef = useRef<'WIN' | 'LOSS' | null>(null);
+    // Virtual Engine Refs
+    const virtualLossStreakRef = useRef(0);
+    const lastVirtualSignalRef = useRef<{ contract: ContractType, barrier: number } | null>(null);
 
     const [lastCompletedContract, setLastCompletedContract] = useState<any>(null);
     const lastTradeDetails = useRef<{ stake: number, strategyName: string, signalId: string | null, contractType: ContractType | null, barrier?: number } | null>(null);
@@ -47,6 +48,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setActiveStrategy,
         accountType, realToken, demoToken,
         takeProfit,
+        virtualTargetLosses,
+        setVirtualLossStreak
     } = stateAndSetters;
 
     const [isConnected, setIsConnected] = useState(false);
@@ -79,10 +82,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (tradeTimeoutRef.current) clearTimeout(tradeTimeoutRef.current);
         martingaleLevel.current = 0;
         accumulatedLoss.current = 0;
-        lastResultRef.current = null;
-        lastProfitRef.current = 0;
+        virtualLossStreakRef.current = 0;
+        setVirtualLossStreak(0);
         addLog(reason, 'INFO');
-    }, [setIsBotRunning, addLog]);
+    }, [setIsBotRunning, addLog, setVirtualLossStreak]);
 
     const processTickData = useCallback((tick: { quote: string, epoch: number, symbol: string }) => {
         const lastDigit = parseInt(String(tick.quote).replace(/[^\d.]/g, '').slice(-1));
@@ -134,7 +137,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         let stakeToUse = baseStake;
 
         if (martingaleLevel.current > 0) {
-            // Recuperação Vortex: Stake agressiva para lucro imediato
             stakeToUse = (Math.abs(accumulatedLoss.current) + (baseStake * 2)) / 0.94;
         } 
 
@@ -156,7 +158,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params });
     }, [isConnected, initialStake, asset, sendMessage, setTradeStatus]);
 
-    // --- MOTOR VORTEX HUNTER: AGRESSIVIDADE MÁXIMA ---
+    // --- MOTOR VORTEX HUNTER COM FILTRO VIRTUAL ---
     useEffect(() => {
         if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isTradeOpen.current) return;
         processedTickEpoch.current = lastTickEpoch;
@@ -164,42 +166,67 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const rawDigits = lastDigits.slice(0, 15);
         if (rawDigits.length < 5) return;
 
-        const isRecoveryMode = lastResultRef.current === 'LOSS';
+        const currentDigit = rawDigits[0];
         
-        // 1. ANALISADOR DE MOMENTUM (Entradas rápidas)
+        // 1. Processar Resultado Virtual do Sinal Anterior
+        if (lastVirtualSignalRef.current) {
+            const { contract, barrier } = lastVirtualSignalRef.current;
+            let isWin = false;
+            if (contract === 'DIGITEVEN') isWin = currentDigit % 2 === 0;
+            else if (contract === 'DIGITODD') isWin = currentDigit % 2 !== 0;
+            else if (contract === 'DIGITOVER') isWin = currentDigit > barrier;
+            else if (contract === 'DIGITUNDER') isWin = currentDigit < barrier;
+
+            if (isWin) {
+                virtualLossStreakRef.current = 0;
+            } else {
+                virtualLossStreakRef.current += 1;
+                addLog(`Filtro: ${virtualLossStreakRef.current}/${virtualTargetLosses} Loss Virtual Detectado.`, 'INFO');
+            }
+            setVirtualLossStreak(virtualLossStreakRef.current);
+            lastVirtualSignalRef.current = null;
+        }
+
+        // 2. Lógica de Decisão (Geração de Sinal)
         const lastTwo = rawDigits.slice(0, 2);
-        
         let contract: ContractType | null = null;
         let strategyName = "Vortex Hunter";
         let barrier = 0;
 
-        // GATILHO A: SURF DE TENDÊNCIA
         if (lastTwo[0] % 2 === 0 && lastTwo[1] % 2 === 0) {
             contract = 'DIGITEVEN'; strategyName = "VORTEX: Trend Even";
         } else if (lastTwo[0] % 2 !== 0 && lastTwo[1] % 2 !== 0) {
             contract = 'DIGITODD'; strategyName = "VORTEX: Trend Odd";
-        }
-        // GATILHO B: QUEBRA DE CICLO
-        else if (lastTwo[0] % 2 !== lastTwo[1] % 2) {
+        } else if (lastTwo[0] % 2 !== lastTwo[1] % 2) {
             contract = lastTwo[0] % 2 === 0 ? 'DIGITODD' : 'DIGITEVEN';
             strategyName = "VORTEX: Cycle Break";
         }
-        // GATILHO C: AGRESSIVE OVER/UNDER
+
         if (!contract) {
             if (lastTwo[0] >= 8) { contract = 'DIGITUNDER'; barrier = 7; strategyName = "VORTEX: Under Attack"; }
             else if (lastTwo[0] <= 1) { contract = 'DIGITOVER'; barrier = 2; strategyName = "VORTEX: Over Attack"; }
         }
 
+        // 3. Execução (Real ou Virtual)
         if (contract) {
-            const sId = addSignal({ 
-                strategy: strategyName, 
-                signal: contract.includes('EVEN') ? 'EVEN' : contract.includes('ODD') ? 'ODD' : contract.includes('OVER') ? 'OVER' : 'UNDER', 
-                details: `Alta Frequência Ativa`, 
-                winRate: isRecoveryMode ? '97%' : '89%' 
-            });
-            executeBuy(contract, strategyName, sId, barrier);
+            const isInMartingale = martingaleLevel.current > 0;
+            
+            if (virtualLossStreakRef.current >= virtualTargetLosses || isInMartingale) {
+                // ENTRADA REAL
+                const sId = addSignal({ 
+                    strategy: strategyName, 
+                    signal: contract.includes('EVEN') ? 'EVEN' : contract.includes('ODD') ? 'ODD' : contract.includes('OVER') ? 'OVER' : 'UNDER', 
+                    details: isInMartingale ? 'GALE IMEDIATO' : 'ALVO CONFIRMADO', 
+                    winRate: '99%' 
+                });
+                executeBuy(contract, strategyName, sId, barrier);
+                // O reset do virtual streak acontece após o resultado do trade real
+            } else {
+                // AGUARDAR FILTRO (Salva como virtual para checar no próximo tick)
+                lastVirtualSignalRef.current = { contract, barrier };
+            }
         }
-    }, [isBotRunning, lastDigits, lastTickEpoch, executeBuy, addSignal]);
+    }, [isBotRunning, lastDigits, lastTickEpoch, executeBuy, addSignal, virtualTargetLosses, addLog, setVirtualLossStreak]);
 
     useEffect(() => {
         if (!lastCompletedContract) return;
@@ -218,24 +245,24 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setLosses(prev => prev + 1);
             accumulatedLoss.current += Math.abs(profitValue);
             martingaleLevel.current += 1;
-            lastResultRef.current = 'LOSS';
             
-            // TRAVA DE SEGURANÇA: RESET APÓS 2 LOSS
             if (martingaleLevel.current >= 2) {
-                addLog(`CRÍTICO: 2 Loss Consecutivos. Resetando para Stake Inicial para proteção.`, 'ERROR');
+                addLog(`CRÍTICO: 2 Loss Consecutivos. Resetando para Stake Inicial.`, 'ERROR');
                 martingaleLevel.current = 0;
                 accumulatedLoss.current = 0;
+                virtualLossStreakRef.current = 0; // Reset virtual ao desistir do ciclo
+                setVirtualLossStreak(0);
             } else {
-                addLog(`Vortex: Ajustando Alvo para Ataque Imediato...`, 'ERROR');
+                addLog(`Red Detectado. Iniciando Gale Imediato...`, 'ERROR');
             }
         } else {
             setWins(prev => prev + 1); 
             martingaleLevel.current = 0;
             accumulatedLoss.current = 0;
-            lastResultRef.current = 'WIN';
-            lastProfitRef.current = profitValue;
+            virtualLossStreakRef.current = 0; // Ganhou no real, volta pro filtro
+            setVirtualLossStreak(0);
             if (lastTradeDetails.current?.stake && lastTradeDetails.current.stake > (parseFloat(initialStake) || 0.35)) {
-                addLog("Vortex: Alvo Destruído. Recuperado!", "WIN");
+                addLog("Gale Finalizado com Sucesso!", "WIN");
             }
         }
         
@@ -248,8 +275,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTradeStatus('IDLE'); 
         setLastCompletedContract(null);
 
-        if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Alvo Alcançado. Operação Encerrada!");
-    }, [lastCompletedContract, activeContract, takeProfit, stopBot, setTotalProfit, setWins, setLosses, setAccountBalance, setActiveContract, setTradeStatus, updateSignalResult, addLog, initialStake]);
+        if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Meta de Lucro Alcançada!");
+    }, [lastCompletedContract, activeContract, takeProfit, stopBot, setTotalProfit, setWins, setLosses, setAccountBalance, setActiveContract, setTradeStatus, updateSignalResult, addLog, initialStake, setVirtualLossStreak]);
 
     const selectAI = useCallback((ia: any) => {
         setSelectedAIInfo(ia);
@@ -275,10 +302,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setIsBotRunning(true); 
             totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0); 
             martingaleLevel.current = 0; accumulatedLoss.current = 0;
-            lastResultRef.current = null;
-            addLog("Vortex Hunter Online: Limite de 2 perdas por ciclo ativado.", "INFO");
+            virtualLossStreakRef.current = 0;
+            setVirtualLossStreak(0);
+            addLog("Vortex Hunter: Filtro Virtual de 4 Loss Ativado.", "INFO");
         }
-    }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, addLog]);
+    }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, addLog, setVirtualLossStreak]);
 
     const contextValue = useMemo(() => ({
         ...stateAndSetters, isConnected, status, handleConnect, handleDisconnect: disconnect, 

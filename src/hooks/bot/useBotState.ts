@@ -22,7 +22,7 @@ const DEFAULTS = {
     stopLoss: '50.00',
     lossRecoveryStrategy: 'martingale' as 'martingale',
     targetProfitPerTrade: '0.35',
-    activeStrategy: 'probabilistic' as 'colorPattern' | 'imbalance' | 'analyzer' | 'dynamicDigit' | 'smartAI' | 'doubleOneTrigger' | 'neuralRico' | 'probabilistic' | 'trendSurfer',
+    activeStrategy: 'trendSurfer' as 'colorPattern' | 'imbalance' | 'analyzer' | 'dynamicDigit' | 'smartAI' | 'doubleOneTrigger' | 'neuralRico' | 'probabilistic' | 'trendSurfer',
     minWinRate: 55,
     marketStabilityThreshold: '10',
     colorPatternProfiles: {},
@@ -61,13 +61,12 @@ const DEFAULTS = {
     virtualLossStreak: 0,
     virtualWinStreak: 0,
     isWaitingForVirtualResult: false,
-    virtualTargetLosses: 3,
+    virtualTargetLosses: 4, // AJUSTADO PARA 4
     virtualTargetWins: 0,
     isStreakFilterActive: true,
     maxStreakAllowed: 2,
     neuralRicoWindow: 10,
     neuralRicoThreshold: 70,
-    // NOVOS ESTADOS PARA PROBABILISTICA
     probWindow: 69,
     reverseOnLoss: true,
 };
@@ -80,31 +79,9 @@ const getInitialState = () => {
 
     try {
         const savedState = JSON.parse(savedStateJSON);
-        if (savedState.lossRecoveryStrategy !== 'martingale') {
-            savedState.lossRecoveryStrategy = 'martingale';
-        }
-        if (savedState.martingaleMode !== 'IMMEDIATE') {
-            savedState.martingaleMode = 'IMMEDIATE';
-        }
-        
         const mergedState = { ...DEFAULTS, ...savedState };
-        
-        if (!savedState.bankManagementActualBankroll) {
-            mergedState.bankManagementActualBankroll = mergedState.bankManagementInitialBankroll;
-        }
-        
-        const allowedStrategies = ['smartAI', 'doubleOneTrigger', 'colorPattern', 'neuralRico', 'probabilistic', 'trendSurfer'];
-        if (!allowedStrategies.includes(mergedState.activeStrategy)) {
-            mergedState.activeStrategy = DEFAULTS.activeStrategy;
-        }
-
-        if (typeof savedState.doubleOneTriggerTargetDigit === 'number') {
-            mergedState.doubleOneTriggerTargetDigits = [savedState.doubleOneTriggerTargetDigit];
-        }
-
         return mergedState;
     } catch (e) {
-        localStorage.removeItem('derivBotState');
         return { ...DEFAULTS, bankManagementActualBankroll: DEFAULTS.bankManagementInitialBankroll };
     }
 };
@@ -181,7 +158,6 @@ export const useBotState = () => {
     const [neuralRicoWindow, setNeuralRicoWindow] = useState(initialState.neuralRicoWindow);
     const [neuralRicoThreshold, setNeuralRicoThreshold] = useState(initialState.neuralRicoThreshold);
 
-    // NOVOS ESTADOS PROBABILISTICA
     const [probWindow, setProbWindow] = useState(initialState.probWindow);
     const [reverseOnLoss, setReverseOnLoss] = useState(initialState.reverseOnLoss);
 
@@ -296,7 +272,6 @@ export const useBotState = () => {
         maxStreakAllowed, setMaxStreakAllowed,
         neuralRicoWindow, setNeuralRicoWindow,
         neuralRicoThreshold, setNeuralRicoThreshold,
-        // NOVOS EXPORTS
         probWindow, setProbWindow,
         reverseOnLoss, setReverseOnLoss,
     };
