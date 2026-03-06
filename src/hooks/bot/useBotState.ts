@@ -16,7 +16,7 @@ const DEFAULTS = {
     overUnderDirection: 'OVER' as 'OVER' | 'UNDER',
     isManualMode: true,
     isManualGaleActive: false,
-    martingaleFactor: '2.2',
+    martingaleFactor: '2.5', // AJUSTADO PARA 2.5 (Recuperação agressiva)
     maxLevels: 3,
     takeProfit: '10.00',
     stopLoss: '50.00',
@@ -61,7 +61,7 @@ const DEFAULTS = {
     virtualLossStreak: 0,
     virtualWinStreak: 0,
     isWaitingForVirtualResult: false,
-    virtualTargetLosses: 1, // FIXO EM 1 LOSS VIRTUAL
+    virtualTargetLosses: 0, // REMOVIDO: Entrada direta
     virtualTargetWins: 0,
     isStreakFilterActive: true,
     maxStreakAllowed: 2,
