@@ -61,7 +61,7 @@ const DEFAULTS = {
     virtualLossStreak: 0,
     virtualWinStreak: 0,
     isWaitingForVirtualResult: false,
-    virtualTargetLosses: 1, // AJUSTADO PARA 1 LOSS VIRTUAL
+    virtualTargetLosses: 1, // FIXO EM 1 LOSS VIRTUAL
     virtualTargetWins: 0,
     isStreakFilterActive: true,
     maxStreakAllowed: 2,
