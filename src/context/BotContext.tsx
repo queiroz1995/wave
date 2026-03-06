@@ -44,11 +44,31 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setActiveStrategy,
         accountType, realToken, demoToken,
         takeProfit,
-        martingaleFactor
+        martingaleFactor,
+        scoreThreshold,
+        probabilities, setProbabilities,
+        consecutiveLosses, setConsecutiveLosses,
+        isPaused, setIsPaused,
+        pauseTimeRemaining, setPauseTimeRemaining
     } = stateAndSetters;
 
     const [isConnected, setIsConnected] = useState(false);
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
+
+    // Timer para o Anti-Loss Pause
+    useEffect(() => {
+        let interval: NodeJS.Timeout;
+        if (isPaused && pauseTimeRemaining > 0) {
+            interval = setInterval(() => {
+                setPauseTimeRemaining(prev => prev - 1);
+            }, 1000);
+        } else if (isPaused && pauseTimeRemaining === 0) {
+            setIsPaused(false);
+            setConsecutiveLosses(0);
+            addLog("Pausa anti-loss finalizada. Sistema pronto para operar.", "INFO");
+        }
+        return () => clearInterval(interval);
+    }, [isPaused, pauseTimeRemaining, setPauseTimeRemaining, setIsPaused, setConsecutiveLosses, addLog]);
 
     const fetchDerivHistory = useCallback((symbol: string) => {
         if (!sendMessageRef.current) return;
@@ -56,7 +76,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sendMessageRef.current({
             ticks_history: symbol,
             adjust_start_time: 1,
-            count: 100,
+            count: 250,
             end: "latest",
             start: 1,
             style: "ticks"
@@ -123,14 +143,72 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { sendMessage, connect, disconnect } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
-    const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, barrier: number) => {
-        if (!isConnected || isTradeOpen.current) return;
+    // --- MOTOR DE ANÁLISE ESTATÍSTICA E SCORE ---
+    const calculateNeuralScore = useCallback(() => {
+        if (lastDigits.length < 100) return null;
 
-        const baseStake = parseFloat(initialStake) || 0.35;
-        const mgFactor = parseFloat(martingaleFactor) || 2.5;
+        const getParityFreq = (window: number) => {
+            const slice = lastDigits.slice(0, window);
+            const evens = slice.filter(d => d % 2 === 0).length;
+            return evens / window;
+        };
+
+        const f20 = getParityFreq(20);
+        const f50 = getParityFreq(50);
+        const f100 = getParityFreq(100);
+
+        // Probabilidade Ponderada: 40% (20 ticks), 30% (50 ticks), 30% (100 ticks)
+        const probEven = (f20 * 0.4) + (f50 * 0.3) + (f100 * 0.3);
+        const probOdd = 1 - probEven;
+
+        setProbabilities({ even: probEven * 100, odd: probOdd * 100 });
+
+        // Cálculo de Score
+        let currentScore = 0;
+        let signal: 'EVEN' | 'ODD' | null = null;
+
+        const lastSequence = [];
+        for(let i=0; i<5; i++) {
+            lastSequence.push(lastDigits[i] % 2 === 0 ? 'E' : 'O');
+        }
+
+        // Filtro de Segurança 1: Evitar sequências extremas (> 5)
+        const isExtremeStreak = lastSequence.every(v => v === 'E') || lastSequence.every(v => v === 'O');
+        if (isExtremeStreak) return { score: 0, signal: null, reason: 'FILTRO: Sequência Extrema' };
+
+        // Filtro de Segurança 2: Alternância excessiva
+        const isAlternating = lastSequence[0] !== lastSequence[1] && lastSequence[1] !== lastSequence[2] && lastSequence[2] !== lastSequence[3];
+        if (isAlternating) return { score: 0, signal: null, reason: 'FILTRO: Alta Alternância' };
+
+        // Sistema de Pontuação
+        const last3 = lastSequence.slice(0, 3);
+        const is3Even = last3.every(v => v === 'E');
+        const is3Odd = last3.every(v => v === 'O');
+
+        if (is3Even) {
+            currentScore += 3;
+            signal = 'EVEN';
+        } else if (is3Odd) {
+            currentScore += 3;
+            signal = 'ODD';
+        }
+
+        if (signal === 'EVEN' && probEven > 0.55) currentScore += 2;
+        if (signal === 'ODD' && probOdd > 0.55) currentScore += 2;
+
+        // Bônus de Estabilidade (sem sequência extrema nos últimos 10)
+        currentScore += 1;
+
+        return { score: currentScore, signal };
+    }, [lastDigits, setProbabilities]);
+
+    const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, barrier: number) => {
+        if (!isConnected || isTradeOpen.current || isPaused) return;
+
+        const baseStake = parseFloat(initialStake) || 1.00;
+        const mgFactor = parseFloat(martingaleFactor) || 1.8;
         let stakeToUse = baseStake;
 
-        // Recuperação com fator agressivo (> 2.0)
         if (martingaleLevel.current > 0) {
             stakeToUse = baseStake * Math.pow(mgFactor, martingaleLevel.current);
         } 
@@ -151,38 +229,29 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }, 8000);
 
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params });
-    }, [isConnected, initialStake, asset, sendMessage, setTradeStatus, martingaleFactor]);
+    }, [isConnected, initialStake, asset, sendMessage, setTradeStatus, martingaleFactor, isPaused]);
 
-    // --- MOTOR VORTEX HUNTER: ENTRADA REAL IMEDIATA NO PADRÃO ---
+    // --- LOOP PRINCIPAL DE DECISÃO ---
     useEffect(() => {
-        if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isTradeOpen.current) return;
+        if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isTradeOpen.current || isPaused) return;
         processedTickEpoch.current = lastTickEpoch;
         
-        const rawDigits = lastDigits.slice(0, 10);
-        if (rawDigits.length < 3) return;
+        const analysis = calculateNeuralScore();
+        if (!analysis || !analysis.signal) return;
 
-        // Detecção de repetição de 3 dígitos
-        const lastThree = rawDigits.slice(0, 3);
-        let contract: ContractType | null = null;
-        let strategyName = "WAVE Sniper Real";
+        if (analysis.score >= scoreThreshold) {
+            const contract: ContractType = analysis.signal === 'EVEN' ? 'DIGITEVEN' : 'DIGITODD';
+            const strategyName = `IA WAVE (Score: ${analysis.score})`;
 
-        if (lastThree.every(d => d % 2 === 0)) {
-            contract = 'DIGITEVEN'; strategyName = "REPETIÇÃO: Par";
-        } else if (lastThree.every(d => d % 2 !== 0)) {
-            contract = 'DIGITODD'; strategyName = "REPETIÇÃO: Ímpar";
-        }
-
-        // Executa Real Imediatamente
-        if (contract) {
             const sId = addSignal({ 
                 strategy: strategyName, 
-                signal: contract.includes('EVEN') ? 'EVEN' : 'ODD', 
-                details: 'ENTRADA REAL NO PADRÃO', 
-                winRate: '92%' 
+                signal: analysis.signal, 
+                details: `Prob: ${analysis.signal === 'EVEN' ? probabilities.even.toFixed(1) : probabilities.odd.toFixed(1)}%`, 
+                winRate: `${(analysis.score * 10).toFixed(0)}%` 
             });
             executeBuy(contract, strategyName, sId, 0);
         }
-    }, [isBotRunning, lastDigits, lastTickEpoch, executeBuy, addSignal]);
+    }, [isBotRunning, lastDigits, lastTickEpoch, executeBuy, addSignal, calculateNeuralScore, scoreThreshold, probabilities, isPaused]);
 
     useEffect(() => {
         if (!lastCompletedContract) return;
@@ -199,15 +268,25 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (isLoss) {
             setLosses(prev => prev + 1);
-            accumulatedLoss.current += Math.abs(profitValue);
+            const newLossCount = consecutiveLosses + 1;
+            setConsecutiveLosses(newLossCount);
             martingaleLevel.current += 1;
-            addLog(`Red detectado. Atacando com Super Gale (x${martingaleFactor})...`, 'ERROR');
+            
+            // Proteção Anti-Loss: Pausa de 2 minutos após 3 perdas
+            if (newLossCount >= 3) {
+                setIsPaused(true);
+                setPauseTimeRemaining(120);
+                addLog("CRÍTICO: 3 perdas seguidas. Pausando operações por 2 minutos para proteção.", "ERROR");
+            } else {
+                addLog(`Red detectado. Ativando Martingale (Nível ${martingaleLevel.current})...`, 'ERROR');
+            }
         } else {
             setWins(prev => prev + 1); 
+            setConsecutiveLosses(0);
             martingaleLevel.current = 0;
             accumulatedLoss.current = 0;
-            if (lastTradeDetails.current?.stake && lastTradeDetails.current.stake > (parseFloat(initialStake) || 0.35)) {
-                addLog("Vitória no Gale! Lucro acima da meta recuperado.", "WIN");
+            if (lastTradeDetails.current?.stake && lastTradeDetails.current.stake > (parseFloat(initialStake) || 1.00)) {
+                addLog("Vitória no Gale! Banca recuperada.", "WIN");
             }
         }
         
@@ -221,7 +300,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setLastCompletedContract(null);
 
         if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Meta de Lucro Alcançada!");
-    }, [lastCompletedContract, activeContract, takeProfit, stopBot, setTotalProfit, setWins, setLosses, setAccountBalance, setActiveContract, setTradeStatus, updateSignalResult, addLog, initialStake, martingaleFactor]);
+    }, [lastCompletedContract, activeContract, takeProfit, stopBot, setTotalProfit, setWins, setLosses, setAccountBalance, setActiveContract, setTradeStatus, updateSignalResult, addLog, initialStake, consecutiveLosses, setConsecutiveLosses, setIsPaused, setPauseTimeRemaining]);
 
     const selectAI = useCallback((ia: any) => {
         setSelectedAIInfo(ia);
@@ -246,10 +325,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         else { 
             setIsBotRunning(true); 
             totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0); 
-            martingaleLevel.current = 0; accumulatedLoss.current = 0;
-            addLog("WAVE Sniper: Iniciando busca por repetição de 3 dígitos.", "INFO");
+            martingaleLevel.current = 0; accumulatedLoss.current = 0; setConsecutiveLosses(0); setIsPaused(false);
+            addLog("WAVE Pro: Motor de análise estatística iniciado.", "INFO");
         }
-    }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, addLog]);
+    }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, addLog, setConsecutiveLosses]);
 
     const contextValue = useMemo(() => ({
         ...stateAndSetters, isConnected, status, handleConnect, handleDisconnect: disconnect, 

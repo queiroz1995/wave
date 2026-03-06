@@ -3,20 +3,19 @@
 import { useState, useCallback } from 'react';
 import { LogEntry, LogType, TradeType, SignalEntry, ContractType } from '@/types/bot';
 
-// Define all default values in one place for consistency.
 const DEFAULTS = {
     realToken: '',
     demoToken: '',
     accountType: 'demo' as 'real' | 'demo',
     asset: '1HZ100V',
     duration: 1,
-    initialStake: '0.35',
+    initialStake: '1.00',
     digitTradeMode: 'evenOdd' as 'evenOdd' | 'overUnder',
     digitPrediction: 1,
     overUnderDirection: 'OVER' as 'OVER' | 'UNDER',
     isManualMode: true,
     isManualGaleActive: false,
-    martingaleFactor: '2.5', // AJUSTADO PARA 2.5 (Recuperação agressiva)
+    martingaleFactor: '1.8', 
     maxLevels: 3,
     takeProfit: '10.00',
     stopLoss: '50.00',
@@ -27,12 +26,6 @@ const DEFAULTS = {
     marketStabilityThreshold: '10',
     colorPatternProfiles: {},
     overUnderPatternProfiles: {},
-    imbalanceAnalysisWindow: 15,
-    imbalanceTriggerPercentage: 60,
-    imbalanceTradeMode: 'reversal' as 'reversal' | 'trend',
-    analyzerMinWinRate: 75,
-    analyzerAutoTrade: true,
-    dynamicAnalysisWindow: 0,
     analyzerWindowSize: 250,
     patternLengthForAnalysis: 3,
     catalogerPatternLength: 3,
@@ -44,13 +37,9 @@ const DEFAULTS = {
     bankManagementActualBankroll: '100',
     catalogerMartingaleLevels: 0,
     catalogerMinOccurrences: 5,
-    surferAnalysisWindow: 10,
-    surferTriggerPercentage: 55,
-    surferMartingaleDirection: 'TREND' as 'TREND' | 'REVERSAL', 
     martingaleMode: 'IMMEDIATE' as 'IMMEDIATE',
     isMartingaleActive: true,
     isUserDisconnected: false,
-    lastSurferWinResult: null as 'EVEN' | 'ODD' | null,
     isDoubleOneTriggerActive: false,
     doubleOneTriggerCount: 2, 
     doubleOneTriggerTargetDigits: [1],
@@ -61,10 +50,11 @@ const DEFAULTS = {
     virtualLossStreak: 0,
     virtualWinStreak: 0,
     isWaitingForVirtualResult: false,
-    virtualTargetLosses: 0, // REMOVIDO: Entrada direta
+    virtualTargetLosses: 2,
     virtualTargetWins: 0,
     isStreakFilterActive: true,
-    maxStreakAllowed: 2,
+    maxStreakAllowed: 4,
+    scoreThreshold: 6,
     neuralRicoWindow: 10,
     neuralRicoThreshold: 70,
     probWindow: 69,
@@ -120,16 +110,6 @@ export const useBotState = () => {
     const [marketStabilityThreshold, setMarketStabilityThreshold] = useState<number | string>(initialState.marketStabilityThreshold);
     const [colorPatternProfiles, setColorPatternProfiles] = useState(initialState.colorPatternProfiles);
     const [overUnderPatternProfiles, setOverUnderPatternProfiles] = useState(initialState.overUnderPatternProfiles);
-    const [imbalanceAnalysisWindow, setImbalanceAnalysisWindow] = useState(initialState.imbalanceAnalysisWindow);
-    const [imbalanceTriggerPercentage, setImbalanceTriggerPercentage] = useState(initialState.imbalanceTriggerPercentage);
-    const [imbalanceTradeMode, setImbalanceTradeMode] = useState<'reversal' | 'trend'>(initialState.imbalanceTradeMode);
-    const [analyzerMinWinRate, setAnalyzerMinWinRate] = useState(initialState.analyzerMinWinRate);
-    const [analyzerAutoTrade, setAnalyzerAutoTrade] = useState(initialState.analyzerAutoTrade);
-    const [dynamicAnalysisWindow, setDynamicAnalysisWindow] = useState(initialState.dynamicAnalysisWindow);
-    const [surferAnalysisWindow, setSurferAnalysisWindow] = useState(initialState.surferAnalysisWindow);
-    const [surferTriggerPercentage, setSurferTriggerPercentage] = useState(initialState.surferTriggerPercentage);
-    const [surferMartingaleDirection, setSurferMartingaleDirection] = useState<'TREND' | 'REVERSAL'>(initialState.surferMartingaleDirection);
-    const [lastSurferWinResult, setLastSurferWinResult] = useState<'EVEN' | 'ODD' | null>(initialState.lastSurferWinResult);
     const [analyzerWindowSize, setAnalyzerWindowSize] = useState(initialState.analyzerWindowSize);
     const [patternLengthForAnalysis, setPatternLengthForAnalysis] = useState(initialState.patternLengthForAnalysis);
     const [catalogerPatternLength, setCatalogerPatternLength] = useState(initialState.catalogerPatternLength);
@@ -154,6 +134,7 @@ export const useBotState = () => {
     const [virtualTargetWins, setVirtualTargetWins] = useState(initialState.virtualTargetWins);
     const [isStreakFilterActive, setIsStreakFilterActive] = useState(initialState.isStreakFilterActive);
     const [maxStreakAllowed, setMaxStreakAllowed] = useState(initialState.maxStreakAllowed);
+    const [scoreThreshold, setScoreThreshold] = useState(initialState.scoreThreshold);
     
     const [neuralRicoWindow, setNeuralRicoWindow] = useState(initialState.neuralRicoWindow);
     const [neuralRicoThreshold, setNeuralRicoThreshold] = useState(initialState.neuralRicoThreshold);
@@ -164,31 +145,22 @@ export const useBotState = () => {
     const [isBotRunning, setIsBotRunning] = useState(false);
     const [manualGaleLevel, setManualGaleLevel] = useState(0);
     const [currentSignal, _setCurrentSignal] = useState<'DIGITODD' | 'DIGITEVEN' | 'DIGITOVER' | 'DIGITUNDER' | null>(null);
-    const [currentSignalDetails, setCurrentSignalDetails] = useState<{ strategyName: string, winRate: number, signalId?: string | null } | null>(null);
-    const [matchedPatternInfo, setMatchedPatternInfo] = useState<{ name: string; length: number } | null>(null);
+    const [currentSignalDetails, setCurrentSignalDetails] = useState<{ strategyName: string, winRate: number, signalId?: string | null, score?: number } | null>(null);
     const [totalProfit, setTotalProfit] = useState(0.00);
-    const [peakProfit, setPeakProfit] = useState(0.00);
     const [wins, setWins] = useState(0);
     const [losses, setLosses] = useState(0);
-    const [totalTradesMade, setTotalTradesMade] = useState(0);
+    const [consecutiveLosses, setConsecutiveLosses] = useState(0);
+    const [isPaused, setIsPaused] = useState(false);
+    const [pauseTimeRemaining, setPauseTimeRemaining] = useState(0);
     const [lastDigits, setLastDigits] = useState<number[]>([]);
     const [lastTickEpoch, setLastTickEpoch] = useState<number | null>(null);
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [signals, setSignals] = useState<SignalEntry[]>([]);
     const [percentages, setPercentages] = useState({ odd: 0, even: 0 });
-    const [chartData, setChartData] = useState<{ time: string; price: number }[]>([]);
     const [accountBalance, setAccountBalance] = useState<number | null>(null);
     const [activeContract, setActiveContract] = useState<any | null>(null);
     const [tradeStatus, setTradeStatus] = useState<'IDLE' | 'SENDING' | 'ACTIVE'>('IDLE');
-    const [closedHistory, setClosedHistory] = useState<any[]>([]);
-    const [isFetchingHistory, setIsFetchingHistory] = useState(false);
-    const [marketTrend, setMarketTrend] = useState(0);
-    const [profiles, setProfiles] = useState({});
-    const [catalogAnalysisWindow, setCatalogAnalysisWindow] = useState(100);
-    const [lastLosingContractType, setLastLosingContractType] = useState<ContractType | null>(null);
-    const [lastLosingBarrier, setLastLosingBarrier] = useState<number | null>(null);
-    const [sorosLevel, setSorosLevel] = useState(0);
-    const [lastTradeProfit, setLastTradeProfit] = useState(0);
+    const [probabilities, setProbabilities] = useState({ even: 50, odd: 50 });
 
     const addLog = useCallback((message: string, type: LogType, details?: { stake?: number, profit?: number, strategyName?: string, exitDigit?: number, contractType?: ContractType, barrier?: number }) => {
         setLogs(prev => [...prev, { timestamp: new Date().toLocaleTimeString('pt-BR', { hour12: false }), message, type, ...details }].slice(-100));
@@ -203,7 +175,7 @@ export const useBotState = () => {
         setSignals(prev => prev.map(s => s.id === id ? { ...s, result, profit, stake, exitDigit } : s));
     }, []);
     const clearSignals = useCallback(() => setSignals([]), []);
-    const setCurrentSignal = useCallback((signal: 'DIGITODD' | 'DIGITEVEN' | 'DIGITOVER' | 'DIGITUNDER' | null, details?: { strategyName: string, winRate: number, signalId?: string | null }) => {
+    const setCurrentSignal = useCallback((signal: 'DIGITODD' | 'DIGITEVEN' | 'DIGITOVER' | 'DIGITUNDER' | null, details?: { strategyName: string, winRate: number, signalId?: string | null, score?: number }) => {
         _setCurrentSignal(signal);
         setCurrentSignalDetails(details || null);
     }, []);
@@ -212,47 +184,35 @@ export const useBotState = () => {
         realToken, setRealToken, demoToken, setDemoToken, accountType, setAccountType, asset, setAsset,
         duration, setDuration, durationUnit, initialStake, setInitialStake, tradeType,
         digitTradeMode, setDigitTradeMode, digitPrediction, setDigitPrediction,
-        minWinRate, setMinWinRate, marketStabilityThreshold, setMarketStabilityThreshold, marketTrend, setMarketTrend,
+        minWinRate, setMinWinRate, marketStabilityThreshold, setMarketStabilityThreshold,
         colorPatternProfiles, setColorPatternProfiles,
         overUnderPatternProfiles, setOverUnderPatternProfiles,
         martingaleMode, setMartingaleMode, martingaleFactor, setMartingaleFactor, maxLevels, setMaxLevels, takeProfit, setTakeProfit, stopLoss, setStopLoss,
         targetProfitPerTrade, setTargetProfitPerTrade,
         isBotRunning, setIsBotRunning, isManualMode, setIsManualMode, isManualGaleActive, setIsManualGaleActive, manualGaleLevel, setManualGaleLevel,
         currentSignal, setCurrentSignal, currentSignalDetails,
-        matchedPatternInfo, setMatchedPatternInfo,
-        totalProfit, setTotalProfit, peakProfit, setPeakProfit, wins, setWins, losses, setLosses, totalTradesMade, setTotalTradesMade,
+        totalProfit, setTotalProfit, wins, setWins, losses, setLosses,
+        consecutiveLosses, setConsecutiveLosses, isPaused, setIsPaused, pauseTimeRemaining, setPauseTimeRemaining,
         lastDigits, setLastDigits,
         lastTickEpoch, setLastTickEpoch, logs, setLogs,
-        signals, percentages, setPercentages, chartData, setChartData, profiles, setProfiles, accountBalance, setAccountBalance,
+        signals, percentages, setPercentages, accountBalance, setAccountBalance,
         activeContract, setActiveContract, tradeStatus, setTradeStatus,
-        catalogAnalysisWindow, setCatalogAnalysisWindow, addLog, clearLogs, addSignal, clearSignals, updateSignalResult,
+        addLog, clearLogs, addSignal, clearSignals, updateSignalResult,
         bankManagementInitialBankroll, setBankManagementInitialBankroll,
         bankManagementDailyGoalPercent, setBankManagementDailyGoalPercent,
         bankManagementDailyStopPercent, setBankManagementDailyStopPercent,
         bankManagementCurrentDay, setBankManagementCurrentDay,
         bankManagementActualBankroll, setBankManagementActualBankroll,
         lossRecoveryStrategy, setLossRecoveryStrategy,
-        activeStrategy, setActiveStrategy, imbalanceAnalysisWindow, setImbalanceAnalysisWindow,
-        imbalanceTriggerPercentage, setImbalanceTriggerPercentage, imbalanceTradeMode, setImbalanceTradeMode,
+        activeStrategy, setActiveStrategy,
         analyzerWindowSize, setAnalyzerWindowSize,
         patternLengthForAnalysis, setPatternLengthForAnalysis,
-        analyzerMinWinRate, setAnalyzerMinWinRate,
-        analyzerAutoTrade, setAnalyzerAutoTrade,
-        closedHistory, setClosedHistory,
-        isFetchingHistory, setIsFetchingHistory,
         catalogerPatternLength, setCatalogerPatternLength,
         catalogerMinWinRate, setCatalogerMinWinRate,
-        dynamicAnalysisWindow, setDynamicAnalysisWindow,
         overUnderDirection, setOverUnderDirection,
         catalogerMartingaleLevels, setCatalogerMartingaleLevels,
         catalogerMinOccurrences, setCatalogerMinOccurrences,
-        lastLosingContractType, setLastLosingContractType,
-        lastLosingBarrier, setLastLosingBarrier,
-        surferAnalysisWindow, setSurferAnalysisWindow,
-        surferTriggerPercentage, setSurferTriggerPercentage,
-        surferMartingaleDirection, setSurferMartingaleDirection,
         isUserDisconnected, setIsUserDisconnected,
-        lastSurferWinResult, setLastSurferWinResult,
         isDoubleOneTriggerActive, setIsDoubleOneTriggerActive,
         doubleOneTriggerCount, setDoubleOneTriggerCount,
         doubleOneTriggerTargetDigits, setDoubleOneTriggerTargetDigits,
@@ -260,8 +220,6 @@ export const useBotState = () => {
         isSorosActive, setIsSorosActive,
         sorosLevels, setSorosLevels,
         sorosProfitPercentage, setSorosProfitPercentage,
-        sorosLevel, setSorosLevel,
-        lastTradeProfit, setLastTradeProfit,
         isMartingaleActive, setIsMartingaleActive,
         virtualLossStreak, setVirtualLossStreak,
         virtualWinStreak, setVirtualWinStreak,
@@ -270,6 +228,8 @@ export const useBotState = () => {
         virtualTargetWins, setVirtualTargetWins,
         isStreakFilterActive, setIsStreakFilterActive,
         maxStreakAllowed, setMaxStreakAllowed,
+        scoreThreshold, setScoreThreshold,
+        probabilities, setProbabilities,
         neuralRicoWindow, setNeuralRicoWindow,
         neuralRicoThreshold, setNeuralRicoThreshold,
         probWindow, setProbWindow,
