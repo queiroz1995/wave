@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { QuickConfigModal } from './QuickConfigModal';
+import { VirtualLossDisplay } from './VirtualLossDisplay';
 
 export const AIOperatingScreen = () => {
     const { 
@@ -38,6 +39,10 @@ export const AIOperatingScreen = () => {
 
     return (
         <div className="w-full max-w-md mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
+            
+            {/* NOVO: MONITOR DE FILTRO VIRTUAL NO TOPO */}
+            <VirtualLossDisplay />
+
             {/* CARD PRINCIPAL */}
             <Card className="glass-panel border-none shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] overflow-hidden rounded-[3rem]">
                 <CardContent className="p-10 space-y-10">
