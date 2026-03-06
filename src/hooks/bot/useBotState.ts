@@ -26,7 +26,7 @@ const DEFAULTS = {
     marketStabilityThreshold: '10',
     colorPatternProfiles: {},
     overUnderPatternProfiles: {},
-    analyzerWindowSize: 250,
+    analyzerWindowSize: 500, // Aumentado para 500 para análise profissional
     patternLengthForAnalysis: 3,
     catalogerPatternLength: 3,
     catalogerMinWinRate: 75,
@@ -53,8 +53,8 @@ const DEFAULTS = {
     virtualTargetWins: 0,
     isStreakFilterActive: true,
     maxStreakAllowed: 4,
-    scoreThreshold: 6,
-    learningData: {} as Record<string, { wins: number, losses: number, total: number }>, // NOVO: Base de aprendizado
+    scoreThreshold: 7, // Aumentado para 7 (Sniper Mode)
+    learningData: {} as Record<string, { wins: number, losses: number, total: number }>,
 };
 
 const getInitialState = () => {
@@ -109,8 +109,12 @@ export const useBotState = () => {
     const [accountBalance, setAccountBalance] = useState<number | null>(null);
     const [tradeStatus, setTradeStatus] = useState<'IDLE' | 'SENDING' | 'ACTIVE'>('IDLE');
     const [probabilities, setProbabilities] = useState({ even: 50, odd: 50 });
-    const [learningData, setLearningData] = useState(initialState.learningData); // NOVO
+    const [learningData, setLearningData] = useState(initialState.learningData);
     const [scoreThreshold, setScoreThreshold] = useState(initialState.scoreThreshold);
+
+    // Estados de Manipulação e Rede Neural
+    const [isManipulationDetected, setIsManipulationDetected] = useState(false);
+    const [neuralPredictions, setNeuralPredictions] = useState<number[]>(new Array(10).fill(10)); // Probabilidade 0-9
 
     const addLog = useCallback((message: string, type: LogType, details?: any) => {
         setLogs(prev => [{ timestamp: new Date().toLocaleTimeString('pt-BR', { hour12: false }), message, type, ...details }, ...prev].slice(0, 50));
@@ -138,6 +142,7 @@ export const useBotState = () => {
         lastDigits, setLastDigits, lastTickEpoch, setLastTickEpoch, logs, setLogs, signals, accountBalance, setAccountBalance,
         tradeStatus, setTradeStatus, probabilities, setProbabilities, learningData, setLearningData, scoreThreshold,
         addLog, addSignal, updateSignalResult, activeStrategy, setActiveStrategy, analyzerWindowSize, setAnalyzerWindowSize,
-        overUnderDirection, setOverUnderDirection, marketStabilityThreshold, setMarketStabilityThreshold
+        overUnderDirection, setOverUnderDirection, marketStabilityThreshold, setMarketStabilityThreshold,
+        isManipulationDetected, setIsManipulationDetected, neuralPredictions, setNeuralPredictions
     };
 };

@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, Trash2, Bot, Brain, Activity, ShieldAlert, Timer, TrendingUp } from 'lucide-react';
+import { Power, RefreshCw, Trash2, Bot, ShieldAlert, Timer, TrendingUp, Target, Radar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -16,9 +16,10 @@ export const AIOperatingScreen = () => {
     const { 
         selectedAIInfo, totalProfit, accountBalance, 
         isBotRunning, toggleBot, exitToSelection, 
-        status, tradeStatus, wins, losses, signals, clearSignals,
+        status, wins, losses, signals, clearSignals,
         handleConnect, accountType, realToken, demoToken,
-        probabilities, isPaused, pauseTimeRemaining, learningData
+        probabilities, isPaused, pauseTimeRemaining, learningData,
+        isManipulationDetected, neuralPredictions
     } = useBotContext();
 
     const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
@@ -46,13 +47,24 @@ export const AIOperatingScreen = () => {
     return (
         <div className="w-full max-w-md mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
             
+            {/* ALERTAS DE PROTEÇÃO */}
+            {isManipulationDetected && (
+                <div className="bg-orange-500/10 border-2 border-orange-500/50 rounded-2xl p-4 flex items-center gap-3 animate-pulse">
+                    <Radar className="h-6 w-6 text-orange-500" />
+                    <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-orange-500">Manipulação Detectada</p>
+                        <p className="text-xs font-bold">Bloqueio temporário ativo por segurança.</p>
+                    </div>
+                </div>
+            )}
+
             {isPaused && (
-                <div className="bg-red-500/10 border-2 border-red-500/50 rounded-2xl p-4 flex items-center justify-between animate-pulse">
+                <div className="bg-red-500/10 border-2 border-red-500/50 rounded-2xl p-4 flex items-center justify-between">
                     <div className="flex items-center gap-3 text-red-500">
                         <ShieldAlert className="h-6 w-6" />
                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest">Proteção Anti-Loss Ativa</p>
-                            <p className="text-xs font-bold">Resfriando sistema por segurança...</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest">Sniper Offline</p>
+                            <p className="text-xs font-bold">Recuperando sinal após perda...</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2 font-mono font-black text-xl text-red-500">
@@ -76,9 +88,9 @@ export const AIOperatingScreen = () => {
                                 )}
                             </div>
                             <div>
-                                <h2 className="text-2xl font-black uppercase tracking-tighter">{selectedAIInfo?.name || 'Neural Core'}</h2>
+                                <h2 className="text-2xl font-black uppercase tracking-tighter">SNIPER V3</h2>
                                 <Badge variant="secondary" className="text-[9px] font-black px-2 py-0 uppercase tracking-widest bg-primary/5 text-primary border-none">
-                                    LEARNING ENGINE ACTIVE
+                                    NEURAL CORE VORTEX
                                 </Badge>
                             </div>
                         </div>
@@ -87,17 +99,37 @@ export const AIOperatingScreen = () => {
                         </Button>
                     </div>
 
+                    {/* REDE NEURAL - PREVISÃO DE DÍGITOS */}
+                    <div className="space-y-3">
+                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em] ml-1">Previsão Neural (0-9)</p>
+                        <div className="flex gap-1 h-12 items-end">
+                            {neuralPredictions.map((val, idx) => (
+                                <div key={idx} className="flex-1 flex flex-col gap-1 items-center">
+                                    <div 
+                                        className={cn(
+                                            "w-full rounded-t-sm transition-all duration-300",
+                                            idx % 2 === 0 ? "bg-green-500/40" : "bg-red-500/40",
+                                            val > 15 && "bg-primary/60 shadow-[0_0_8px_hsl(var(--primary))]"
+                                        )} 
+                                        style={{ height: `${val * 3}%` }} 
+                                    />
+                                    <span className="text-[8px] font-bold">{idx}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2 p-4 bg-gray-50/50 rounded-2xl border border-gray-100">
                             <div className="flex items-center justify-between text-[10px] font-black uppercase text-muted-foreground tracking-widest">
-                                <span>IA_EVEN</span>
+                                <span>PROB_EVEN</span>
                                 <span className="text-green-500">{probabilities.even.toFixed(1)}%</span>
                             </div>
                             <Progress value={probabilities.even} className="h-1.5 [&>div]:bg-green-500" />
                         </div>
                         <div className="space-y-2 p-4 bg-gray-50/50 rounded-2xl border border-gray-100">
                             <div className="flex items-center justify-between text-[10px] font-black uppercase text-muted-foreground tracking-widest">
-                                <span>IA_ODD</span>
+                                <span>PROB_ODD</span>
                                 <span className="text-red-500">{probabilities.odd.toFixed(1)}%</span>
                             </div>
                             <Progress value={probabilities.odd} className="h-1.5 [&>div]:bg-red-500" />
@@ -106,46 +138,27 @@ export const AIOperatingScreen = () => {
 
                     <Button 
                         onClick={handleStartClick}
-                        disabled={status.message.includes('Desconectado') || isPaused}
+                        disabled={status.message.includes('Desconectado') || isPaused || isManipulationDetected}
                         className={cn(
                             "w-full h-20 rounded-[2rem] text-xl font-black uppercase tracking-[0.2em] transition-all duration-500 shadow-2xl",
                             isBotRunning ? "bg-red-500 hover:bg-red-600 shadow-red-500/30" : "bg-primary hover:bg-primary/90 shadow-primary/30"
                         )}
                     >
-                        {isBotRunning ? "Parar IA" : "Iniciar Aprendizado"}
+                        {isBotRunning ? "Cessar Fogo" : "Ativar Sniper"}
                     </Button>
 
                     <div className="text-center space-y-2">
-                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.5em] opacity-50">Live Profit</p>
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.5em] opacity-50">Profit Session</p>
                         <div className={cn("text-7xl font-black tracking-tighter", isWin ? "text-green-500" : "text-red-500")}>
                             {isWin ? '+' : ''}{totalProfit.toFixed(2)}
                         </div>
                     </div>
 
-                    {/* AI LEARNING INSIGHTS */}
-                    <div className="space-y-3 pt-2 border-t border-gray-100">
-                        <div className="flex items-center gap-2 text-[10px] font-black uppercase text-muted-foreground tracking-widest mb-1">
-                            <TrendingUp className="h-3 w-3" /> Padrões Aprendidos
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                            {patterns.length > 0 ? patterns.slice(0, 2).map(p => (
-                                <div key={p.name} className="p-2 rounded-xl bg-gray-50/80 border border-gray-100 text-center">
-                                    <p className="text-[8px] font-black opacity-40 uppercase">{p.name}</p>
-                                    <p className={cn("text-xs font-black", p.winrate >= 60 ? "text-green-500" : p.winrate < 50 ? "text-red-500" : "text-primary")}>
-                                        {p.winrate.toFixed(1)}% <span className="text-[8px] opacity-40">({p.total} op)</span>
-                                    </p>
-                                </div>
-                            )) : (
-                                <div className="col-span-2 py-4 text-center text-[8px] font-bold text-muted-foreground opacity-30 uppercase">Aguardando dados de aprendizado...</div>
-                            )}
-                        </div>
-                    </div>
-
                     <div className="bg-gray-50/50 border border-gray-100 rounded-[2rem] p-6 flex items-center justify-between">
                         <div className="flex items-center gap-4">
-                            <div className="bg-white p-2.5 rounded-xl shadow-sm"><RefreshCw className="h-5 w-5 text-primary" /></div>
+                            <div className="bg-white p-2.5 rounded-xl shadow-sm"><Target className="h-5 w-5 text-primary" /></div>
                             <div>
-                                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Saldo em Conta</p>
+                                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Carteira Ativa</p>
                                 <p className="text-xl font-black tracking-tight">{accountBalance?.toFixed(2) || '0.00'} <span className="text-xs font-bold opacity-40">USD</span></p>
                             </div>
                         </div>
@@ -163,13 +176,13 @@ export const AIOperatingScreen = () => {
                             <tr key={s.id}>
                                 <td className="py-3 font-mono opacity-40">{s.timestamp}</td>
                                 <td className="py-3"><span className={cn("px-2 py-0.5 rounded-md text-[9px] font-black uppercase", s.signal === 'EVEN' ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600")}>{s.signal === 'EVEN' ? 'PAR' : 'ÍMPAR'}</span></td>
-                                <td className="py-3 text-center text-muted-foreground opacity-60 truncate max-w-[80px]">{s.strategy.replace('IA WAVE ', '')}</td>
+                                <td className="py-3 text-center text-muted-foreground opacity-60 truncate max-w-[80px]">{s.details}</td>
                                 <td className={cn("py-3 text-right font-black", s.result === 'WIN' ? "text-green-500" : "text-red-500")}>
-                                    {s.profit ? `${s.profit > 0 ? '+' : ''}${s.profit.toFixed(2)}` : '...'}
+                                    {s.profit ? `${s.profit > 0 ? '+' : ''}${s.profit.toFixed(2)}` : 'SNIPER_WAIT'}
                                 </td>
                             </tr>
                         )) : (
-                            <tr><td colSpan={4} className="py-16 text-center text-[10px] font-black text-muted-foreground/30 uppercase tracking-[0.3em]">IA_NEURAL_STANDBY</td></tr>
+                            <tr><td colSpan={4} className="py-16 text-center text-[10px] font-black text-muted-foreground/30 uppercase tracking-[0.3em]">Varredura Neural em Andamento...</td></tr>
                         )}
                     </tbody>
                 </table>
