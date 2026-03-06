@@ -90,7 +90,7 @@ export const AIOperatingScreen = () => {
                             <div>
                                 <h2 className="text-2xl font-black uppercase tracking-tighter">SNIPER V3</h2>
                                 <Badge variant="secondary" className="text-[9px] font-black px-2 py-0 uppercase tracking-widest bg-primary/5 text-primary border-none">
-                                    NEURAL CORE VORTEX
+                                    LEARNING ENGINE PRO
                                 </Badge>
                             </div>
                         </div>
@@ -144,13 +144,32 @@ export const AIOperatingScreen = () => {
                             isBotRunning ? "bg-red-500 hover:bg-red-600 shadow-red-500/30" : "bg-primary hover:bg-primary/90 shadow-primary/30"
                         )}
                     >
-                        {isBotRunning ? "Cessar Fogo" : "Ativar Sniper"}
+                        {isBotRunning ? "Abortar Sniper" : "Iniciar Sniper IA"}
                     </Button>
 
                     <div className="text-center space-y-2">
                         <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.5em] opacity-50">Profit Session</p>
                         <div className={cn("text-7xl font-black tracking-tighter", isWin ? "text-green-500" : "text-red-500")}>
                             {isWin ? '+' : ''}{totalProfit.toFixed(2)}
+                        </div>
+                    </div>
+
+                    {/* AI LEARNING INSIGHTS (REINTEGRADO) */}
+                    <div className="space-y-3 pt-2 border-t border-gray-100">
+                        <div className="flex items-center gap-2 text-[10px] font-black uppercase text-muted-foreground tracking-widest mb-1">
+                            <TrendingUp className="h-3 w-3" /> Padrões Memorizados
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                            {patterns.length > 0 ? patterns.slice(0, 2).map(p => (
+                                <div key={p.name} className="p-2 rounded-xl bg-gray-50/80 border border-gray-100 text-center">
+                                    <p className="text-[8px] font-black opacity-40 uppercase">{p.name}</p>
+                                    <p className={cn("text-xs font-black", p.winrate >= 60 ? "text-green-500" : p.winrate < 50 ? "text-red-500" : "text-primary")}>
+                                        {p.winrate.toFixed(1)}% <span className="text-[8px] opacity-40">({p.total} op)</span>
+                                    </p>
+                                </div>
+                            )) : (
+                                <div className="col-span-2 py-4 text-center text-[8px] font-bold text-muted-foreground opacity-30 uppercase">Calibrando base de dados...</div>
+                            )}
                         </div>
                     </div>
 
@@ -178,11 +197,11 @@ export const AIOperatingScreen = () => {
                                 <td className="py-3"><span className={cn("px-2 py-0.5 rounded-md text-[9px] font-black uppercase", s.signal === 'EVEN' ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600")}>{s.signal === 'EVEN' ? 'PAR' : 'ÍMPAR'}</span></td>
                                 <td className="py-3 text-center text-muted-foreground opacity-60 truncate max-w-[80px]">{s.details}</td>
                                 <td className={cn("py-3 text-right font-black", s.result === 'WIN' ? "text-green-500" : "text-red-500")}>
-                                    {s.profit ? `${s.profit > 0 ? '+' : ''}${s.profit.toFixed(2)}` : 'SNIPER_WAIT'}
+                                    {s.profit ? `${s.profit > 0 ? '+' : ''}${s.profit.toFixed(2)}` : 'SCANNING...'}
                                 </td>
                             </tr>
                         )) : (
-                            <tr><td colSpan={4} className="py-16 text-center text-[10px] font-black text-muted-foreground/30 uppercase tracking-[0.3em]">Varredura Neural em Andamento...</td></tr>
+                            <tr><td colSpan={4} className="py-16 text-center text-[10px] font-black text-muted-foreground/30 uppercase tracking-[0.3em]">Neural_Link_Synced</td></tr>
                         )}
                     </tbody>
                 </table>
