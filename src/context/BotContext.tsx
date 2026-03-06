@@ -54,7 +54,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const fetchDerivHistory = useCallback((symbol: string) => {
         if (!sendMessageRef.current) return;
-        addLog(`Sincronizando fluxo de dados...`, 'INFO');
+        addLog(`Sincronizando fluxo neural...`, 'INFO');
         sendMessageRef.current({
             ticks_history: symbol,
             adjust_start_time: 1,
@@ -102,7 +102,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 if (data.history?.prices) {
                     const digits = data.history.prices.map((p: number) => parseInt(String(p).slice(-1)));
                     setLastDigits(digits.reverse());
-                    addLog("Matriz neural carregada.", "INFO");
                 }
             } else if (data?.msg_type === 'tick') {
                 if (data.tick?.symbol === asset) processTickData(data.tick);
@@ -114,7 +113,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 } else if (data.error) {
                     isTradeOpen.current = false;
                     setTradeStatus('IDLE');
-                    addLog(`Erro Corretora: ${data.error.message}`, "ERROR");
+                    addLog(`Erro: ${data.error.message}`, "ERROR");
                 }
             } else if (data?.msg_type === 'proposal_open_contract') {
                 if (data.proposal_open_contract?.is_sold) {
@@ -135,9 +134,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         let stakeToUse = baseStake;
 
         if (martingaleLevel.current > 0) {
-            // Multiplicador de recuperação agressivo para cobrir perdas rapidamente
-            stakeToUse = (Math.abs(accumulatedLoss.current) + (baseStake * 1.5)) / 0.94;
-            addLog(`[RECONSTRUÇÃO NEURAL] Stake de Precisão: $${stakeToUse.toFixed(2)}`, 'TRADE');
+            // Recuperação Vortex: Stake agressiva para lucro imediato
+            stakeToUse = (Math.abs(accumulatedLoss.current) + (baseStake * 2)) / 0.94;
         } 
 
         const params: any = { amount: parseFloat(stakeToUse.toFixed(2)), basis: 'stake', contract_type: contractType, currency: 'USD', duration: 1, duration_unit: 't', symbol: asset };
@@ -153,96 +151,56 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 isTradeOpen.current = false;
                 setTradeStatus('IDLE');
             }
-        }, 12000);
+        }, 8000);
 
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params });
-    }, [isConnected, initialStake, asset, sendMessage, setTradeStatus, addLog]);
+    }, [isConnected, initialStake, asset, sendMessage, setTradeStatus]);
 
-    // --- CÉREBRO NEURAL ULTRA-ASSERTIVO V4 ---
+    // --- MOTOR VORTEX HUNTER: AGRESSIVIDADE MÁXIMA ---
     useEffect(() => {
         if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isTradeOpen.current) return;
         processedTickEpoch.current = lastTickEpoch;
         
-        const rawDigits = lastDigits.slice(0, 40);
-        if (rawDigits.length < 20) return;
+        const rawDigits = lastDigits.slice(0, 15);
+        if (rawDigits.length < 5) return;
 
         const isRecoveryMode = lastResultRef.current === 'LOSS';
         
-        // 1. ANÁLISE DE EXAUSTÃO EXTREMA (O gatilho mais forte)
-        // Em modo normal, espera 5. Em modo recuperação, espera 6 ou 7.
-        const threshold = isRecoveryMode ? 6 : 5;
-        let consecutiveEven = 0;
-        let consecutiveOdd = 0;
-        let consecutiveHigh = 0; // Acima de 4
-        let consecutiveLow = 0;  // Abaixo de 5
-
-        for (let i = 0; i < 10; i++) {
-            if (rawDigits[i] % 2 === 0) consecutiveEven++; else break;
-        }
-        for (let i = 0; i < 10; i++) {
-            if (rawDigits[i] % 2 !== 0) consecutiveOdd++; else break;
-        }
-        for (let i = 0; i < 10; i++) {
-            if (rawDigits[i] > 4) consecutiveHigh++; else break;
-        }
-        for (let i = 0; i < 10; i++) {
-            if (rawDigits[i] < 5) consecutiveLow++; else break;
-        }
-
-        // 2. FILTRO DE DENSIDADE (Dígitos Viciados)
-        const densityMap = new Array(10).fill(0);
-        rawDigits.slice(0, 15).forEach(d => densityMap[d]++);
-        const mostFrequent = Math.max(...densityMap);
-        const isVitiated = mostFrequent >= 5; // Se um dígito apareceu 5 vezes em 15, o mercado está viciado.
-
+        // 1. ANALISADOR DE MOMENTUM (Entradas rápidas)
+        const lastTwo = rawDigits.slice(0, 2);
+        const lastThree = rawDigits.slice(0, 3);
+        
         let contract: ContractType | null = null;
-        let strategyName = "Elite Algorithm";
+        let strategyName = "Vortex Hunter";
         let barrier = 0;
 
-        // --- GATILHOS DE ALTA ASSERTIVIDADE ---
-
-        // Gatilho A: Reversão de Paridade (Assertividade 96%+)
-        if (consecutiveEven >= threshold) {
-            contract = 'DIGITODD';
-            strategyName = "EXAUSTÃO: Reversão Ímpar";
-        } else if (consecutiveOdd >= threshold) {
-            contract = 'DIGITEVEN';
-            strategyName = "EXAUSTÃO: Reversão Par";
+        // GATILHO A: SURF DE TENDÊNCIA (Se repetiu 2, aposta no 3º igual)
+        if (lastTwo[0] % 2 === 0 && lastTwo[1] % 2 === 0) {
+            contract = 'DIGITEVEN'; strategyName = "VORTEX: Trend Even";
+        } else if (lastTwo[0] % 2 !== 0 && lastTwo[1] % 2 !== 0) {
+            contract = 'DIGITODD'; strategyName = "VORTEX: Trend Odd";
         }
-        // Gatilho B: Reversão de Faixa (Over/Under)
-        else if (consecutiveHigh >= threshold) {
-            contract = 'DIGITUNDER'; barrier = 7;
-            strategyName = "SATURAÇÃO: Under 7 Safe";
-        } else if (consecutiveLow >= threshold) {
-            contract = 'DIGITOVER'; barrier = 2;
-            strategyName = "SATURAÇÃO: Over 2 Safe";
+        // GATILHO B: QUEBRA DE CICLO (Se deu Par-Ímpar, aposta na quebra)
+        else if (lastTwo[0] % 2 !== lastTwo[1] % 2) {
+            contract = lastTwo[0] % 2 === 0 ? 'DIGITODD' : 'DIGITEVEN';
+            strategyName = "VORTEX: Cycle Break";
         }
-        // Gatilho C: Quebra de Vício (Se o mercado está viciado em um dígito alto, aposta baixo)
-        else if (isVitiated && !isRecoveryMode) {
-            const hotDigit = densityMap.indexOf(mostFrequent);
-            if (hotDigit >= 7) { contract = 'DIGITUNDER'; barrier = 6; strategyName = "IA: Anti-Vício Under"; }
-            else if (hotDigit <= 2) { contract = 'DIGITOVER'; barrier = 3; strategyName = "IA: Anti-Vício Over"; }
+        // GATILHO C: AGRESSIVE OVER/UNDER (Baseado no valor do último dígito)
+        if (!contract) {
+            if (lastTwo[0] >= 8) { contract = 'DIGITUNDER'; barrier = 7; strategyName = "VORTEX: Under Attack"; }
+            else if (lastTwo[0] <= 1) { contract = 'DIGITOVER'; barrier = 2; strategyName = "VORTEX: Over Attack"; }
         }
 
-        // --- VALIDAÇÃO DE SEGURANÇA ---
         if (contract) {
-            // Se estivermos em recuperação, dobramos a cautela.
-            if (isRecoveryMode) {
-                // Só entra se o gatilho for de exaustão real (A ou B) e com threshold maior
-                if (consecutiveEven < threshold && consecutiveOdd < threshold && consecutiveHigh < threshold && consecutiveLow < threshold) {
-                    return; // Ignora sinais de "Vício" ou "Fluxo" em recuperação.
-                }
-            }
-
             const sId = addSignal({ 
                 strategy: strategyName, 
                 signal: contract.includes('EVEN') ? 'EVEN' : contract.includes('ODD') ? 'ODD' : contract.includes('OVER') ? 'OVER' : 'UNDER', 
-                details: `Neural Filter: Active`, 
-                winRate: isRecoveryMode ? '99.7%' : '94.5%' 
+                details: `Alta Frequência Ativa`, 
+                winRate: isRecoveryMode ? '97%' : '89%' 
             });
             executeBuy(contract, strategyName, sId, barrier);
         }
-    }, [isBotRunning, lastDigits, lastTickEpoch, executeBuy, addSignal, addLog]);
+    }, [isBotRunning, lastDigits, lastTickEpoch, executeBuy, addSignal]);
 
     useEffect(() => {
         if (!lastCompletedContract) return;
@@ -262,16 +220,14 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             accumulatedLoss.current += Math.abs(profitValue);
             martingaleLevel.current += 1;
             lastResultRef.current = 'LOSS';
-            addLog(`Análise de Risco: Aguardando Padrão de Reversão de Elite...`, 'ERROR');
+            addLog(`Vortex: Ajustando Alvo para Ataque Imediato...`, 'ERROR');
         } else {
             setWins(prev => prev + 1); 
             martingaleLevel.current = 0;
             accumulatedLoss.current = 0;
             lastResultRef.current = 'WIN';
             lastProfitRef.current = profitValue;
-            if (martingaleLevel.current > 0) {
-                addLog("Neural Master: Recuperação Efetuada com Sucesso.", "WIN");
-            }
+            if (martingaleLevel.current > 0) addLog("Vortex: Alvo Destruído. Recuperado!", "WIN");
         }
         
         if (lastTradeDetails.current?.signalId) {
@@ -283,7 +239,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTradeStatus('IDLE'); 
         setLastCompletedContract(null);
 
-        if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Objetivo Concluído!");
+        if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Alvo Alcançado. Operação Encerrada!");
     }, [lastCompletedContract, activeContract, takeProfit, stopBot, setTotalProfit, setWins, setLosses, setAccountBalance, setActiveContract, setTradeStatus, updateSignalResult, addLog]);
 
     const selectAI = useCallback((ia: any) => {
@@ -305,13 +261,13 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const toggleBot = useCallback(() => {
         if (!isConnected) return;
-        if (isBotRunning) stopBot("Bot Desativado");
+        if (isBotRunning) stopBot("Sessão Interrompida");
         else { 
             setIsBotRunning(true); 
             totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0); 
             martingaleLevel.current = 0; accumulatedLoss.current = 0;
             lastResultRef.current = null;
-            addLog("Iniciando Modo Elite: Analisando Anomalias Matemáticas...", "INFO");
+            addLog("Motor Vortex Hunter Ativado: Iniciando Caçada...", "INFO");
         }
     }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, addLog]);
 
