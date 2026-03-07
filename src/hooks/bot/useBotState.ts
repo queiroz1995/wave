@@ -26,7 +26,7 @@ const DEFAULTS = {
     marketStabilityThreshold: '10',
     colorPatternProfiles: {},
     overUnderPatternProfiles: {},
-    analyzerWindowSize: 500, // Aumentado para 500 para análise profissional
+    analyzerWindowSize: 500,
     patternLengthForAnalysis: 3,
     catalogerPatternLength: 3,
     catalogerMinWinRate: 75,
@@ -53,7 +53,7 @@ const DEFAULTS = {
     virtualTargetWins: 0,
     isStreakFilterActive: true,
     maxStreakAllowed: 4,
-    scoreThreshold: 7, // Aumentado para 7 (Sniper Mode)
+    scoreThreshold: 6, // Reduzido para 6 para maior frequência de entradas
     learningData: {} as Record<string, { wins: number, losses: number, total: number }>,
 };
 
@@ -114,7 +114,7 @@ export const useBotState = () => {
 
     // Estados de Manipulação e Rede Neural
     const [isManipulationDetected, setIsManipulationDetected] = useState(false);
-    const [neuralPredictions, setNeuralPredictions] = useState<number[]>(new Array(10).fill(10)); // Probabilidade 0-9
+    const [neuralPredictions, setNeuralPredictions] = useState<number[]>(new Array(10).fill(10));
 
     const addLog = useCallback((message: string, type: LogType, details?: any) => {
         setLogs(prev => [{ timestamp: new Date().toLocaleTimeString('pt-BR', { hour12: false }), message, type, ...details }, ...prev].slice(0, 50));

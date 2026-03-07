@@ -50,7 +50,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [isConnected, setIsConnected] = useState(false);
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
 
-    // --- DETECTOR DE MANIPULAÇÃO DE MERCADO ---
+    // --- DETECTOR DE MANIPULAÇÃO ---
     const detectMarketManipulation = useCallback(() => {
         if (lastDigits.length < 10) return false;
         
@@ -65,7 +65,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 break;
             }
         }
-        if (alternating) return "Alternância Extrema";
+        if (alternating) return "Alternância";
 
         // 2. Sequência Perfeita
         let seqUp = true, seqDown = true;
@@ -74,11 +74,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (last6[i] !== last6[i+1] + 1) seqDown = false;
         }
         if (seqUp || seqDown) return "Sequência Perfeita";
-
-        // 3. Cluster Estranho
-        const counts: Record<number, number> = {};
-        last10.forEach(d => counts[d] = (counts[d] || 0) + 1);
-        if (Object.values(counts).some(c => c >= 5)) return "Cluster de Dígitos";
 
         return null;
     }, [lastDigits]);
@@ -108,7 +103,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else if (isPaused && pauseTimeRemaining === 0) {
             setIsPaused(false);
             setConsecutiveLosses(0);
-            addLog("Resfriamento Sniper concluído. Retomando varredura.", "INFO");
+            addLog("Sniper ativo novamente.", "INFO");
         }
         return () => clearInterval(interval);
     }, [isPaused, pauseTimeRemaining, setPauseTimeRemaining, setIsPaused, setConsecutiveLosses, addLog]);
@@ -169,17 +164,17 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { sendMessage, connect, disconnect } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
-    // --- SNIPER CORE ENGINE (SCORE 7-9) + APRENDIZADO ---
+    // --- SNIPER ENGINE (SCORE 6+) ---
     const calculateSniperScore = useCallback(() => {
-        if (lastDigits.length < 100) return null;
+        if (lastDigits.length < 50) return null;
 
         const manipulation = detectMarketManipulation();
         if (manipulation) {
             if (!isManipulationDetected) {
                 setIsManipulationDetected(true);
-                addLog(`ALERTA: ${manipulation} detectado. Pausando 60s.`, "ERROR");
+                addLog(`Sniper em espera: Mercado Instável.`, "INFO");
                 if (manipulationTimeoutRef.current) clearTimeout(manipulationTimeoutRef.current);
-                manipulationTimeoutRef.current = setTimeout(() => setIsManipulationDetected(false), 60000);
+                manipulationTimeoutRef.current = setTimeout(() => setIsManipulationDetected(false), 30000); // Reduzido para 30s
             }
             return null;
         }
@@ -208,33 +203,31 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (!signal) return null;
 
-        // Regra 2: Probabilidade > 55% (+2)
+        // Regra 2: Probabilidade > 53% (+2) - Calibrado para ser mais ágil
         const p = signal === 'EVEN' ? probEven : probOdd;
-        if (p > 0.55) score += 2;
+        if (p > 0.53) score += 2;
 
-        // Regra 3: Confirmação Rede Neural (+3)
+        // Regra 3: Confirmação Rede Neural (+2) - Calibrado para ser mais ágil
         const neuralProb = neuralPredictions.reduce((acc, val, idx) => {
             if (signal === 'EVEN' && idx % 2 === 0) return acc + val;
             if (signal === 'ODD' && idx % 2 !== 0) return acc + val;
             return acc;
         }, 0) / 100;
-        if (neuralProb > 0.52) score += 3;
+        if (neuralProb > 0.51) score += 2;
 
         // Regra 4: Sem sequência extrema (+1)
         score += 1;
 
-        // --- SISTEMA DE APRENDIZADO (ADAPTAÇÃO AUTOMÁTICA) ---
+        // Sistema de Aprendizado (Prioridade maior)
         const stats = learningData[patternName];
-        if (stats && stats.total >= 5) {
+        if (stats && stats.total >= 3) {
             const winrate = (stats.wins / stats.total) * 100;
-            if (winrate < 50) score -= 4; // Penalidade se o padrão estiver errando muito
-            else if (winrate > 60) score += 1; // Bônus se o padrão for assertivo
+            if (winrate < 50) score -= 3;
+            else if (winrate > 55) score += 1;
         }
 
-        if (p < 0.60 && score < scoreThreshold) return null;
-
         return { score, signal, patternName, prob: p, neural: neuralProb };
-    }, [lastDigits, setProbabilities, learningData, neuralPredictions, detectMarketManipulation, isManipulationDetected, setIsManipulationDetected, addLog, scoreThreshold]);
+    }, [lastDigits, setProbabilities, learningData, neuralPredictions, detectMarketManipulation, isManipulationDetected, setIsManipulationDetected, addLog]);
 
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, patternName: string) => {
         if (!isConnected || isTradeOpen.current || isPaused || isManipulationDetected) return;
@@ -248,7 +241,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params });
     }, [isConnected, initialStake, asset, sendMessage, setTradeStatus, martingaleFactor, isPaused, isManipulationDetected]);
 
-    // Sniper Logic Loop
+    // Logic Loop
     useEffect(() => {
         if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isTradeOpen.current || isPaused || isManipulationDetected) return;
         processedTickEpoch.current = lastTickEpoch;
@@ -256,12 +249,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (analysis && analysis.score >= scoreThreshold) {
             const contract: ContractType = analysis.signal === 'EVEN' ? 'DIGITEVEN' : 'DIGITODD';
             const sId = addSignal({ 
-                strategy: `SNIPER WAVE (${analysis.patternName})`, 
+                strategy: `SNIPER (${analysis.patternName})`, 
                 signal: analysis.signal, 
                 details: `Score: ${analysis.score}/9 | IA: ${(analysis.neural * 100).toFixed(0)}%`,
                 winRate: `${(analysis.prob * 100).toFixed(0)}%` 
             });
-            executeBuy(contract, `SNIPER MODE (S:${analysis.score})`, sId, analysis.patternName);
+            executeBuy(contract, `SNIPER (${analysis.score})`, sId, analysis.patternName);
         }
     }, [isBotRunning, lastTickEpoch, calculateSniperScore, scoreThreshold, addSignal, executeBuy, isPaused, isManipulationDetected]);
 
@@ -293,7 +286,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (newLossCount >= 3) {
                 setIsPaused(true);
                 setPauseTimeRemaining(120);
-                addLog("SNIPER OFF: Proteção anti-loss ativada.", "ERROR");
+                addLog("SNIPER OFF: Proteção 2min.", "ERROR");
             }
         } else {
             setWins((prev: number) => prev + 1);
@@ -308,8 +301,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isTradeOpen.current = false;
         setTradeStatus('IDLE');
         setLastCompletedContract(null);
-        if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Sniper: Alvo Atingido!");
-    }, [lastCompletedContract, takeProfit, setTotalProfit, setWins, setLosses, setAccountBalance, setTradeStatus, updateSignalResult, addLog, setLearningData, consecutiveLosses, setConsecutiveLosses, setIsPaused, setPauseTimeRemaining, initialStake]);
+        if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Alvo Atingido!");
+    }, [lastCompletedContract, takeProfit, setTotalProfit, setWins, setLosses, setAccountBalance, setTradeStatus, updateSignalResult, addLog, setLearningData, consecutiveLosses, setConsecutiveLosses, setIsPaused, setPauseTimeRemaining]);
 
     const stopBot = useCallback((reason: string) => {
         setIsBotRunning(false);
@@ -325,7 +318,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setIsBotRunning(true); 
             totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0);
             setConsecutiveLosses(0); setIsPaused(false); setIsManipulationDetected(false);
-            addLog("Sniper Online: Analisando padrões...", "INFO");
+            addLog("Sniper Online: Calibrando sinais...", "INFO");
         }
     }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog, setIsManipulationDetected]);
 
