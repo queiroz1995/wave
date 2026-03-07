@@ -50,30 +50,32 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [isConnected, setIsConnected] = useState(false);
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
 
-    // --- DETECTOR DE MANIPULAÇÃO ---
+    // --- DETECTOR DE MANIPULAÇÃO REFINADO ---
     const detectMarketManipulation = useCallback(() => {
-        if (lastDigits.length < 10) return false;
+        if (lastDigits.length < 15) return false;
         
+        // Analisamos uma janela maior para evitar falsos positivos
         const last10 = lastDigits.slice(0, 10);
-        const last6 = last10.slice(0, 6);
+        const last8 = lastDigits.slice(0, 8);
 
-        // 1. Alternância Extrema
+        // 1. Alternância Extrema (Exige 8 dígitos: 0,9,0,9,0,9,0,9)
         let alternating = true;
-        for (let i = 0; i < 5; i++) {
-            if ((last6[i] % 2 === 0 && last6[i+1] % 2 === 0) || (last6[i] % 2 !== 0 && last6[i+1] % 2 !== 0)) {
+        for (let i = 0; i < 7; i++) {
+            if ((last8[i] % 2 === 0 && last8[i+1] % 2 === 0) || (last8[i] % 2 !== 0 && last8[i+1] % 2 !== 0)) {
                 alternating = false;
                 break;
             }
         }
         if (alternating) return "Alternância";
 
-        // 2. Sequência Perfeita
+        // 2. Sequência Perfeita (Exige 7 dígitos seguidos: 1,2,3,4,5,6,7)
         let seqUp = true, seqDown = true;
-        for (let i = 0; i < 5; i++) {
-            if (last6[i] !== last6[i+1] - 1) seqUp = false;
-            if (last6[i] !== last6[i+1] + 1) seqDown = false;
+        const last7 = lastDigits.slice(0, 7);
+        for (let i = 0; i < 6; i++) {
+            if (last7[i] !== last7[i+1] - 1) seqUp = false;
+            if (last7[i] !== last7[i+1] + 1) seqDown = false;
         }
-        if (seqUp || seqDown) return "Sequência Perfeita";
+        if (seqUp || seqDown) return "Sequência";
 
         return null;
     }, [lastDigits]);
@@ -172,9 +174,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (manipulation) {
             if (!isManipulationDetected) {
                 setIsManipulationDetected(true);
-                addLog(`Sniper em espera: Mercado Instável.`, "INFO");
+                addLog(`Scanner: Instabilidade detectada (${manipulation}). Pausando 15s.`, "INFO");
                 if (manipulationTimeoutRef.current) clearTimeout(manipulationTimeoutRef.current);
-                manipulationTimeoutRef.current = setTimeout(() => setIsManipulationDetected(false), 30000); // Reduzido para 30s
+                manipulationTimeoutRef.current = setTimeout(() => setIsManipulationDetected(false), 15000); // Reduzido para 15s
             }
             return null;
         }
@@ -203,11 +205,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (!signal) return null;
 
-        // Regra 2: Probabilidade > 53% (+2) - Calibrado para ser mais ágil
+        // Regra 2: Probabilidade > 53% (+2)
         const p = signal === 'EVEN' ? probEven : probOdd;
         if (p > 0.53) score += 2;
 
-        // Regra 3: Confirmação Rede Neural (+2) - Calibrado para ser mais ágil
+        // Regra 3: Confirmação Rede Neural (+2)
         const neuralProb = neuralPredictions.reduce((acc, val, idx) => {
             if (signal === 'EVEN' && idx % 2 === 0) return acc + val;
             if (signal === 'ODD' && idx % 2 !== 0) return acc + val;
@@ -218,7 +220,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Regra 4: Sem sequência extrema (+1)
         score += 1;
 
-        // Sistema de Aprendizado (Prioridade maior)
+        // Sistema de Aprendizado
         const stats = learningData[patternName];
         if (stats && stats.total >= 3) {
             const winrate = (stats.wins / stats.total) * 100;
