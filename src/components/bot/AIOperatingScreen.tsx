@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, Trash2, Bot, ShieldAlert, Timer, TrendingUp, Target, Radar } from 'lucide-react';
+import { Power, RefreshCw, Trash2, Bot, ShieldAlert, Timer, TrendingUp, Target, Radar, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -26,13 +26,6 @@ export const AIOperatingScreen = () => {
 
     const isWin = totalProfit >= 0;
     const currentToken = accountType === 'real' ? realToken : demoToken;
-
-    // Calcular insights de aprendizado
-    const patterns = Object.entries(learningData || {}).map(([name, stats]: [string, any]) => ({
-        name,
-        winrate: stats.total > 0 ? (stats.wins / stats.total) * 100 : 0,
-        total: stats.total
-    })).sort((a, b) => b.winrate - a.winrate);
 
     const handleStartClick = () => {
         if (isBotRunning) toggleBot();
@@ -69,16 +62,18 @@ export const AIOperatingScreen = () => {
             )}
 
             {isPaused && (
-                <div className="bg-red-500/10 border-2 border-red-500/50 rounded-2xl p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3 text-red-500">
-                        <ShieldAlert className="h-6 w-6" />
+                <div className="bg-emerald-500/10 border-2 border-emerald-500/30 rounded-3xl p-5 flex items-center justify-between shadow-lg shadow-emerald-500/5">
+                    <div className="flex items-center gap-3 text-emerald-600">
+                        <div className="bg-emerald-500 p-2 rounded-xl text-white">
+                            <ShieldAlert className="h-5 w-5" />
+                        </div>
                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest">Sniper Offline</p>
-                            <p className="text-xs font-bold">Recuperando sinal após perda...</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Modo Trava de Lucro</p>
+                            <p className="text-xs font-bold text-emerald-700/80">Aguardando gatilho de alta assertividade...</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2 font-mono font-black text-xl text-red-500">
-                        <Timer className="h-5 w-5" />
+                    <div className="flex items-center gap-2 font-mono font-black text-2xl text-emerald-600">
+                        <Timer className="h-5 w-5 animate-spin-slow" />
                         {Math.floor(pauseTimeRemaining / 60)}:{(pauseTimeRemaining % 60).toString().padStart(2, '0')}
                     </div>
                 </div>
@@ -98,9 +93,11 @@ export const AIOperatingScreen = () => {
                                 )}
                             </div>
                             <div>
-                                <h2 className="text-2xl font-black uppercase tracking-tighter">SNIPER V3</h2>
-                                <Badge variant="secondary" className="text-[9px] font-black px-2 py-0 uppercase tracking-widest bg-primary/5 text-primary border-none">
-                                    LEARNING ENGINE PRO
+                                <h2 className="text-2xl font-black uppercase tracking-tighter italic flex items-center gap-2">
+                                    LUCRA & TIRA <DollarSign className="h-5 w-5 text-green-500" />
+                                </h2>
+                                <Badge variant="secondary" className="text-[9px] font-black px-2 py-0 uppercase tracking-widest bg-green-500/10 text-green-600 border-none">
+                                    HIT & RUN ENGINE ACTIVE
                                 </Badge>
                             </div>
                         </div>
@@ -111,7 +108,7 @@ export const AIOperatingScreen = () => {
 
                     {/* REDE NEURAL - PREVISÃO DE DÍGITOS */}
                     <div className="space-y-3">
-                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em] ml-1">Previsão Neural (0-9)</p>
+                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em] ml-1">Previsão de Explosão Neural</p>
                         <div className="flex gap-1 h-12 items-end">
                             {neuralPredictions.map((val, idx) => (
                                 <div key={idx} className="flex-1 flex flex-col gap-1 items-center">
@@ -130,19 +127,19 @@ export const AIOperatingScreen = () => {
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2 p-4 bg-gray-50/50 rounded-2xl border border-gray-100">
-                            <div className="flex items-center justify-between text-[10px] font-black uppercase text-muted-foreground tracking-widest">
-                                <span>PROB_EVEN</span>
-                                <span className="text-green-500">{probabilities.even.toFixed(1)}%</span>
+                        <div className="space-y-2 p-4 bg-green-50/30 rounded-2xl border border-green-100">
+                            <div className="flex items-center justify-between text-[10px] font-black uppercase text-green-700 tracking-widest">
+                                <span>WIN_RATE</span>
+                                <span className="text-green-500">{wins > 0 ? ((wins / (wins+losses)) * 100).toFixed(0) : 0}%</span>
                             </div>
-                            <Progress value={probabilities.even} className="h-1.5 [&>div]:bg-green-500" />
+                            <Progress value={wins > 0 ? (wins / (wins+losses)) * 100 : 0} className="h-1.5 [&>div]:bg-green-500" />
                         </div>
-                        <div className="space-y-2 p-4 bg-gray-50/50 rounded-2xl border border-gray-100">
-                            <div className="flex items-center justify-between text-[10px] font-black uppercase text-muted-foreground tracking-widest">
-                                <span>PROB_ODD</span>
-                                <span className="text-red-500">{probabilities.odd.toFixed(1)}%</span>
+                        <div className="space-y-2 p-4 bg-blue-50/30 rounded-2xl border border-blue-100">
+                            <div className="flex items-center justify-between text-[10px] font-black uppercase text-blue-700 tracking-widest">
+                                <span>ALVO_12X</span>
+                                <span className="text-blue-500">ONLINE</span>
                             </div>
-                            <Progress value={probabilities.odd} className="h-1.5 [&>div]:bg-red-500" />
+                            <Progress value={100} className="h-1.5 [&>div]:bg-blue-500" />
                         </div>
                     </div>
 
@@ -151,14 +148,14 @@ export const AIOperatingScreen = () => {
                         disabled={status.message.includes('Desconectado') || isPaused || isManipulationDetected}
                         className={cn(
                             "w-full h-20 rounded-[2rem] text-xl font-black uppercase tracking-[0.2em] transition-all duration-500 shadow-2xl",
-                            isBotRunning ? "bg-red-500 hover:bg-red-600 shadow-red-500/30" : "bg-primary hover:bg-primary/90 shadow-primary/30"
+                            isBotRunning ? "bg-red-500 hover:bg-red-600 shadow-red-500/30" : "bg-green-600 hover:bg-green-700 shadow-green-500/30"
                         )}
                     >
-                        {isBotRunning ? "Abortar Sniper" : "Iniciar Sniper IA"}
+                        {isBotRunning ? "Pausar Lucro" : "Iniciar Operação"}
                     </Button>
 
                     <div className="text-center space-y-2">
-                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.5em] opacity-50">Profit Session</p>
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.5em] opacity-50">Saldo em Operação</p>
                         <div className={cn("text-7xl font-black tracking-tighter", isWin ? "text-green-500" : "text-red-500")}>
                             {isWin ? '+' : ''}{totalProfit.toFixed(2)}
                         </div>
@@ -194,7 +191,7 @@ export const AIOperatingScreen = () => {
                                     </td>
                                     <td className="py-3 text-center text-muted-foreground opacity-60 truncate max-w-[80px]">{s.details}</td>
                                     <td className={cn("py-3 text-right font-black", s.result === 'WIN' ? "text-green-500" : "text-red-500")}>
-                                        {s.profit ? `${s.profit > 0 ? '+' : ''}${s.profit.toFixed(2)}` : 'SCANNING...'}
+                                        {s.profit ? `${s.profit > 0 ? '+' : ''}${s.profit.toFixed(2)}` : 'ANALISANDO...'}
                                     </td>
                                 </tr>
                             );
