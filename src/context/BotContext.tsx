@@ -25,7 +25,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const processedTickEpoch = useRef<number | null>(null);
     const totalProfitRef = useRef(0.00);
     const martingaleLevel = useRef(0);
-    const manipulationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const [lastCompletedContract, setLastCompletedContract] = useState<any>(null);
     const lastTradeDetails = useRef<{ stake: number, strategyName: string, signalId: string | null, contractType: ContractType | null, patternName: string, barrier?: number } | null>(null);
@@ -43,29 +42,14 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setProbabilities, learningData, setLearningData,
         consecutiveLosses, setConsecutiveLosses, isPaused, setIsPaused,
         pauseTimeRemaining, setPauseTimeRemaining,
-        isManipulationDetected, setIsManipulationDetected,
+        digitTradeMode, digitPrediction,
         neuralPredictions, setNeuralPredictions
     } = stateAndSetters;
 
     const [isConnected, setIsConnected] = useState(false);
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
 
-    // --- DETECTOR DE MANIPULAÇÃO (SUAVIZADO) ---
-    const detectMarketManipulation = useCallback(() => {
-        if (lastDigits.length < 10) return false;
-        const last6 = lastDigits.slice(0, 6);
-        let alternating = true;
-        for (let i = 0; i < 5; i++) {
-            if ((last6[i] % 2 === 0 && last6[i+1] % 2 === 0) || (last6[i] % 2 !== 0 && last6[i+1] % 2 !== 0)) {
-                alternating = false;
-                break;
-            }
-        }
-        if (alternating) return "Alternância";
-        return null;
-    }, [lastDigits]);
-
-    // --- MOTOR NEURAL ---
+    // --- MOTOR DE ANÁLISE ---
     const updateNeuralPredictions = useCallback(() => {
         if (lastDigits.length < 50) return;
         const matrix = Array.from({ length: 10 }, () => new Array(10).fill(0));
@@ -133,55 +117,35 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { sendMessage, connect, disconnect } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
-    // --- SNIPER MOONSHOT 12X (PADRÃO CURTO) ---
-    const calculateMoonshotScore = useCallback(() => {
-        if (lastDigits.length < 20) return null;
+    // --- ESTRATÉGIA DE REVERSÃO (4 SEGUIDOS) ---
+    const calculateTradeSignal = useCallback(() => {
+        if (lastDigits.length < 5) return null;
 
-        const slice50 = lastDigits.slice(0, 50);
-        const lowFreq = slice50.filter(d => d < 2).length / 50; 
-        const highFreq = slice50.filter(d => d > 7).length / 50; 
+        const last4 = lastDigits.slice(0, 4);
         
-        setProbabilities({ even: lowFreq * 100, odd: highFreq * 100 });
+        // 1. Lógica Par/Ímpar
+        const allEven = last4.every(d => d % 2 === 0);
+        const allOdd = last4.every(d => d % 2 !== 0);
 
-        // PADRÃO CURTO: Analisando apenas os últimos 2 ou 3 dígitos
-        const last2 = lastDigits.slice(0, 2);
-        const allLow = last2.every(d => d < 5); 
-        const allHigh = last2.every(d => d > 4); 
+        if (allEven) return { type: 'ODD', contract: 'DIGITODD', name: 'Reversão Par', details: '4 Pares -> Entra Ímpar' };
+        if (allOdd) return { type: 'EVEN', contract: 'DIGITEVEN', name: 'Reversão Ímpar', details: '4 Ímpares -> Entra Par' };
 
-        // MODO MOONSHOT (ALTO MULTIPLICADOR)
-        if (allLow) {
-            const neuralConf = neuralPredictions[8] + neuralPredictions[9];
-            if (neuralConf > 12) { // Score menor para entrar mais rápido
-                return { type: 'OVER', contract: 'DIGITOVER', barrier: 8, score: 7, name: 'MOONSHOT_RAPIDO', isMoonshot: true };
-            }
-        }
+        // 2. Lógica Acima/Abaixo (Baseado na Barreira Configurável)
+        const barrier = digitPrediction; // Ex: 4
+        const allAbove = last4.every(d => d > barrier);
+        const allBelow = last4.every(d => d < barrier);
 
-        if (allHigh) {
-            const neuralConf = neuralPredictions[0] + neuralPredictions[1];
-            if (neuralConf > 12) {
-                return { type: 'UNDER', contract: 'DIGITUNDER', barrier: 1, score: 7, name: 'MOONSHOT_RAPIDO', isMoonshot: true };
-            }
-        }
-
-        // MODO NORMAL (PADRÃO CURTO - PAR/ÍMPAR)
-        const lastDigit = lastDigits[0];
-        const penultimateDigit = lastDigits[1];
-        
-        if ((lastDigit % 2 === 0 && penultimateDigit % 2 === 0)) {
-            return { type: 'EVEN', contract: 'DIGITEVEN', score: 6, name: 'SNIPER_CURTO', isMoonshot: false };
-        } else if ((lastDigit % 2 !== 0 && penultimateDigit % 2 !== 0)) {
-            return { type: 'ODD', contract: 'DIGITODD', score: 6, name: 'SNIPER_CURTO', isMoonshot: false };
-        }
+        if (allAbove) return { type: 'UNDER', contract: 'DIGITUNDER', barrier, name: 'Reversão Acima', details: `4 Acima de ${barrier} -> Entra Abaixo` };
+        if (allBelow) return { type: 'OVER', contract: 'DIGITOVER', barrier, name: 'Reversão Abaixo', details: `4 Abaixo de ${barrier} -> Entra Acima` };
 
         return null;
-    }, [lastDigits, neuralPredictions, setProbabilities]);
+    }, [lastDigits, digitPrediction]);
 
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, patternName: string, barrier?: number) => {
         if (!isConnected || isTradeOpen.current || isPaused) return;
         
-        const isHighGain = strategyName.includes('MOONSHOT');
         const baseStake = parseFloat(initialStake) || 1.00;
-        const mgFactor = isHighGain ? 1.15 : (parseFloat(martingaleFactor) || 1.8);
+        const mgFactor = parseFloat(martingaleFactor) || 1.8;
         const stakeToUse = martingaleLevel.current > 0 ? baseStake * Math.pow(mgFactor, martingaleLevel.current) : baseStake;
         
         const params: any = { 
@@ -207,18 +171,17 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isTradeOpen.current || isPaused) return;
         processedTickEpoch.current = lastTickEpoch;
         
-        const signal = calculateMoonshotScore();
-        if (signal && signal.score >= 4) { // Threshold baixado para entrar com tudo
-            const moonshotLabel = signal.isMoonshot ? " | 12X" : "";
+        const signal = calculateTradeSignal();
+        if (signal) {
             const sId = addSignal({ 
                 strategy: signal.name, 
                 signal: signal.type as any, 
-                details: `${signal.contract}${moonshotLabel}`,
-                winRate: `${signal.score * 10}%` 
+                details: signal.details,
+                winRate: 'N/A' 
             });
             executeBuy(signal.contract as ContractType, signal.name, sId, signal.name, signal.barrier);
         }
-    }, [isBotRunning, lastTickEpoch, calculateMoonshotScore, scoreThreshold, addSignal, executeBuy, isPaused]);
+    }, [isBotRunning, lastTickEpoch, calculateTradeSignal, addSignal, executeBuy, isPaused]);
 
     useEffect(() => {
         if (!lastCompletedContract) return;
@@ -235,7 +198,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setLosses((prev: number) => prev + 1);
             setConsecutiveLosses((p: number) => p + 1);
             martingaleLevel.current += 1;
-            // TRAVA REMOVIDA: O bot não pausa mais após perdas, continua o Martingale direto.
         } else {
             setWins((prev: number) => prev + 1);
             setConsecutiveLosses(0);
@@ -250,7 +212,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTradeStatus('IDLE');
         setLastCompletedContract(null);
         if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Sniper: Meta Batida!");
-    }, [lastCompletedContract, takeProfit, setTotalProfit, setWins, setLosses, setAccountBalance, setTradeStatus, updateSignalResult, addLog, consecutiveLosses, setConsecutiveLosses]);
+    }, [lastCompletedContract, takeProfit, setTotalProfit, setWins, setLosses, setAccountBalance, setTradeStatus, updateSignalResult, addLog]);
 
     const stopBot = useCallback((reason: string) => {
         setIsBotRunning(false);
@@ -266,7 +228,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setIsBotRunning(true); 
             totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0);
             setConsecutiveLosses(0); setIsPaused(false);
-            addLog("Sniper Agressivo: Modo Padrão Curto Ativado.", "INFO");
+            addLog("Sniper Reversão: Ativado (4 resultados iguais -> Reverte).", "INFO");
         }
     }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog]);
 
