@@ -44,6 +44,16 @@ export const AIOperatingScreen = () => {
         toggleBot();
     };
 
+    const getSignalLabel = (signal: string) => {
+        switch (signal) {
+            case 'EVEN': return { text: 'PAR', color: 'bg-green-50 text-green-600' };
+            case 'ODD': return { text: 'ÍMPAR', color: 'bg-red-50 text-red-600' };
+            case 'OVER': return { text: 'ACIMA', color: 'bg-blue-50 text-blue-600' };
+            case 'UNDER': return { text: 'ABAIXO', color: 'bg-orange-50 text-orange-600' };
+            default: return { text: signal, color: 'bg-gray-50 text-gray-600' };
+        }
+    };
+
     return (
         <div className="w-full max-w-md mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
             
@@ -154,25 +164,6 @@ export const AIOperatingScreen = () => {
                         </div>
                     </div>
 
-                    {/* AI LEARNING INSIGHTS (REINTEGRADO) */}
-                    <div className="space-y-3 pt-2 border-t border-gray-100">
-                        <div className="flex items-center gap-2 text-[10px] font-black uppercase text-muted-foreground tracking-widest mb-1">
-                            <TrendingUp className="h-3 w-3" /> Padrões Memorizados
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                            {patterns.length > 0 ? patterns.slice(0, 2).map(p => (
-                                <div key={p.name} className="p-2 rounded-xl bg-gray-50/80 border border-gray-100 text-center">
-                                    <p className="text-[8px] font-black opacity-40 uppercase">{p.name}</p>
-                                    <p className={cn("text-xs font-black", p.winrate >= 60 ? "text-green-500" : p.winrate < 50 ? "text-red-500" : "text-primary")}>
-                                        {p.winrate.toFixed(1)}% <span className="text-[8px] opacity-40">({p.total} op)</span>
-                                    </p>
-                                </div>
-                            )) : (
-                                <div className="col-span-2 py-4 text-center text-[8px] font-bold text-muted-foreground opacity-30 uppercase">Calibrando base de dados...</div>
-                            )}
-                        </div>
-                    </div>
-
                     <div className="bg-gray-50/50 border border-gray-100 rounded-[2rem] p-6 flex items-center justify-between">
                         <div className="flex items-center gap-4">
                             <div className="bg-white p-2.5 rounded-xl shadow-sm"><Target className="h-5 w-5 text-primary" /></div>
@@ -191,16 +182,23 @@ export const AIOperatingScreen = () => {
             <ScrollArea className="h-48 px-2">
                 <table className="w-full text-[10px] font-bold">
                     <tbody className="divide-y divide-gray-50">
-                        {signals.length > 0 ? signals.map((s: any) => (
-                            <tr key={s.id}>
-                                <td className="py-3 font-mono opacity-40">{s.timestamp}</td>
-                                <td className="py-3"><span className={cn("px-2 py-0.5 rounded-md text-[9px] font-black uppercase", s.signal === 'EVEN' ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600")}>{s.signal === 'EVEN' ? 'PAR' : 'ÍMPAR'}</span></td>
-                                <td className="py-3 text-center text-muted-foreground opacity-60 truncate max-w-[80px]">{s.details}</td>
-                                <td className={cn("py-3 text-right font-black", s.result === 'WIN' ? "text-green-500" : "text-red-500")}>
-                                    {s.profit ? `${s.profit > 0 ? '+' : ''}${s.profit.toFixed(2)}` : 'SCANNING...'}
-                                </td>
-                            </tr>
-                        )) : (
+                        {signals.length > 0 ? signals.map((s: any) => {
+                            const label = getSignalLabel(s.signal);
+                            return (
+                                <tr key={s.id}>
+                                    <td className="py-3 font-mono opacity-40">{s.timestamp}</td>
+                                    <td className="py-3">
+                                        <span className={cn("px-2 py-0.5 rounded-md text-[9px] font-black uppercase", label.color)}>
+                                            {label.text}
+                                        </span>
+                                    </td>
+                                    <td className="py-3 text-center text-muted-foreground opacity-60 truncate max-w-[80px]">{s.details}</td>
+                                    <td className={cn("py-3 text-right font-black", s.result === 'WIN' ? "text-green-500" : "text-red-500")}>
+                                        {s.profit ? `${s.profit > 0 ? '+' : ''}${s.profit.toFixed(2)}` : 'SCANNING...'}
+                                    </td>
+                                </tr>
+                            );
+                        }) : (
                             <tr><td colSpan={4} className="py-16 text-center text-[10px] font-black text-muted-foreground/30 uppercase tracking-[0.3em]">Neural_Link_Synced</td></tr>
                         )}
                     </tbody>

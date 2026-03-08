@@ -133,7 +133,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { sendMessage, connect, disconnect } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
-    // --- SNIPER MOONSHOT 12X (BUSCA MULTIPLICADOR ALTO) ---
+    // --- SNIPER MOONSHOT 12X ---
     const calculateMoonshotScore = useCallback(() => {
         if (lastDigits.length < 50) return null;
 
@@ -150,28 +150,29 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const allLow = last5.every(d => d < 5); 
         const allHigh = last5.every(d => d > 4); 
 
+        // MODO MOONSHOT (ALTO MULTIPLICADOR)
         if (allLow) {
             const neuralConf = neuralPredictions[8] + neuralPredictions[9];
             if (neuralConf > 15) { 
-                return { type: 'OVER', contract: 'DIGITOVER', barrier: 8, score: 9, name: 'MOONSHOT_12X_UP' };
+                return { type: 'OVER', contract: 'DIGITOVER', barrier: 8, score: 9, name: 'MOONSHOT_12X', isMoonshot: true };
             }
         }
 
         if (allHigh) {
             const neuralConf = neuralPredictions[0] + neuralPredictions[1];
             if (neuralConf > 15) {
-                return { type: 'UNDER', contract: 'DIGITUNDER', barrier: 1, score: 9, name: 'MOONSHOT_12X_DOWN' };
+                return { type: 'UNDER', contract: 'DIGITUNDER', barrier: 1, score: 9, name: 'MOONSHOT_12X', isMoonshot: true };
             }
         }
 
-        const evenFreq = slice50.filter(d => d % 2 === 0).length / 50;
+        // MODO NORMAL (PAR/ÍMPAR)
         const last3 = lastDigits.slice(0, 3);
         const allEven = last3.every(d => d % 2 === 0);
         const allOdd = last3.every(d => d % 2 !== 0);
 
         if (allEven || allOdd) {
             const type = allEven ? 'EVEN' : 'ODD';
-            return { type, contract: allEven ? 'DIGITEVEN' : 'DIGITODD', score: 6, name: `NORMAL_${type}` };
+            return { type, contract: allEven ? 'DIGITEVEN' : 'DIGITODD', score: 6, name: 'IA_SNIPER', isMoonshot: false };
         }
 
         return null;
@@ -210,10 +211,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         
         const signal = calculateMoonshotScore();
         if (signal && signal.score >= 6) {
+            const moonshotLabel = signal.isMoonshot ? " | BUSCANDO 12X" : "";
             const sId = addSignal({ 
                 strategy: signal.name, 
                 signal: signal.type as any, 
-                details: `MODAL: ${signal.contract} ${signal.barrier !== undefined ? signal.barrier : ''} | BUSCANDO 12X`,
+                details: `MODAL: ${signal.contract} ${signal.barrier !== undefined ? signal.barrier : ''}${moonshotLabel}`,
                 winRate: `${signal.score * 10}%` 
             });
             executeBuy(signal.contract as ContractType, signal.name, sId, signal.name, signal.barrier);
