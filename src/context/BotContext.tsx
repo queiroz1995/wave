@@ -28,7 +28,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const manipulationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const [lastCompletedContract, setLastCompletedContract] = useState<any>(null);
-    const lastTradeDetails = useRef<{ stake: number, strategyName: string, signalId: string | null, contractType: ContractType | null, patternName: string } | null>(null);
+    const lastTradeDetails = useRef<{ stake: number, strategyName: string, signalId: string | null, contractType: ContractType | null, patternName: string, barrier?: number } | null>(null);
     const reconnectAttemptsRef = useRef(0);
     const sendMessageRef = useRef<(payload: any) => void>(() => {});
 
@@ -44,8 +44,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         consecutiveLosses, setConsecutiveLosses, isPaused, setIsPaused,
         pauseTimeRemaining, setPauseTimeRemaining,
         isManipulationDetected, setIsManipulationDetected,
-        neuralPredictions, setNeuralPredictions,
-        digitTradeMode, digitPrediction
+        neuralPredictions, setNeuralPredictions
     } = stateAndSetters;
 
     const [isConnected, setIsConnected] = useState(false);
@@ -134,87 +133,56 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { sendMessage, connect, disconnect } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
-    // --- SNIPER MULTI-MODAL (PAR/ÍMPAR, ACIMA/ABAIXO, CALL/PUT) ---
-    const calculateMultiModalScore = useCallback(() => {
+    // --- SNIPER MOONSHOT 12X (BUSCA MULTIPLICADOR ALTO) ---
+    const calculateMoonshotScore = useCallback(() => {
         if (lastDigits.length < 50) return null;
 
         const manipulation = detectMarketManipulation();
         if (manipulation) return null;
 
-        // 1. Cálculo de Probabilidades de Dígitos
         const slice50 = lastDigits.slice(0, 50);
-        const evenFreq = slice50.filter(d => d % 2 === 0).length / 50;
-        const lowFreq = slice50.filter(d => d < 5).length / 50; // Abaixo de 5 (0,1,2,3,4)
+        const lowFreq = slice50.filter(d => d < 2).length / 50; 
+        const highFreq = slice50.filter(d => d > 7).length / 50; 
         
-        setProbabilities({ even: evenFreq * 100, odd: (1 - evenFreq) * 100 });
+        setProbabilities({ even: lowFreq * 100, odd: highFreq * 100 });
 
-        let bestScore = 0;
-        let bestSignal: any = null;
+        const last5 = lastDigits.slice(0, 5);
+        const allLow = last5.every(d => d < 5); 
+        const allHigh = last5.every(d => d > 4); 
 
-        // --- TESTE MODALIDADE: PAR/ÍMPAR ---
+        if (allLow) {
+            const neuralConf = neuralPredictions[8] + neuralPredictions[9];
+            if (neuralConf > 15) { 
+                return { type: 'OVER', contract: 'DIGITOVER', barrier: 8, score: 9, name: 'MOONSHOT_12X_UP' };
+            }
+        }
+
+        if (allHigh) {
+            const neuralConf = neuralPredictions[0] + neuralPredictions[1];
+            if (neuralConf > 15) {
+                return { type: 'UNDER', contract: 'DIGITUNDER', barrier: 1, score: 9, name: 'MOONSHOT_12X_DOWN' };
+            }
+        }
+
+        const evenFreq = slice50.filter(d => d % 2 === 0).length / 50;
         const last3 = lastDigits.slice(0, 3);
         const allEven = last3.every(d => d % 2 === 0);
         const allOdd = last3.every(d => d % 2 !== 0);
 
         if (allEven || allOdd) {
-            let score = 4; // Base por sequência de 3
             const type = allEven ? 'EVEN' : 'ODD';
-            const prob = allEven ? evenFreq : (1 - evenFreq);
-            if (prob > 0.55) score += 2;
-            
-            const neuralConf = neuralPredictions.reduce((acc, v, i) => (type === 'EVEN' ? (i % 2 === 0 ? acc + v : acc) : (i % 2 !== 0 ? acc + v : acc)), 0);
-            if (neuralConf > 52) score += 2;
-
-            if (score > bestScore) {
-                bestScore = score;
-                bestSignal = { type, contract: allEven ? 'DIGITEVEN' : 'DIGITODD', score, name: `DIGIT_${type}` };
-            }
+            return { type, contract: allEven ? 'DIGITEVEN' : 'DIGITODD', score: 6, name: `NORMAL_${type}` };
         }
 
-        // --- TESTE MODALIDADE: ACIMA/ABAIXO (OVER/UNDER) ---
-        // Se temos uma sequência de 4 dígitos baixos, a probabilidade de um alto é maior (e vice-versa)
-        const allLow = last3.every(d => d < 5);
-        const allHigh = last3.every(d => d >= 5);
-
-        if (allLow || allHigh) {
-            let score = 5;
-            const type = allLow ? 'UNDER' : 'OVER';
-            const prob = allLow ? lowFreq : (1 - lowFreq);
-            if (prob > 0.55) score += 2;
-
-            if (score > bestScore) {
-                bestScore = score;
-                bestSignal = { 
-                    type, 
-                    contract: allLow ? 'DIGITUNDER' : 'DIGITOVER', 
-                    score, 
-                    name: `OVER_UNDER`,
-                    barrier: allLow ? 8 : 1 // Barreira segura
-                };
-            }
-        }
-
-        // --- TESTE MODALIDADE: TENDÊNCIA (RISE/FALL) ---
-        // Baseado na variação dos ticks
-        const ticks = lastDigits.slice(0, 5);
-        const isUp = ticks[0] > ticks[1] && ticks[1] > ticks[2];
-        const isDown = ticks[0] < ticks[1] && ticks[1] < ticks[2];
-
-        if (isUp || isDown) {
-            let score = 4;
-            if (score > bestScore) {
-                bestScore = score;
-                bestSignal = { type: isUp ? 'CALL' : 'PUT', contract: isUp ? 'CALL' : 'PUT', score, name: 'TREND' };
-            }
-        }
-
-        return bestSignal;
-    }, [lastDigits, neuralPredictions, detectMarketManipulation]);
+        return null;
+    }, [lastDigits, neuralPredictions, detectMarketManipulation, setProbabilities]);
 
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, patternName: string, barrier?: number) => {
         if (!isConnected || isTradeOpen.current || isPaused) return;
+        
+        const isHighGain = strategyName.includes('MOONSHOT');
         const baseStake = parseFloat(initialStake) || 1.00;
-        const mgFactor = parseFloat(martingaleFactor) || 1.8;
+        const mgFactor = isHighGain ? 1.15 : (parseFloat(martingaleFactor) || 1.8);
         const stakeToUse = martingaleLevel.current > 0 ? baseStake * Math.pow(mgFactor, martingaleLevel.current) : baseStake;
         
         const params: any = { 
@@ -229,7 +197,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (barrier !== undefined) params.barrier = barrier;
 
-        lastTradeDetails.current = { stake: stakeToUse, strategyName, signalId, contractType, patternName };
+        lastTradeDetails.current = { stake: stakeToUse, strategyName, signalId, contractType, patternName, barrier };
         isTradeOpen.current = true;
         setTradeStatus('SENDING');
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params });
@@ -240,17 +208,17 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isTradeOpen.current || isPaused) return;
         processedTickEpoch.current = lastTickEpoch;
         
-        const signal = calculateMultiModalScore();
-        if (signal && signal.score >= scoreThreshold) {
+        const signal = calculateMoonshotScore();
+        if (signal && signal.score >= 6) {
             const sId = addSignal({ 
-                strategy: `IA ${signal.name}`, 
-                signal: signal.type, 
-                details: `MODAL: ${signal.contract} | SCORE: ${signal.score}/9`,
+                strategy: signal.name, 
+                signal: signal.type as any, 
+                details: `MODAL: ${signal.contract} ${signal.barrier !== undefined ? signal.barrier : ''} | BUSCANDO 12X`,
                 winRate: `${signal.score * 10}%` 
             });
-            executeBuy(signal.contract, signal.name, sId, signal.name, signal.barrier);
+            executeBuy(signal.contract as ContractType, signal.name, sId, signal.name, signal.barrier);
         }
-    }, [isBotRunning, lastTickEpoch, calculateMultiModalScore, scoreThreshold, addSignal, executeBuy, isPaused]);
+    }, [isBotRunning, lastTickEpoch, calculateMoonshotScore, scoreThreshold, addSignal, executeBuy, isPaused]);
 
     useEffect(() => {
         if (!lastCompletedContract) return;
@@ -267,10 +235,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setLosses((prev: number) => prev + 1);
             setConsecutiveLosses((p: number) => p + 1);
             martingaleLevel.current += 1;
-            if (consecutiveLosses + 1 >= 3) {
+            const maxAllowedLosses = lastTradeDetails.current?.strategyName.includes('MOONSHOT') ? 10 : 3;
+            if (consecutiveLosses + 1 >= maxAllowedLosses) {
                 setIsPaused(true);
                 setPauseTimeRemaining(60);
-                addLog("SNIPER: Resfriando sistema (60s).", "ERROR");
+                addLog("SNIPER: Resfriando sistema.", "ERROR");
             }
         } else {
             setWins((prev: number) => prev + 1);
@@ -302,7 +271,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setIsBotRunning(true); 
             totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0);
             setConsecutiveLosses(0); setIsPaused(false);
-            addLog("Sniper Multi-Modal: Ativado.", "INFO");
+            addLog("Sniper Moonshot 12x: Ativado.", "INFO");
         }
     }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog]);
 
