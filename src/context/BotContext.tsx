@@ -50,13 +50,13 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [isConnected, setIsConnected] = useState(false);
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
 
-    // --- DETECTOR DE MANIPULAÇÃO ---
+    // --- DETECTOR DE MANIPULAÇÃO (SUAVIZADO) ---
     const detectMarketManipulation = useCallback(() => {
-        if (lastDigits.length < 15) return false;
-        const last8 = lastDigits.slice(0, 8);
+        if (lastDigits.length < 10) return false;
+        const last6 = lastDigits.slice(0, 6);
         let alternating = true;
-        for (let i = 0; i < 7; i++) {
-            if ((last8[i] % 2 === 0 && last8[i+1] % 2 === 0) || (last8[i] % 2 !== 0 && last8[i+1] % 2 !== 0)) {
+        for (let i = 0; i < 5; i++) {
+            if ((last6[i] % 2 === 0 && last6[i+1] % 2 === 0) || (last6[i] % 2 !== 0 && last6[i+1] % 2 !== 0)) {
                 alternating = false;
                 break;
             }
@@ -133,12 +133,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { sendMessage, connect, disconnect } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
-    // --- SNIPER MOONSHOT 12X ---
+    // --- SNIPER MOONSHOT 12X (PADRÃO CURTO) ---
     const calculateMoonshotScore = useCallback(() => {
-        if (lastDigits.length < 50) return null;
-
-        const manipulation = detectMarketManipulation();
-        if (manipulation) return null;
+        if (lastDigits.length < 20) return null;
 
         const slice50 = lastDigits.slice(0, 50);
         const lowFreq = slice50.filter(d => d < 2).length / 50; 
@@ -146,37 +143,38 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         
         setProbabilities({ even: lowFreq * 100, odd: highFreq * 100 });
 
-        const last5 = lastDigits.slice(0, 5);
-        const allLow = last5.every(d => d < 5); 
-        const allHigh = last5.every(d => d > 4); 
+        // PADRÃO CURTO: Analisando apenas os últimos 2 ou 3 dígitos
+        const last2 = lastDigits.slice(0, 2);
+        const allLow = last2.every(d => d < 5); 
+        const allHigh = last2.every(d => d > 4); 
 
         // MODO MOONSHOT (ALTO MULTIPLICADOR)
         if (allLow) {
             const neuralConf = neuralPredictions[8] + neuralPredictions[9];
-            if (neuralConf > 15) { 
-                return { type: 'OVER', contract: 'DIGITOVER', barrier: 8, score: 9, name: 'MOONSHOT_12X', isMoonshot: true };
+            if (neuralConf > 12) { // Score menor para entrar mais rápido
+                return { type: 'OVER', contract: 'DIGITOVER', barrier: 8, score: 7, name: 'MOONSHOT_RAPIDO', isMoonshot: true };
             }
         }
 
         if (allHigh) {
             const neuralConf = neuralPredictions[0] + neuralPredictions[1];
-            if (neuralConf > 15) {
-                return { type: 'UNDER', contract: 'DIGITUNDER', barrier: 1, score: 9, name: 'MOONSHOT_12X', isMoonshot: true };
+            if (neuralConf > 12) {
+                return { type: 'UNDER', contract: 'DIGITUNDER', barrier: 1, score: 7, name: 'MOONSHOT_RAPIDO', isMoonshot: true };
             }
         }
 
-        // MODO NORMAL (PAR/ÍMPAR)
-        const last3 = lastDigits.slice(0, 3);
-        const allEven = last3.every(d => d % 2 === 0);
-        const allOdd = last3.every(d => d % 2 !== 0);
-
-        if (allEven || allOdd) {
-            const type = allEven ? 'EVEN' : 'ODD';
-            return { type, contract: allEven ? 'DIGITEVEN' : 'DIGITODD', score: 6, name: 'IA_SNIPER', isMoonshot: false };
+        // MODO NORMAL (PADRÃO CURTO - PAR/ÍMPAR)
+        const lastDigit = lastDigits[0];
+        const penultimateDigit = lastDigits[1];
+        
+        if ((lastDigit % 2 === 0 && penultimateDigit % 2 === 0)) {
+            return { type: 'EVEN', contract: 'DIGITEVEN', score: 6, name: 'SNIPER_CURTO', isMoonshot: false };
+        } else if ((lastDigit % 2 !== 0 && penultimateDigit % 2 !== 0)) {
+            return { type: 'ODD', contract: 'DIGITODD', score: 6, name: 'SNIPER_CURTO', isMoonshot: false };
         }
 
         return null;
-    }, [lastDigits, neuralPredictions, detectMarketManipulation, setProbabilities]);
+    }, [lastDigits, neuralPredictions, setProbabilities]);
 
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, patternName: string, barrier?: number) => {
         if (!isConnected || isTradeOpen.current || isPaused) return;
@@ -210,12 +208,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         processedTickEpoch.current = lastTickEpoch;
         
         const signal = calculateMoonshotScore();
-        if (signal && signal.score >= 6) {
-            const moonshotLabel = signal.isMoonshot ? " | BUSCANDO 12X" : "";
+        if (signal && signal.score >= 4) { // Threshold baixado para entrar com tudo
+            const moonshotLabel = signal.isMoonshot ? " | 12X" : "";
             const sId = addSignal({ 
                 strategy: signal.name, 
                 signal: signal.type as any, 
-                details: `MODAL: ${signal.contract} ${signal.barrier !== undefined ? signal.barrier : ''}${moonshotLabel}`,
+                details: `${signal.contract}${moonshotLabel}`,
                 winRate: `${signal.score * 10}%` 
             });
             executeBuy(signal.contract as ContractType, signal.name, sId, signal.name, signal.barrier);
@@ -237,12 +235,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setLosses((prev: number) => prev + 1);
             setConsecutiveLosses((p: number) => p + 1);
             martingaleLevel.current += 1;
-            const maxAllowedLosses = lastTradeDetails.current?.strategyName.includes('MOONSHOT') ? 10 : 3;
-            if (consecutiveLosses + 1 >= maxAllowedLosses) {
-                setIsPaused(true);
-                setPauseTimeRemaining(60);
-                addLog("SNIPER: Resfriando sistema.", "ERROR");
-            }
+            // TRAVA REMOVIDA: O bot não pausa mais após perdas, continua o Martingale direto.
         } else {
             setWins((prev: number) => prev + 1);
             setConsecutiveLosses(0);
@@ -257,7 +250,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTradeStatus('IDLE');
         setLastCompletedContract(null);
         if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Sniper: Meta Batida!");
-    }, [lastCompletedContract, takeProfit, setTotalProfit, setWins, setLosses, setAccountBalance, setTradeStatus, updateSignalResult, addLog, consecutiveLosses, setConsecutiveLosses, setIsPaused, setPauseTimeRemaining]);
+    }, [lastCompletedContract, takeProfit, setTotalProfit, setWins, setLosses, setAccountBalance, setTradeStatus, updateSignalResult, addLog, consecutiveLosses, setConsecutiveLosses]);
 
     const stopBot = useCallback((reason: string) => {
         setIsBotRunning(false);
@@ -273,7 +266,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setIsBotRunning(true); 
             totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0);
             setConsecutiveLosses(0); setIsPaused(false);
-            addLog("Sniper Moonshot 12x: Ativado.", "INFO");
+            addLog("Sniper Agressivo: Modo Padrão Curto Ativado.", "INFO");
         }
     }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog]);
 

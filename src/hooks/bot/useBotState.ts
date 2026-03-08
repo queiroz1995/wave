@@ -53,7 +53,7 @@ const DEFAULTS = {
     virtualTargetWins: 0,
     isStreakFilterActive: true,
     maxStreakAllowed: 4,
-    scoreThreshold: 6, // Reduzido para 6 para maior frequência de entradas
+    scoreThreshold: 4, // Reduzido para 4 para entradas ultra-frequentes
     learningData: {} as Record<string, { wins: number, losses: number, total: number }>,
 };
 
