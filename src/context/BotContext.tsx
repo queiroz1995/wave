@@ -117,29 +117,29 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { sendMessage, connect, disconnect } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
-    // --- ESTRATÉGIA DE REVERSÃO (4 SEGUIDOS) ---
+    // --- ESTRATÉGIA DE REVERSÃO DE 4 PASSOS (PERSONALIZADA) ---
     const calculateTradeSignal = useCallback(() => {
         if (lastDigits.length < 5) return null;
 
         const last4 = lastDigits.slice(0, 4);
         
-        // 1. Lógica Par/Ímpar
+        // 1. REVERSÃO PAR/ÍMPAR
         const allEven = last4.every(d => d % 2 === 0);
         const allOdd = last4.every(d => d % 2 !== 0);
 
         if (allEven) return { type: 'ODD', contract: 'DIGITODD', name: 'Reversão Par', details: '4 Pares -> Entra Ímpar' };
         if (allOdd) return { type: 'EVEN', contract: 'DIGITEVEN', name: 'Reversão Ímpar', details: '4 Ímpares -> Entra Par' };
 
-        // 2. Lógica Acima/Abaixo (Baseado na Barreira Configurável)
-        const barrier = digitPrediction; // Ex: 4
+        // 2. REVERSÃO ACIMA/ABAIXO (BARREIRA FIXA 5)
+        const barrier = 5; 
         const allAbove = last4.every(d => d > barrier);
         const allBelow = last4.every(d => d < barrier);
 
-        if (allAbove) return { type: 'UNDER', contract: 'DIGITUNDER', barrier, name: 'Reversão Acima', details: `4 Acima de ${barrier} -> Entra Abaixo` };
-        if (allBelow) return { type: 'OVER', contract: 'DIGITOVER', barrier, name: 'Reversão Abaixo', details: `4 Abaixo de ${barrier} -> Entra Acima` };
+        if (allAbove) return { type: 'UNDER', contract: 'DIGITUNDER', barrier, name: 'Reversão Acima', details: '4 Acima 5 -> Entra Abaixo' };
+        if (allBelow) return { type: 'OVER', contract: 'DIGITOVER', barrier, name: 'Reversão Abaixo', details: '4 Abaixo 5 -> Entra Acima' };
 
         return null;
-    }, [lastDigits, digitPrediction]);
+    }, [lastDigits]);
 
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, patternName: string, barrier?: number) => {
         if (!isConnected || isTradeOpen.current || isPaused) return;

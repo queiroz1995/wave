@@ -11,7 +11,7 @@ const DEFAULTS = {
     duration: 1,
     initialStake: '1.00',
     digitTradeMode: 'evenOdd' as 'evenOdd' | 'overUnder',
-    digitPrediction: 1,
+    digitPrediction: 5, // Definido como 5 conforme solicitado
     overUnderDirection: 'OVER' as 'OVER' | 'UNDER',
     isManualMode: true,
     isManualGaleActive: false,
@@ -49,11 +49,11 @@ const DEFAULTS = {
     virtualLossStreak: 0,
     virtualWinStreak: 0,
     isWaitingForVirtualResult: false,
-    virtualTargetLosses: 2,
+    virtualTargetLosses: 0, // Desativado para entrar direto
     virtualTargetWins: 0,
     isStreakFilterActive: true,
     maxStreakAllowed: 4,
-    scoreThreshold: 4, // Reduzido para 4 para entradas ultra-frequentes
+    scoreThreshold: 4,
     learningData: {} as Record<string, { wins: number, losses: number, total: number }>,
 };
 
@@ -111,8 +111,6 @@ export const useBotState = () => {
     const [probabilities, setProbabilities] = useState({ even: 50, odd: 50 });
     const [learningData, setLearningData] = useState(initialState.learningData);
     const [scoreThreshold, setScoreThreshold] = useState(initialState.scoreThreshold);
-
-    // Estados de Manipulação e Rede Neural
     const [isManipulationDetected, setIsManipulationDetected] = useState(false);
     const [neuralPredictions, setNeuralPredictions] = useState<number[]>(new Array(10).fill(10));
 
