@@ -44,21 +44,17 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         consecutiveLosses, setConsecutiveLosses, isPaused, setIsPaused,
         pauseTimeRemaining, setPauseTimeRemaining,
         isManipulationDetected, setIsManipulationDetected,
-        neuralPredictions, setNeuralPredictions
+        neuralPredictions, setNeuralPredictions,
+        digitTradeMode, digitPrediction
     } = stateAndSetters;
 
     const [isConnected, setIsConnected] = useState(false);
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
 
-    // --- DETECTOR DE MANIPULAÇÃO REFINADO ---
+    // --- DETECTOR DE MANIPULAÇÃO ---
     const detectMarketManipulation = useCallback(() => {
         if (lastDigits.length < 15) return false;
-        
-        // Analisamos uma janela maior para evitar falsos positivos
-        const last10 = lastDigits.slice(0, 10);
         const last8 = lastDigits.slice(0, 8);
-
-        // 1. Alternância Extrema (Exige 8 dígitos: 0,9,0,9,0,9,0,9)
         let alternating = true;
         for (let i = 0; i < 7; i++) {
             if ((last8[i] % 2 === 0 && last8[i+1] % 2 === 0) || (last8[i] % 2 !== 0 && last8[i+1] % 2 !== 0)) {
@@ -67,48 +63,20 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
         }
         if (alternating) return "Alternância";
-
-        // 2. Sequência Perfeita (Exige 7 dígitos seguidos: 1,2,3,4,5,6,7)
-        let seqUp = true, seqDown = true;
-        const last7 = lastDigits.slice(0, 7);
-        for (let i = 0; i < 6; i++) {
-            if (last7[i] !== last7[i+1] - 1) seqUp = false;
-            if (last7[i] !== last7[i+1] + 1) seqDown = false;
-        }
-        if (seqUp || seqDown) return "Sequência";
-
         return null;
     }, [lastDigits]);
 
-    // --- MOTOR DE PREDIÇÃO NEURAL ---
+    // --- MOTOR NEURAL ---
     const updateNeuralPredictions = useCallback(() => {
         if (lastDigits.length < 50) return;
         const matrix = Array.from({ length: 10 }, () => new Array(10).fill(0));
         const reversed = [...lastDigits].reverse();
-        for (let i = 0; i < reversed.length - 1; i++) {
-            matrix[reversed[i]][reversed[i+1]]++;
-        }
+        for (let i = 0; i < reversed.length - 1; i++) matrix[reversed[i]][reversed[i+1]]++;
         const lastDigit = lastDigits[0];
         const transitions = matrix[lastDigit];
         const total = transitions.reduce((a, b) => a + b, 0);
-        if (total > 0) {
-            const preds = transitions.map(t => (t / total) * 100);
-            setNeuralPredictions(preds);
-        }
+        if (total > 0) setNeuralPredictions(transitions.map(t => (t / total) * 100));
     }, [lastDigits, setNeuralPredictions]);
-
-    // Anti-Loss Protection Timer
-    useEffect(() => {
-        let interval: NodeJS.Timeout;
-        if (isPaused && pauseTimeRemaining > 0) {
-            interval = setInterval(() => setPauseTimeRemaining((prev: number) => prev - 1), 1000);
-        } else if (isPaused && pauseTimeRemaining === 0) {
-            setIsPaused(false);
-            setConsecutiveLosses(0);
-            addLog("Sniper ativo novamente.", "INFO");
-        }
-        return () => clearInterval(interval);
-    }, [isPaused, pauseTimeRemaining, setPauseTimeRemaining, setIsPaused, setConsecutiveLosses, addLog]);
 
     const fetchDerivHistory = useCallback((symbol: string) => {
         if (!sendMessageRef.current) return;
@@ -166,101 +134,124 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { sendMessage, connect, disconnect } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
-    // --- SNIPER ENGINE (SCORE 6+) ---
-    const calculateSniperScore = useCallback(() => {
+    // --- SNIPER MULTI-MODAL (PAR/ÍMPAR, ACIMA/ABAIXO, CALL/PUT) ---
+    const calculateMultiModalScore = useCallback(() => {
         if (lastDigits.length < 50) return null;
 
         const manipulation = detectMarketManipulation();
-        if (manipulation) {
-            if (!isManipulationDetected) {
-                setIsManipulationDetected(true);
-                addLog(`Scanner: Instabilidade detectada (${manipulation}). Pausando 15s.`, "INFO");
-                if (manipulationTimeoutRef.current) clearTimeout(manipulationTimeoutRef.current);
-                manipulationTimeoutRef.current = setTimeout(() => setIsManipulationDetected(false), 15000); // Reduzido para 15s
+        if (manipulation) return null;
+
+        // 1. Cálculo de Probabilidades de Dígitos
+        const slice50 = lastDigits.slice(0, 50);
+        const evenFreq = slice50.filter(d => d % 2 === 0).length / 50;
+        const lowFreq = slice50.filter(d => d < 5).length / 50; // Abaixo de 5 (0,1,2,3,4)
+        
+        setProbabilities({ even: evenFreq * 100, odd: (1 - evenFreq) * 100 });
+
+        let bestScore = 0;
+        let bestSignal: any = null;
+
+        // --- TESTE MODALIDADE: PAR/ÍMPAR ---
+        const last3 = lastDigits.slice(0, 3);
+        const allEven = last3.every(d => d % 2 === 0);
+        const allOdd = last3.every(d => d % 2 !== 0);
+
+        if (allEven || allOdd) {
+            let score = 4; // Base por sequência de 3
+            const type = allEven ? 'EVEN' : 'ODD';
+            const prob = allEven ? evenFreq : (1 - evenFreq);
+            if (prob > 0.55) score += 2;
+            
+            const neuralConf = neuralPredictions.reduce((acc, v, i) => (type === 'EVEN' ? (i % 2 === 0 ? acc + v : acc) : (i % 2 !== 0 ? acc + v : acc)), 0);
+            if (neuralConf > 52) score += 2;
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestSignal = { type, contract: allEven ? 'DIGITEVEN' : 'DIGITODD', score, name: `DIGIT_${type}` };
             }
-            return null;
         }
 
-        const getParityFreq = (window: number) => {
-            const slice = lastDigits.slice(0, window);
-            const evens = slice.filter(d => d % 2 === 0).length;
-            return evens / window;
-        };
+        // --- TESTE MODALIDADE: ACIMA/ABAIXO (OVER/UNDER) ---
+        // Se temos uma sequência de 4 dígitos baixos, a probabilidade de um alto é maior (e vice-versa)
+        const allLow = last3.every(d => d < 5);
+        const allHigh = last3.every(d => d >= 5);
 
-        const f20 = getParityFreq(20);
-        const f50 = getParityFreq(50);
-        const f100 = getParityFreq(100);
-        const probEven = (f20 * 0.4) + (f50 * 0.3) + (f100 * 0.3);
-        const probOdd = 1 - probEven;
-        setProbabilities({ even: probEven * 100, odd: probOdd * 100 });
+        if (allLow || allHigh) {
+            let score = 5;
+            const type = allLow ? 'UNDER' : 'OVER';
+            const prob = allLow ? lowFreq : (1 - lowFreq);
+            if (prob > 0.55) score += 2;
 
-        let score = 0;
-        let signal: 'EVEN' | 'ODD' | null = null;
-        let patternName = "";
-
-        // Regra 1: 3 Consecutivos (+3)
-        const last3 = lastDigits.slice(0, 3).map(d => d % 2 === 0 ? 'E' : 'O');
-        if (last3.every(v => v === 'E')) { score += 3; signal = 'EVEN'; patternName = "3_EVEN"; }
-        else if (last3.every(v => v === 'O')) { score += 3; signal = 'ODD'; patternName = "3_ODD"; }
-
-        if (!signal) return null;
-
-        // Regra 2: Probabilidade > 53% (+2)
-        const p = signal === 'EVEN' ? probEven : probOdd;
-        if (p > 0.53) score += 2;
-
-        // Regra 3: Confirmação Rede Neural (+2)
-        const neuralProb = neuralPredictions.reduce((acc, val, idx) => {
-            if (signal === 'EVEN' && idx % 2 === 0) return acc + val;
-            if (signal === 'ODD' && idx % 2 !== 0) return acc + val;
-            return acc;
-        }, 0) / 100;
-        if (neuralProb > 0.51) score += 2;
-
-        // Regra 4: Sem sequência extrema (+1)
-        score += 1;
-
-        // Sistema de Aprendizado
-        const stats = learningData[patternName];
-        if (stats && stats.total >= 3) {
-            const winrate = (stats.wins / stats.total) * 100;
-            if (winrate < 50) score -= 3;
-            else if (winrate > 55) score += 1;
+            if (score > bestScore) {
+                bestScore = score;
+                bestSignal = { 
+                    type, 
+                    contract: allLow ? 'DIGITUNDER' : 'DIGITOVER', 
+                    score, 
+                    name: `OVER_UNDER`,
+                    barrier: allLow ? 8 : 1 // Barreira segura
+                };
+            }
         }
 
-        return { score, signal, patternName, prob: p, neural: neuralProb };
-    }, [lastDigits, setProbabilities, learningData, neuralPredictions, detectMarketManipulation, isManipulationDetected, setIsManipulationDetected, addLog]);
+        // --- TESTE MODALIDADE: TENDÊNCIA (RISE/FALL) ---
+        // Baseado na variação dos ticks
+        const ticks = lastDigits.slice(0, 5);
+        const isUp = ticks[0] > ticks[1] && ticks[1] > ticks[2];
+        const isDown = ticks[0] < ticks[1] && ticks[1] < ticks[2];
 
-    const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, patternName: string) => {
-        if (!isConnected || isTradeOpen.current || isPaused || isManipulationDetected) return;
+        if (isUp || isDown) {
+            let score = 4;
+            if (score > bestScore) {
+                bestScore = score;
+                bestSignal = { type: isUp ? 'CALL' : 'PUT', contract: isUp ? 'CALL' : 'PUT', score, name: 'TREND' };
+            }
+        }
+
+        return bestSignal;
+    }, [lastDigits, neuralPredictions, detectMarketManipulation]);
+
+    const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, patternName: string, barrier?: number) => {
+        if (!isConnected || isTradeOpen.current || isPaused) return;
         const baseStake = parseFloat(initialStake) || 1.00;
         const mgFactor = parseFloat(martingaleFactor) || 1.8;
         const stakeToUse = martingaleLevel.current > 0 ? baseStake * Math.pow(mgFactor, martingaleLevel.current) : baseStake;
-        const params = { amount: parseFloat(stakeToUse.toFixed(2)), basis: 'stake', contract_type: contractType, currency: 'USD', duration: 1, duration_unit: 't', symbol: asset };
+        
+        const params: any = { 
+            amount: parseFloat(stakeToUse.toFixed(2)), 
+            basis: 'stake', 
+            contract_type: contractType, 
+            currency: 'USD', 
+            duration: 1, 
+            duration_unit: 't', 
+            symbol: asset 
+        };
+
+        if (barrier !== undefined) params.barrier = barrier;
+
         lastTradeDetails.current = { stake: stakeToUse, strategyName, signalId, contractType, patternName };
         isTradeOpen.current = true;
         setTradeStatus('SENDING');
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params });
-    }, [isConnected, initialStake, asset, sendMessage, setTradeStatus, martingaleFactor, isPaused, isManipulationDetected]);
+    }, [isConnected, initialStake, asset, sendMessage, setTradeStatus, martingaleFactor, isPaused]);
 
-    // Logic Loop
+    // Loop de Execução
     useEffect(() => {
-        if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isTradeOpen.current || isPaused || isManipulationDetected) return;
+        if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isTradeOpen.current || isPaused) return;
         processedTickEpoch.current = lastTickEpoch;
-        const analysis = calculateSniperScore();
-        if (analysis && analysis.score >= scoreThreshold) {
-            const contract: ContractType = analysis.signal === 'EVEN' ? 'DIGITEVEN' : 'DIGITODD';
+        
+        const signal = calculateMultiModalScore();
+        if (signal && signal.score >= scoreThreshold) {
             const sId = addSignal({ 
-                strategy: `SNIPER (${analysis.patternName})`, 
-                signal: analysis.signal, 
-                details: `Score: ${analysis.score}/9 | IA: ${(analysis.neural * 100).toFixed(0)}%`,
-                winRate: `${(analysis.prob * 100).toFixed(0)}%` 
+                strategy: `IA ${signal.name}`, 
+                signal: signal.type, 
+                details: `MODAL: ${signal.contract} | SCORE: ${signal.score}/9`,
+                winRate: `${signal.score * 10}%` 
             });
-            executeBuy(contract, `SNIPER (${analysis.score})`, sId, analysis.patternName);
+            executeBuy(signal.contract, signal.name, sId, signal.name, signal.barrier);
         }
-    }, [isBotRunning, lastTickEpoch, calculateSniperScore, scoreThreshold, addSignal, executeBuy, isPaused, isManipulationDetected]);
+    }, [isBotRunning, lastTickEpoch, calculateMultiModalScore, scoreThreshold, addSignal, executeBuy, isPaused]);
 
-    // Handle Trade Result
     useEffect(() => {
         if (!lastCompletedContract) return;
         const { profit, status, exit_tick } = lastCompletedContract;
@@ -272,23 +263,14 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         totalProfitRef.current += profitValue;
         setTotalProfit(totalProfitRef.current);
 
-        const pattern = lastTradeDetails.current?.patternName;
-        if (pattern) {
-            setLearningData((prev: any) => {
-                const current = prev[pattern] || { wins: 0, losses: 0, total: 0 };
-                return { ...prev, [pattern]: { wins: current.wins + (isLoss ? 0 : 1), losses: current.losses + (isLoss ? 1 : 0), total: current.total + 1 } };
-            });
-        }
-
         if (isLoss) {
             setLosses((prev: number) => prev + 1);
-            const newLossCount = consecutiveLosses + 1;
-            setConsecutiveLosses(newLossCount);
+            setConsecutiveLosses((p: number) => p + 1);
             martingaleLevel.current += 1;
-            if (newLossCount >= 3) {
+            if (consecutiveLosses + 1 >= 3) {
                 setIsPaused(true);
-                setPauseTimeRemaining(120);
-                addLog("SNIPER OFF: Proteção 2min.", "ERROR");
+                setPauseTimeRemaining(60);
+                addLog("SNIPER: Resfriando sistema (60s).", "ERROR");
             }
         } else {
             setWins((prev: number) => prev + 1);
@@ -303,8 +285,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isTradeOpen.current = false;
         setTradeStatus('IDLE');
         setLastCompletedContract(null);
-        if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Alvo Atingido!");
-    }, [lastCompletedContract, takeProfit, setTotalProfit, setWins, setLosses, setAccountBalance, setTradeStatus, updateSignalResult, addLog, setLearningData, consecutiveLosses, setConsecutiveLosses, setIsPaused, setPauseTimeRemaining]);
+        if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Sniper: Meta Batida!");
+    }, [lastCompletedContract, takeProfit, setTotalProfit, setWins, setLosses, setAccountBalance, setTradeStatus, updateSignalResult, addLog, consecutiveLosses, setConsecutiveLosses, setIsPaused, setPauseTimeRemaining]);
 
     const stopBot = useCallback((reason: string) => {
         setIsBotRunning(false);
@@ -315,14 +297,14 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const toggleBot = useCallback(() => {
         if (!isConnected) return;
-        if (isBotRunning) stopBot("Sniper Abortado");
+        if (isBotRunning) stopBot("Sniper Parado");
         else { 
             setIsBotRunning(true); 
             totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0);
-            setConsecutiveLosses(0); setIsPaused(false); setIsManipulationDetected(false);
-            addLog("Sniper Online: Calibrando sinais...", "INFO");
+            setConsecutiveLosses(0); setIsPaused(false);
+            addLog("Sniper Multi-Modal: Ativado.", "INFO");
         }
-    }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog, setIsManipulationDetected]);
+    }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog]);
 
     const selectAI = useCallback((ia: any) => { setSelectedAIInfo(ia); setActiveStrategy(ia.id); setAppFlow('operating'); }, [setActiveStrategy]);
     const exitToSelection = useCallback(() => { stopBot("Sessão Finalizada"); setAppFlow('selection'); }, [stopBot]);
