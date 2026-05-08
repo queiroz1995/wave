@@ -38,18 +38,14 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         lastDigits, setLastTickEpoch, lastTickEpoch,
         setTradeStatus, isBotRunning, setActiveStrategy,
         accountType, realToken, demoToken,
-        takeProfit, martingaleFactor, scoreThreshold,
-        setProbabilities, learningData, setLearningData,
-        consecutiveLosses, setConsecutiveLosses, isPaused, setIsPaused,
-        pauseTimeRemaining, setPauseTimeRemaining,
-        digitTradeMode, digitPrediction,
+        takeProfit, martingaleFactor,
+        setConsecutiveLosses, isPaused, setIsPaused,
         neuralPredictions, setNeuralPredictions
     } = stateAndSetters;
 
     const [isConnected, setIsConnected] = useState(false);
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
 
-    // --- MOTOR DE ANÁLISE ---
     const updateNeuralPredictions = useCallback(() => {
         if (lastDigits.length < 50) return;
         const matrix = Array.from({ length: 10 }, () => new Array(10).fill(0));
@@ -117,29 +113,38 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { sendMessage, connect, disconnect } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
-    // --- ESTRATÉGIA DE REVERSÃO DE 4 PASSOS (PERSONALIZADA) ---
+    // --- MOTOR DE DECISÃO COM MODO NANO (MICRO-OPERAÇÕES) ---
     const calculateTradeSignal = useCallback(() => {
         if (lastDigits.length < 5) return null;
 
+        // Lógica Micro (I.A NANO)
+        if (selectedAIInfo?.id === 'iaNano') {
+            const last2 = lastDigits.slice(0, 2);
+            
+            // Probabilidade Neural por paridade
+            const evenProb = neuralPredictions.reduce((acc, val, idx) => idx % 2 === 0 ? acc + val : acc, 0);
+            const oddProb = 100 - evenProb;
+
+            // Gatilho: 2 ticks da mesma paridade + Probabilidade Neural favorável > 65%
+            const allEven = last2.every(d => d % 2 === 0);
+            const allOdd = last2.every(d => d % 2 !== 0);
+
+            if (allEven && oddProb > 65) return { type: 'ODD', contract: 'DIGITODD', name: 'Nano Scalp', details: 'Micro-Imbalanço + Prob. Neural 65%+' };
+            if (allOdd && evenProb > 65) return { type: 'EVEN', contract: 'DIGITEVEN', name: 'Nano Scalp', details: 'Micro-Imbalanço + Prob. Neural 65%+' };
+            
+            return null;
+        }
+
+        // Lógica Padrão (I.A WAVE)
         const last4 = lastDigits.slice(0, 4);
-        
-        // 1. REVERSÃO PAR/ÍMPAR
         const allEven = last4.every(d => d % 2 === 0);
         const allOdd = last4.every(d => d % 2 !== 0);
 
-        if (allEven) return { type: 'ODD', contract: 'DIGITODD', name: 'Reversão Par', details: '4 Pares -> Entra Ímpar' };
-        if (allOdd) return { type: 'EVEN', contract: 'DIGITEVEN', name: 'Reversão Ímpar', details: '4 Ímpares -> Entra Par' };
-
-        // 2. REVERSÃO ACIMA/ABAIXO (BARREIRA FIXA 5)
-        const barrier = 5; 
-        const allAbove = last4.every(d => d > barrier);
-        const allBelow = last4.every(d => d < barrier);
-
-        if (allAbove) return { type: 'UNDER', contract: 'DIGITUNDER', barrier, name: 'Reversão Acima', details: '4 Acima 5 -> Entra Abaixo' };
-        if (allBelow) return { type: 'OVER', contract: 'DIGITOVER', barrier, name: 'Reversão Abaixo', details: '4 Abaixo 5 -> Entra Acima' };
+        if (allEven) return { type: 'ODD', contract: 'DIGITODD', name: 'Wave Reversão', details: '4 Pares -> Entra Ímpar' };
+        if (allOdd) return { type: 'EVEN', contract: 'DIGITEVEN', name: 'Wave Reversão', details: '4 Ímpares -> Entra Par' };
 
         return null;
-    }, [lastDigits]);
+    }, [lastDigits, selectedAIInfo, neuralPredictions]);
 
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, patternName: string, barrier?: number) => {
         if (!isConnected || isTradeOpen.current || isPaused) return;
@@ -166,7 +171,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params });
     }, [isConnected, initialStake, asset, sendMessage, setTradeStatus, martingaleFactor, isPaused]);
 
-    // Loop de Execução
     useEffect(() => {
         if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isTradeOpen.current || isPaused) return;
         processedTickEpoch.current = lastTickEpoch;
@@ -179,7 +183,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 details: signal.details,
                 winRate: 'N/A' 
             });
-            executeBuy(signal.contract as ContractType, signal.name, sId, signal.name, signal.barrier);
+            // Adicionado cast para 'any' para evitar erro de propriedade inexistente ao acessar 'barrier'
+            executeBuy(signal.contract as ContractType, signal.name, sId, signal.name, (signal as any).barrier);
         }
     }, [isBotRunning, lastTickEpoch, calculateTradeSignal, addSignal, executeBuy, isPaused]);
 
@@ -228,9 +233,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setIsBotRunning(true); 
             totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0);
             setConsecutiveLosses(0); setIsPaused(false);
-            addLog("Sniper Reversão: Ativado (4 resultados iguais -> Reverte).", "INFO");
+            addLog(`Ativado Núcleo: ${selectedAIInfo?.name || 'Manual'}`, "INFO");
         }
-    }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog]);
+    }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog, selectedAIInfo]);
 
     const selectAI = useCallback((ia: any) => { setSelectedAIInfo(ia); setActiveStrategy(ia.id); setAppFlow('operating'); }, [setActiveStrategy]);
     const exitToSelection = useCallback(() => { stopBot("Sessão Finalizada"); setAppFlow('selection'); }, [stopBot]);
