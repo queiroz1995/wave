@@ -113,27 +113,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { sendMessage, connect, disconnect } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
-    // --- MOTOR DE DECISÃO COM MODO NANO (MICRO-OPERAÇÕES) ---
+    // --- MOTOR DE DECISÃO SIMPLIFICADO (APENAS I.A WAVE) ---
     const calculateTradeSignal = useCallback(() => {
         if (lastDigits.length < 5) return null;
-
-        // Lógica Micro (I.A NANO)
-        if (selectedAIInfo?.id === 'iaNano') {
-            const last2 = lastDigits.slice(0, 2);
-            
-            // Probabilidade Neural por paridade
-            const evenProb = neuralPredictions.reduce((acc, val, idx) => idx % 2 === 0 ? acc + val : acc, 0);
-            const oddProb = 100 - evenProb;
-
-            // Gatilho: 2 ticks da mesma paridade + Probabilidade Neural favorável > 65%
-            const allEven = last2.every(d => d % 2 === 0);
-            const allOdd = last2.every(d => d % 2 !== 0);
-
-            if (allEven && oddProb > 65) return { type: 'ODD', contract: 'DIGITODD', name: 'Nano Scalp', details: 'Micro-Imbalanço + Prob. Neural 65%+' };
-            if (allOdd && evenProb > 65) return { type: 'EVEN', contract: 'DIGITEVEN', name: 'Nano Scalp', details: 'Micro-Imbalanço + Prob. Neural 65%+' };
-            
-            return null;
-        }
 
         // Lógica Padrão (I.A WAVE)
         const last4 = lastDigits.slice(0, 4);
@@ -144,7 +126,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (allOdd) return { type: 'EVEN', contract: 'DIGITEVEN', name: 'Wave Reversão', details: '4 Ímpares -> Entra Par' };
 
         return null;
-    }, [lastDigits, selectedAIInfo, neuralPredictions]);
+    }, [lastDigits]);
 
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, patternName: string, barrier?: number) => {
         if (!isConnected || isTradeOpen.current || isPaused) return;
@@ -183,7 +165,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 details: signal.details,
                 winRate: 'N/A' 
             });
-            // Adicionado cast para 'any' para evitar erro de propriedade inexistente ao acessar 'barrier'
             executeBuy(signal.contract as ContractType, signal.name, sId, signal.name, (signal as any).barrier);
         }
     }, [isBotRunning, lastTickEpoch, calculateTradeSignal, addSignal, executeBuy, isPaused]);

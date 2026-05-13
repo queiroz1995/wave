@@ -7,15 +7,6 @@ import { Sparkles, Zap } from 'lucide-react';
 
 const strategies = [
     { 
-        id: "iaNano", 
-        name: "I.A NANO", 
-        style: "Micro-Scalping", 
-        image: "https://images.unsplash.com/photo-1531746790731-6c087fecd05a?auto=format&fit=crop&q=80&w=600",
-        color: "cyan",
-        description: "Especialista em micro-operações. Gatilhos ultra-rápidos baseados em 2 ticks e probabilidade neural > 65%. Ideal para bater metas curtas com frequência.",
-        compatibleModes: ['evenOdd'] 
-    },
-    { 
         id: "trendSurfer", 
         name: "I.A WAVE", 
         style: "Vortex-Momentum", 
@@ -32,14 +23,14 @@ export const AILandingPage = () => {
     return (
         <div className="space-y-8 pb-10 animate-in fade-in duration-700">
             <div className="text-center space-y-2">
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-600 text-[10px] font-black uppercase tracking-[0.2em] mb-4">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-600 text-[10px] font-black uppercase tracking-[0.2em] mb-4">
                     <Zap className="h-3 w-3" /> Rico Intelligence v2.0
                 </div>
                 <h1 className="text-4xl font-black uppercase tracking-tighter">Selecione o Núcleo</h1>
                 <p className="text-sm text-muted-foreground font-medium">Escolha a inteligência que melhor se adapta à sua banca.</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+            <div className="grid grid-cols-1 max-w-md mx-auto">
                 {strategies.map((ia) => (
                     <StrategyAICard 
                         key={ia.id}
