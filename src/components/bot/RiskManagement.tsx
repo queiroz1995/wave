@@ -14,7 +14,8 @@ import { cn } from '@/lib/utils';
 
 export const RiskManagement = () => {
     const {
-        martingaleFactor, setMartingaleFactor, maxLevels, setMaxLevels, takeProfit, setTakeProfit,
+        martingaleFactor, setMartingaleFactor, maxLevels, setMaxLevels, 
+        takeProfit, setTakeProfit, stopLoss, setStopLoss,
         lossRecoveryStrategy, setLossRecoveryStrategy,
         martingaleMode, setMartingaleMode,
         maxTrades, setMaxTrades,
@@ -28,6 +29,13 @@ export const RiskManagement = () => {
         const value = e.target.value;
         if (/^\d*[,.]?\d*$/.test(value)) {
             setTakeProfit(value.replace(',', '.'));
+        }
+    };
+
+    const handleStopLossChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        if (/^\d*[,.]?\d*$/.test(value)) {
+            setStopLoss(value.replace(',', '.'));
         }
     };
 
@@ -49,7 +57,7 @@ export const RiskManagement = () => {
                         <Label>Estratégia de Recuperação</Label>
                         <InfoTooltip infoText="Define como o bot tentará recuperar perdas." />
                     </div>
-                    <RadioGroup value={lossRecoveryStrategy} onValueChange={(v) => setLossRecoveryStrategy(v)} className="flex items-center space-x-4">
+                    <RadioGroup value={lossRecoveryStrategy} onValueChange={(v) => setLossRecoveryStrategy(v as any)} className="flex items-center space-x-4">
                         <div className="flex items-center space-x-2">
                             <RadioGroupItem value="martingale" id="rec-martingale" />
                             <Label htmlFor="rec-martingale">Martingale</Label>
@@ -104,31 +112,34 @@ export const RiskManagement = () => {
                         />
                     </div>
                     
-                    <div className="space-y-2">
-                        <div className="flex items-center gap-1.5">
-                            <Label htmlFor="takeProfit">Take Profit ($)</Label>
-                            <InfoTooltip infoText="Meta de lucro. O bot irá parar quando atingir este valor." />
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-1.5">
+                                <Label htmlFor="takeProfit">Take Profit ($)</Label>
+                                <InfoTooltip infoText="Meta de lucro. O bot irá parar quando atingir este valor." />
+                            </div>
+                            <Input 
+                                id="takeProfit" 
+                                value={takeProfit} 
+                                onChange={handleProfitChange} 
+                                placeholder="Ex: 10.00"
+                                className="text-base font-bold text-green-600"
+                            />
                         </div>
-                        <Input 
-                            id="takeProfit" 
-                            value={takeProfit} 
-                            onChange={handleProfitChange} 
-                            placeholder="Ex: 10.00"
-                            className="text-base"
-                        />
-                    </div>
-                    
-                    <div className="space-y-2 opacity-50 cursor-not-allowed">
-                        <div className="flex items-center gap-1.5">
-                            <Label htmlFor="stopLoss">Stop Loss (Desativado)</Label>
-                            <InfoTooltip infoText="O Stop Loss foi desativado conforme sua solicitação. O bot só parará ao bater a meta." />
+                        
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-1.5">
+                                <Label htmlFor="stopLoss">Stop Loss ($)</Label>
+                                <InfoTooltip infoText="Limite de perda aceitável. O bot irá parar quando atingir este valor negativo." />
+                            </div>
+                            <Input 
+                                id="stopLoss" 
+                                value={stopLoss}
+                                onChange={handleStopLossChange}
+                                placeholder="Ex: 50.00"
+                                className="text-base font-bold text-red-500"
+                            />
                         </div>
-                        <Input 
-                            id="stopLoss" 
-                            value="ILIMITADO"
-                            disabled
-                            className="text-base font-bold text-red-500"
-                        />
                     </div>
 
                     <div className="space-y-2">
