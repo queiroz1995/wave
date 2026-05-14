@@ -11,7 +11,7 @@ const DEFAULTS = {
     duration: 1,
     initialStake: '1.00',
     digitTradeMode: 'evenOdd' as 'evenOdd' | 'overUnder',
-    digitPrediction: 5, // Definido como 5 conforme solicitado
+    digitPrediction: 5,
     overUnderDirection: 'OVER' as 'OVER' | 'UNDER',
     isManualMode: true,
     isManualGaleActive: false,
@@ -49,7 +49,7 @@ const DEFAULTS = {
     virtualLossStreak: 0,
     virtualWinStreak: 0,
     isWaitingForVirtualResult: false,
-    virtualTargetLosses: 0, // Desativado para entrar direto
+    virtualTargetLosses: 0,
     virtualTargetWins: 0,
     isStreakFilterActive: true,
     maxStreakAllowed: 4,
@@ -114,6 +114,13 @@ export const useBotState = () => {
     const [isManipulationDetected, setIsManipulationDetected] = useState(false);
     const [neuralPredictions, setNeuralPredictions] = useState<number[]>(new Array(10).fill(10));
 
+    // Estados da Planilha de Gestão que estavam faltando
+    const [bankManagementInitialBankroll, setBankManagementInitialBankroll] = useState(initialState.bankManagementInitialBankroll);
+    const [bankManagementDailyGoalPercent, setBankManagementDailyGoalPercent] = useState(initialState.bankManagementDailyGoalPercent);
+    const [bankManagementDailyStopPercent, setBankManagementDailyStopPercent] = useState(initialState.bankManagementDailyStopPercent);
+    const [bankManagementCurrentDay, setBankManagementCurrentDay] = useState(initialState.bankManagementCurrentDay);
+    const [bankManagementActualBankroll, setBankManagementActualBankroll] = useState(initialState.bankManagementActualBankroll);
+
     const addLog = useCallback((message: string, type: LogType, details?: any) => {
         setLogs(prev => [{ timestamp: new Date().toLocaleTimeString('pt-BR', { hour12: false }), message, type, ...details }, ...prev].slice(0, 50));
     }, []);
@@ -141,6 +148,11 @@ export const useBotState = () => {
         tradeStatus, setTradeStatus, probabilities, setProbabilities, learningData, setLearningData, scoreThreshold,
         addLog, addSignal, updateSignalResult, activeStrategy, setActiveStrategy, analyzerWindowSize, setAnalyzerWindowSize,
         overUnderDirection, setOverUnderDirection, marketStabilityThreshold, setMarketStabilityThreshold,
-        isManipulationDetected, setIsManipulationDetected, neuralPredictions, setNeuralPredictions
+        isManipulationDetected, setIsManipulationDetected, neuralPredictions, setNeuralPredictions,
+        bankManagementInitialBankroll, setBankManagementInitialBankroll,
+        bankManagementDailyGoalPercent, setBankManagementDailyGoalPercent,
+        bankManagementDailyStopPercent, setBankManagementDailyStopPercent,
+        bankManagementCurrentDay, setBankManagementCurrentDay,
+        bankManagementActualBankroll, setBankManagementActualBankroll
     };
 };
