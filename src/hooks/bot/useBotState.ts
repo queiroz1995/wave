@@ -92,6 +92,7 @@ export const useBotState = () => {
     const [stopLoss, setStopLoss] = useState(initialState.stopLoss);
     const [lossRecoveryStrategy, setLossRecoveryStrategy] = useState<'martingale'>(initialState.lossRecoveryStrategy);
     const [isMartingaleActive, setIsMartingaleActive] = useState(initialState.isMartingaleActive);
+    const [martingaleMode, setMartingaleMode] = useState<'IMMEDIATE'>(initialState.martingaleMode);
     const [activeStrategy, setActiveStrategy] = useState<'trendSurfer'>(initialState.activeStrategy);
     const [marketStabilityThreshold, setMarketStabilityThreshold] = useState<number | string>(initialState.marketStabilityThreshold);
     const [analyzerWindowSize, setAnalyzerWindowSize] = useState(initialState.analyzerWindowSize);
@@ -114,12 +115,27 @@ export const useBotState = () => {
     const [isManipulationDetected, setIsManipulationDetected] = useState(false);
     const [neuralPredictions, setNeuralPredictions] = useState<number[]>(new Array(10).fill(10));
 
-    // Estados da Planilha de Gestão que estavam faltando
+    // Estados da Planilha de Gestão
     const [bankManagementInitialBankroll, setBankManagementInitialBankroll] = useState(initialState.bankManagementInitialBankroll);
     const [bankManagementDailyGoalPercent, setBankManagementDailyGoalPercent] = useState(initialState.bankManagementDailyGoalPercent);
     const [bankManagementDailyStopPercent, setBankManagementDailyStopPercent] = useState(initialState.bankManagementDailyStopPercent);
     const [bankManagementCurrentDay, setBankManagementCurrentDay] = useState(initialState.bankManagementCurrentDay);
     const [bankManagementActualBankroll, setBankManagementActualBankroll] = useState(initialState.bankManagementActualBankroll);
+
+    // Novos estados para evitar erros de função indefinida
+    const [maxTrades, setMaxTrades] = useState(initialState.maxTrades);
+    const [isSorosActive, setIsSorosActive] = useState(initialState.isSorosActive);
+    const [sorosLevels, setSorosLevels] = useState(initialState.sorosLevels);
+    const [sorosProfitPercentage, setSorosProfitPercentage] = useState(initialState.sorosProfitPercentage);
+    const [isStreakFilterActive, setIsStreakFilterActive] = useState(initialState.isStreakFilterActive);
+    const [maxStreakAllowed, setMaxStreakAllowed] = useState(initialState.maxStreakAllowed);
+    
+    // Filtros Virtuais
+    const [virtualLossStreak, setVirtualLossStreak] = useState(initialState.virtualLossStreak);
+    const [virtualWinStreak, setVirtualWinStreak] = useState(initialState.virtualWinStreak);
+    const [virtualTargetLosses, setVirtualTargetLosses] = useState(initialState.virtualTargetLosses);
+    const [virtualTargetWins, setVirtualTargetWins] = useState(initialState.virtualTargetWins);
+    const [isWaitingForVirtualResult, setIsWaitingForVirtualResult] = useState(initialState.isWaitingForVirtualResult);
 
     const addLog = useCallback((message: string, type: LogType, details?: any) => {
         setLogs(prev => [{ timestamp: new Date().toLocaleTimeString('pt-BR', { hour12: false }), message, type, ...details }, ...prev].slice(0, 50));
@@ -140,7 +156,7 @@ export const useBotState = () => {
         duration, setDuration, initialStake, setInitialStake,
         digitTradeMode, setDigitTradeMode, digitPrediction, setDigitPrediction,
         isMartingaleActive, setIsMartingaleActive, martingaleFactor, setMartingaleFactor, maxLevels, setMaxLevels,
-        takeProfit, setTakeProfit, stopLoss, setStopLoss,
+        takeProfit, setTakeProfit, stopLoss, setStopLoss, martingaleMode, setMartingaleMode,
         isBotRunning, setIsBotRunning, isManualMode, setIsManualMode, isManualGaleActive, setIsManualGaleActive,
         totalProfit, setTotalProfit, wins, setWins, losses, setLosses,
         consecutiveLosses, setConsecutiveLosses, isPaused, setIsPaused, pauseTimeRemaining, setPauseTimeRemaining,
@@ -153,6 +169,11 @@ export const useBotState = () => {
         bankManagementDailyGoalPercent, setBankManagementDailyGoalPercent,
         bankManagementDailyStopPercent, setBankManagementDailyStopPercent,
         bankManagementCurrentDay, setBankManagementCurrentDay,
-        bankManagementActualBankroll, setBankManagementActualBankroll
+        bankManagementActualBankroll, setBankManagementActualBankroll,
+        maxTrades, setMaxTrades, isSorosActive, setIsSorosActive, sorosLevels, setSorosLevels, sorosProfitPercentage, setSorosProfitPercentage,
+        isStreakFilterActive, setIsStreakFilterActive, maxStreakAllowed, setMaxStreakAllowed,
+        virtualLossStreak, setVirtualLossStreak, virtualWinStreak, setVirtualWinStreak, 
+        virtualTargetLosses, setVirtualTargetLosses, virtualTargetWins, setVirtualTargetWins,
+        isWaitingForVirtualResult, setIsWaitingForVirtualResult, lossRecoveryStrategy, setLossRecoveryStrategy
     };
 };
