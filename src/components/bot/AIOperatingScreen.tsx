@@ -4,13 +4,14 @@ import React, { useState } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, Trash2, Bot, ShieldAlert, Timer, TrendingUp, Target, Radar, DollarSign } from 'lucide-react';
+import { Power, RefreshCw, Trash2, Bot, ShieldAlert, Timer, TrendingUp, Target, Radar, DollarSign, FileSpreadsheet, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { QuickConfigModal } from './QuickConfigModal';
 import { VirtualLossDisplay } from './VirtualLossDisplay';
 import { Progress } from "@/components/ui/progress";
+import { SettingsSheet } from './SettingsSheet';
 
 export const AIOperatingScreen = () => {
     const { 
@@ -101,9 +102,16 @@ export const AIOperatingScreen = () => {
                                 </Badge>
                             </div>
                         </div>
-                        <Button variant="ghost" size="icon" className="h-12 w-12 rounded-2xl hover:bg-red-50 hover:text-red-500" onClick={exitToSelection}>
-                            <Power className="h-6 w-6" />
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <SettingsSheet trigger={
+                                <Button variant="ghost" size="icon" className="h-12 w-12 rounded-2xl hover:bg-blue-50 hover:text-blue-500">
+                                    <FileSpreadsheet className="h-6 w-6" />
+                                </Button>
+                            } />
+                            <Button variant="ghost" size="icon" className="h-12 w-12 rounded-2xl hover:bg-red-50 hover:text-red-500" onClick={exitToSelection}>
+                                <Power className="h-6 w-6" />
+                            </Button>
+                        </div>
                     </div>
 
                     {/* REDE NEURAL - PREVISÃO DE DÍGITOS */}

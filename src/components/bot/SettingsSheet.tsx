@@ -34,27 +34,27 @@ export const SettingsSheet = ({ trigger }: SettingsSheetProps) => {
             </SheetTrigger>
             <SheetContent className="w-full sm:max-w-xl p-0 flex flex-col">
                 <SheetHeader className="p-6 pb-4 border-b">
-                    <SheetTitle>Configurações Avançadas</SheetTitle>
+                    <SheetTitle>Painel de Gestão e Configurações</SheetTitle>
                     <SheetDescription>
-                        Ajuste todos os parâmetros do bot aqui. As alterações são salvas automaticamente.
+                        Planeje seu dia na planilha de gestão ou ajuste os parâmetros técnicos do robô.
                     </SheetDescription>
                 </SheetHeader>
                 
-                <Tabs defaultValue="trade-params" className="w-full flex flex-col flex-grow min-h-0">
+                <Tabs defaultValue="bank" className="w-full flex flex-col flex-grow min-h-0">
                     <div className="p-6 pt-0 pb-4 border-b bg-card sticky top-0 z-10">
                         <TabsList className="grid w-full grid-cols-4 h-auto">
+                            <TabsTrigger value="bank">Planilha</TabsTrigger>
                             <TabsTrigger value="trade-params">Trade</TabsTrigger>
                             <TabsTrigger value="risk">Risco</TabsTrigger>
-                            <TabsTrigger value="bank">Banca</TabsTrigger>
-                            <TabsTrigger value="strategies">Estratégias</TabsTrigger>
+                            <TabsTrigger value="strategies">I.A</TabsTrigger>
                         </TabsList>
                     </div>
 
                     <div className="flex-grow min-h-0 overflow-y-auto custom-scrollbar">
                         <div className="p-6 pt-0">
+                            <TabsContent value="bank" className="mt-0"><BankManagement /></TabsContent>
                             <TabsContent value="trade-params" className="mt-0"><TradeParameters /></TabsContent>
                             <TabsContent value="risk" className="mt-0"><RiskManagement /></TabsContent>
-                            <TabsContent value="bank" className="mt-0"><BankManagement /></TabsContent>
                             <TabsContent value="strategies" className="mt-0"><StrategySettings /></TabsContent>
                         </div>
                     </div>
