@@ -40,7 +40,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         accountType, realToken, demoToken,
         takeProfit, martingaleFactor,
         setConsecutiveLosses, isPaused, setIsPaused,
-        neuralPredictions, setNeuralPredictions
+        neuralPredictions, setNeuralPredictions,
+        isStudying, setIsStudying, studyTicksCount, setStudyTicksCount
     } = stateAndSetters;
 
     const [isConnected, setIsConnected] = useState(false);
@@ -73,10 +74,26 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const processTickData = useCallback((tick: { quote: string, epoch: number }) => {
         const lastDigit = parseInt(String(tick.quote).replace(/[^\d.]/g, '').slice(-1));
         if (isNaN(lastDigit)) return;
-        setLastDigits((prev: number[]) => [lastDigit, ...prev].slice(0, 500));
+        setLastDigits((prev: number[]) => {
+            const newList = [lastDigit, ...prev].slice(0, 500);
+            return newList;
+        });
         setLastTickEpoch(tick.epoch);
         updateNeuralPredictions();
-    }, [setLastDigits, setLastTickEpoch, updateNeuralPredictions]);
+
+        // Se estiver em modo de estudo, contar ticks
+        if (isStudying) {
+            setStudyTicksCount((c: number) => {
+                const next = c + 1;
+                if (next >= 10) { // Estuda por 10 ticks antes de liberar
+                    setIsStudying(false);
+                    addLog("Análise Concluída: Padrão Identificado. Retomando Operações.", "INFO");
+                    return 0;
+                }
+                return next;
+            });
+        }
+    }, [setLastDigits, setLastTickEpoch, updateNeuralPredictions, isStudying, setIsStudying, setStudyTicksCount, addLog]);
 
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
         const data = event.payload;
@@ -113,23 +130,37 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { sendMessage, connect, disconnect } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
-    // --- MOTOR DE DECISÃO SIMPLIFICADO (APENAS I.A WAVE) ---
+    // --- NOVO MOTOR DE DECISÃO NEURAL SEGUIDOR DE TENDÊNCIA ---
     const calculateTradeSignal = useCallback(() => {
-        if (lastDigits.length < 5) return null;
+        if (lastDigits.length < 20 || isStudying) return null;
 
-        // Lógica Padrão (I.A WAVE)
-        const last4 = lastDigits.slice(0, 4);
-        const allEven = last4.every(d => d % 2 === 0);
-        const allOdd = last4.every(d => d % 2 !== 0);
+        // 1. Análise de Tendência (Últimos 20 ticks)
+        const recent = lastDigits.slice(0, 20);
+        const evenCount = recent.filter(d => d % 2 === 0).length;
+        const oddCount = 20 - evenCount;
+        
+        const evenProb = (evenCount / 20) * 100;
+        const oddProb = (oddCount / 20) * 100;
 
-        if (allEven) return { type: 'ODD', contract: 'DIGITODD', name: 'Wave Reversão', details: '4 Pares -> Entra Ímpar' };
-        if (allOdd) return { type: 'EVEN', contract: 'DIGITEVEN', name: 'Wave Reversão', details: '4 Ímpares -> Entra Par' };
+        // 2. Análise de Probabilidade Neural (Previsão do Próximo)
+        const evenNeural = neuralPredictions.filter((p, i) => i % 2 === 0).reduce((a, b) => a + b, 0);
+        const oddNeural = neuralPredictions.filter((p, i) => i % 2 !== 0).reduce((a, b) => a + b, 0);
+
+        // 3. Regra de Ouro: Nunca contra a tendência.
+        // Se a tendência é FORTE Par (> 60%) e a rede neural confirma (> 50%), seguimos o fluxo.
+        if (evenProb >= 60 && evenNeural > 50) {
+            return { type: 'EVEN', contract: 'DIGITEVEN', name: 'Fluxo Neural', details: `Tendência ${evenProb}% | Neural ${evenNeural.toFixed(1)}%` };
+        }
+        
+        if (oddProb >= 60 && oddNeural > 50) {
+            return { type: 'ODD', contract: 'DIGITODD', name: 'Fluxo Neural', details: `Tendência ${oddProb}% | Neural ${oddNeural.toFixed(1)}%` };
+        }
 
         return null;
-    }, [lastDigits]);
+    }, [lastDigits, neuralPredictions, isStudying]);
 
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, patternName: string, barrier?: number) => {
-        if (!isConnected || isTradeOpen.current || isPaused) return;
+        if (!isConnected || isTradeOpen.current || isPaused || isStudying) return;
         
         const baseStake = parseFloat(initialStake) || 1.00;
         const mgFactor = parseFloat(martingaleFactor) || 1.8;
@@ -151,10 +182,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isTradeOpen.current = true;
         setTradeStatus('SENDING');
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params });
-    }, [isConnected, initialStake, asset, sendMessage, setTradeStatus, martingaleFactor, isPaused]);
+    }, [isConnected, initialStake, asset, sendMessage, setTradeStatus, martingaleFactor, isPaused, isStudying]);
 
     useEffect(() => {
-        if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isTradeOpen.current || isPaused) return;
+        if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isTradeOpen.current || isPaused || isStudying) return;
         processedTickEpoch.current = lastTickEpoch;
         
         const signal = calculateTradeSignal();
@@ -167,7 +198,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             });
             executeBuy(signal.contract as ContractType, signal.name, sId, signal.name, (signal as any).barrier);
         }
-    }, [isBotRunning, lastTickEpoch, calculateTradeSignal, addSignal, executeBuy, isPaused]);
+    }, [isBotRunning, lastTickEpoch, calculateTradeSignal, addSignal, executeBuy, isPaused, isStudying]);
 
     useEffect(() => {
         if (!lastCompletedContract) return;
@@ -184,10 +215,17 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setLosses((prev: number) => prev + 1);
             setConsecutiveLosses((p: number) => p + 1);
             martingaleLevel.current += 1;
+            
+            // LÓGICA INTELIGENTE: Pós-red, entra em modo de estudo
+            setIsStudying(true);
+            setStudyTicksCount(0);
+            addLog("Loss Detectado. Iniciando Modo de Estudo: Analisando mudança de fluxo...", "TRADE");
+            
         } else {
             setWins((prev: number) => prev + 1);
             setConsecutiveLosses(0);
             martingaleLevel.current = 0;
+            // Se ganhamos, continuamos operando normal
         }
 
         if (lastTradeDetails.current?.signalId) {
@@ -198,14 +236,15 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTradeStatus('IDLE');
         setLastCompletedContract(null);
         if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Sniper: Meta Batida!");
-    }, [lastCompletedContract, takeProfit, setTotalProfit, setWins, setLosses, setAccountBalance, setTradeStatus, updateSignalResult, addLog]);
+    }, [lastCompletedContract, takeProfit, setTotalProfit, setWins, setLosses, setAccountBalance, setTradeStatus, updateSignalResult, addLog, setIsStudying, setStudyTicksCount]);
 
     const stopBot = useCallback((reason: string) => {
         setIsBotRunning(false);
         isTradeOpen.current = false;
         martingaleLevel.current = 0;
+        setIsStudying(false);
         addLog(reason, 'INFO');
-    }, [setIsBotRunning, addLog]);
+    }, [setIsBotRunning, addLog, setIsStudying]);
 
     const toggleBot = useCallback(() => {
         if (!isConnected) return;
@@ -214,9 +253,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setIsBotRunning(true); 
             totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0);
             setConsecutiveLosses(0); setIsPaused(false);
+            setIsStudying(false);
             addLog(`Ativado Núcleo: ${selectedAIInfo?.name || 'Manual'}`, "INFO");
         }
-    }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog, selectedAIInfo]);
+    }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog, selectedAIInfo, setIsStudying]);
 
     const selectAI = useCallback((ia: any) => { setSelectedAIInfo(ia); setActiveStrategy(ia.id); setAppFlow('operating'); }, [setActiveStrategy]);
     const exitToSelection = useCallback(() => { stopBot("Sessão Finalizada"); setAppFlow('selection'); }, [stopBot]);

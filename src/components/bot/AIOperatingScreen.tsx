@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, Trash2, Bot, ShieldAlert, Timer, TrendingUp, Target, Radar, DollarSign, FileSpreadsheet, Settings } from 'lucide-react';
+import { Power, RefreshCw, Trash2, Bot, ShieldAlert, Timer, TrendingUp, Target, Radar, DollarSign, FileSpreadsheet, Settings, BrainCircuit } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -20,7 +20,8 @@ export const AIOperatingScreen = () => {
         status, wins, losses, signals, clearSignals,
         handleConnect, accountType, realToken, demoToken,
         probabilities, isPaused, pauseTimeRemaining, learningData,
-        isManipulationDetected, neuralPredictions
+        isManipulationDetected, neuralPredictions,
+        isStudying, studyTicksCount
     } = useBotContext();
 
     const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
@@ -51,7 +52,22 @@ export const AIOperatingScreen = () => {
     return (
         <div className="w-full max-w-md mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
             
-            {/* ALERTAS DE PROTEÇÃO */}
+            {/* ALERTAS DE PROTEÇÃO E MODO DE ESTUDO */}
+            {isStudying && (
+                <div className="bg-blue-500/10 border-2 border-blue-500/50 rounded-2xl p-4 flex items-center justify-between animate-pulse">
+                    <div className="flex items-center gap-3">
+                        <BrainCircuit className="h-6 w-6 text-blue-500" />
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-blue-500">I.A em Modo de Estudo</p>
+                            <p className="text-xs font-bold text-blue-700">Aguardando novo fluxo... ({studyTicksCount}/10)</p>
+                        </div>
+                    </div>
+                    <div className="flex h-2 w-12 bg-blue-100 rounded-full overflow-hidden">
+                        <div className="bg-blue-500 h-full" style={{ width: `${(studyTicksCount / 10) * 100}%` }} />
+                    </div>
+                </div>
+            )}
+
             {isManipulationDetected && (
                 <div className="bg-orange-500/10 border-2 border-orange-500/50 rounded-2xl p-4 flex items-center gap-3 animate-pulse">
                     <Radar className="h-6 w-6 text-orange-500" />

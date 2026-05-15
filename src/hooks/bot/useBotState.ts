@@ -115,6 +115,10 @@ export const useBotState = () => {
     const [isManipulationDetected, setIsManipulationDetected] = useState(false);
     const [neuralPredictions, setNeuralPredictions] = useState<number[]>(new Array(10).fill(10));
 
+    // Estados de inteligência pós-red
+    const [isStudying, setIsStudying] = useState(false);
+    const [studyTicksCount, setStudyTicksCount] = useState(0);
+
     // Estados da Planilha de Gestão
     const [bankManagementInitialBankroll, setBankManagementInitialBankroll] = useState(initialState.bankManagementInitialBankroll);
     const [bankManagementDailyGoalPercent, setBankManagementDailyGoalPercent] = useState(initialState.bankManagementDailyGoalPercent);
@@ -122,7 +126,6 @@ export const useBotState = () => {
     const [bankManagementCurrentDay, setBankManagementCurrentDay] = useState(initialState.bankManagementCurrentDay);
     const [bankManagementActualBankroll, setBankManagementActualBankroll] = useState(initialState.bankManagementActualBankroll);
 
-    // Novos estados para evitar erros de função indefinida
     const [maxTrades, setMaxTrades] = useState(initialState.maxTrades);
     const [isSorosActive, setIsSorosActive] = useState(initialState.isSorosActive);
     const [sorosLevels, setSorosLevels] = useState(initialState.sorosLevels);
@@ -130,7 +133,6 @@ export const useBotState = () => {
     const [isStreakFilterActive, setIsStreakFilterActive] = useState(initialState.isStreakFilterActive);
     const [maxStreakAllowed, setMaxStreakAllowed] = useState(initialState.maxStreakAllowed);
     
-    // Filtros Virtuais
     const [virtualLossStreak, setVirtualLossStreak] = useState(initialState.virtualLossStreak);
     const [virtualWinStreak, setVirtualWinStreak] = useState(initialState.virtualWinStreak);
     const [virtualTargetLosses, setVirtualTargetLosses] = useState(initialState.virtualTargetLosses);
@@ -174,6 +176,7 @@ export const useBotState = () => {
         isStreakFilterActive, setIsStreakFilterActive, maxStreakAllowed, setMaxStreakAllowed,
         virtualLossStreak, setVirtualLossStreak, virtualWinStreak, setVirtualWinStreak, 
         virtualTargetLosses, setVirtualTargetLosses, virtualTargetWins, setVirtualTargetWins,
-        isWaitingForVirtualResult, setIsWaitingForVirtualResult, lossRecoveryStrategy, setLossRecoveryStrategy
+        isWaitingForVirtualResult, setIsWaitingForVirtualResult, lossRecoveryStrategy, setLossRecoveryStrategy,
+        isStudying, setIsStudying, studyTicksCount, setStudyTicksCount
     };
 };
