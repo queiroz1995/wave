@@ -41,7 +41,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         takeProfit, martingaleFactor,
         setConsecutiveLosses, isPaused, setIsPaused,
         neuralPredictions, setNeuralPredictions,
-        isStudying, setIsStudying, studyTicksCount, setStudyTicksCount
+        isStudying, setIsStudying, studyTicksCount, setStudyTicksCount,
+        virtualLossStreak, setVirtualLossStreak,
+        virtualTargetLosses, setVirtualTargetLosses,
+        isWaitingForVirtualResult, setIsWaitingForVirtualResult
     } = stateAndSetters;
 
     const [isConnected, setIsConnected] = useState(false);
@@ -71,29 +74,50 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     }, [asset, isConnected, fetchDerivHistory]);
 
+    // Lógica de Validação Virtual (Simula a entrada antes da real)
+    const [virtualTradePending, setVirtualTradePending] = useState<any>(null);
+
     const processTickData = useCallback((tick: { quote: string, epoch: number }) => {
         const lastDigit = parseInt(String(tick.quote).replace(/[^\d.]/g, '').slice(-1));
         if (isNaN(lastDigit)) return;
+        
         setLastDigits((prev: number[]) => {
             const newList = [lastDigit, ...prev].slice(0, 500);
+            
+            // Se houver uma aposta virtual pendente, verificar o resultado aqui
+            if (virtualTradePending) {
+                const isEven = lastDigit % 2 === 0;
+                const win = virtualTradePending.type === 'EVEN' ? isEven : !isEven;
+                
+                if (win) {
+                    setVirtualLossStreak(0);
+                    addLog(`Loss Virtual Resetado: Vitória simulada no dígito ${lastDigit}`, "INFO");
+                } else {
+                    const newStreak = virtualLossStreak + 1;
+                    setVirtualLossStreak(newStreak);
+                    addLog(`Loss Virtual: ${newStreak}/${virtualTargetLosses} (Dígito: ${lastDigit})`, "INFO");
+                }
+                setVirtualTradePending(null);
+            }
+
             return newList;
         });
+
         setLastTickEpoch(tick.epoch);
         updateNeuralPredictions();
 
-        // Se estiver em modo de estudo, contar ticks
         if (isStudying) {
             setStudyTicksCount((c: number) => {
                 const next = c + 1;
-                if (next >= 10) { // Estuda por 10 ticks antes de liberar
+                if (next >= 15) { // Aumentado para 15 ticks para análise mais profunda
                     setIsStudying(false);
-                    addLog("Análise Concluída: Padrão Identificado. Retomando Operações.", "INFO");
+                    addLog("Mercado Recalibrado. Retomando fluxo neural.", "INFO");
                     return 0;
                 }
                 return next;
             });
         }
-    }, [setLastDigits, setLastTickEpoch, updateNeuralPredictions, isStudying, setIsStudying, setStudyTicksCount, addLog]);
+    }, [setLastDigits, setLastTickEpoch, updateNeuralPredictions, isStudying, setIsStudying, setStudyTicksCount, addLog, virtualTradePending, virtualLossStreak, virtualTargetLosses, setVirtualLossStreak]);
 
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
         const data = event.payload;
@@ -130,34 +154,39 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { sendMessage, connect, disconnect } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
-    // --- NOVO MOTOR DE DECISÃO NEURAL SEGUIDOR DE TENDÊNCIA ---
     const calculateTradeSignal = useCallback(() => {
-        if (lastDigits.length < 20 || isStudying) return null;
+        if (lastDigits.length < 25 || isStudying || virtualTradePending) return null;
 
-        // 1. Análise de Tendência (Últimos 20 ticks)
-        const recent = lastDigits.slice(0, 20);
+        const recent = lastDigits.slice(0, 25);
         const evenCount = recent.filter(d => d % 2 === 0).length;
-        const oddCount = 20 - evenCount;
+        const oddCount = 25 - evenCount;
         
-        const evenProb = (evenCount / 20) * 100;
-        const oddProb = (oddCount / 20) * 100;
+        const evenProb = (evenCount / 25) * 100;
+        const oddProb = (oddCount / 25) * 100;
 
-        // 2. Análise de Probabilidade Neural (Previsão do Próximo)
         const evenNeural = neuralPredictions.filter((p, i) => i % 2 === 0).reduce((a, b) => a + b, 0);
         const oddNeural = neuralPredictions.filter((p, i) => i % 2 !== 0).reduce((a, b) => a + b, 0);
 
-        // 3. Regra de Ouro: Nunca contra a tendência.
-        // Se a tendência é FORTE Par (> 60%) e a rede neural confirma (> 50%), seguimos o fluxo.
-        if (evenProb >= 60 && evenNeural > 50) {
-            return { type: 'EVEN', contract: 'DIGITEVEN', name: 'Fluxo Neural', details: `Tendência ${evenProb}% | Neural ${evenNeural.toFixed(1)}%` };
+        // PROTEÇÃO DE SATURAÇÃO: Não entra se a tendência já estiver muito esticada (evita o fim da vela)
+        let currentStreak = 0;
+        const lastParity = lastDigits[0] % 2 === 0 ? 'EVEN' : 'ODD';
+        for (const d of lastDigits) {
+            if ((d % 2 === 0 ? 'EVEN' : 'ODD') === lastParity) currentStreak++;
+            else break;
+        }
+
+        if (currentStreak > 4) return null; // Tendência saturada, risco de reversão alto
+
+        if (evenProb >= 65 && evenNeural > 55) {
+            return { type: 'EVEN', contract: 'DIGITEVEN', name: 'Fluxo Neural', details: `Forte Tendência Par: ${evenProb}%` };
         }
         
-        if (oddProb >= 60 && oddNeural > 50) {
-            return { type: 'ODD', contract: 'DIGITODD', name: 'Fluxo Neural', details: `Tendência ${oddProb}% | Neural ${oddNeural.toFixed(1)}%` };
+        if (oddProb >= 65 && oddNeural > 55) {
+            return { type: 'ODD', contract: 'DIGITODD', name: 'Fluxo Neural', details: `Forte Tendência Ímpar: ${oddProb}%` };
         }
 
         return null;
-    }, [lastDigits, neuralPredictions, isStudying]);
+    }, [lastDigits, neuralPredictions, isStudying, virtualTradePending]);
 
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, patternName: string, barrier?: number) => {
         if (!isConnected || isTradeOpen.current || isPaused || isStudying) return;
@@ -190,6 +219,14 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         
         const signal = calculateTradeSignal();
         if (signal) {
+            // Se o alvo de loss virtual for > 0 e ainda não atingimos, simulamos
+            if (virtualTargetLosses > 0 && virtualLossStreak < virtualTargetLosses) {
+                setVirtualTradePending(signal);
+                addLog(`Análise Simulada: Aguardando Loss Virtual (${virtualLossStreak + 1}/${virtualTargetLosses})`, "INFO");
+                return;
+            }
+
+            // Se chegamos aqui, é uma entrada REAL
             const sId = addSignal({ 
                 strategy: signal.name, 
                 signal: signal.type as any, 
@@ -198,7 +235,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             });
             executeBuy(signal.contract as ContractType, signal.name, sId, signal.name, (signal as any).barrier);
         }
-    }, [isBotRunning, lastTickEpoch, calculateTradeSignal, addSignal, executeBuy, isPaused, isStudying]);
+    }, [isBotRunning, lastTickEpoch, calculateTradeSignal, addSignal, executeBuy, isPaused, isStudying, virtualTargetLosses, virtualLossStreak, addLog]);
 
     useEffect(() => {
         if (!lastCompletedContract) return;
@@ -216,16 +253,16 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setConsecutiveLosses((p: number) => p + 1);
             martingaleLevel.current += 1;
             
-            // LÓGICA INTELIGENTE: Pós-red, entra em modo de estudo
             setIsStudying(true);
             setStudyTicksCount(0);
-            addLog("Loss Detectado. Iniciando Modo de Estudo: Analisando mudança de fluxo...", "TRADE");
+            setVirtualLossStreak(0); // Reseta o filtro virtual após um red real para recalibrar
+            addLog("Recalibrando Sniper: Entrando em modo de análise profunda pós-red.", "TRADE");
             
         } else {
             setWins((prev: number) => prev + 1);
             setConsecutiveLosses(0);
             martingaleLevel.current = 0;
-            // Se ganhamos, continuamos operando normal
+            setVirtualLossStreak(0); // Reseta para buscar novo ciclo de entrada segura
         }
 
         if (lastTradeDetails.current?.signalId) {
@@ -236,15 +273,16 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTradeStatus('IDLE');
         setLastCompletedContract(null);
         if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Sniper: Meta Batida!");
-    }, [lastCompletedContract, takeProfit, setTotalProfit, setWins, setLosses, setAccountBalance, setTradeStatus, updateSignalResult, addLog, setIsStudying, setStudyTicksCount]);
+    }, [lastCompletedContract, takeProfit, setTotalProfit, setWins, setLosses, setAccountBalance, setTradeStatus, updateSignalResult, addLog, setIsStudying, setStudyTicksCount, setVirtualLossStreak]);
 
     const stopBot = useCallback((reason: string) => {
         setIsBotRunning(false);
         isTradeOpen.current = false;
         martingaleLevel.current = 0;
         setIsStudying(false);
+        setVirtualLossStreak(0);
         addLog(reason, 'INFO');
-    }, [setIsBotRunning, addLog, setIsStudying]);
+    }, [setIsBotRunning, addLog, setIsStudying, setVirtualLossStreak]);
 
     const toggleBot = useCallback(() => {
         if (!isConnected) return;
@@ -254,9 +292,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0);
             setConsecutiveLosses(0); setIsPaused(false);
             setIsStudying(false);
+            setVirtualLossStreak(0);
             addLog(`Ativado Núcleo: ${selectedAIInfo?.name || 'Manual'}`, "INFO");
         }
-    }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog, selectedAIInfo, setIsStudying]);
+    }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog, selectedAIInfo, setIsStudying, setVirtualLossStreak]);
 
     const selectAI = useCallback((ia: any) => { setSelectedAIInfo(ia); setActiveStrategy(ia.id); setAppFlow('operating'); }, [setActiveStrategy]);
     const exitToSelection = useCallback(() => { stopBot("Sessão Finalizada"); setAppFlow('selection'); }, [stopBot]);
