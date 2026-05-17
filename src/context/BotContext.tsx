@@ -8,8 +8,8 @@ import { ContractType } from '@/types/bot';
 
 const BotContext = createContext<any>(undefined);
 
-// URL de um som de vitória curto e satisfatório
-const WIN_SOUND_URL = "https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3";
+// URL de um som de "plim" mais suave e limpo
+const WIN_SOUND_URL = "https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3";
 
 export const useBotContext = () => {
     const context = useContext(BotContext);
