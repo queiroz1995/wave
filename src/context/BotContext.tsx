@@ -50,6 +50,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [isConnected, setIsConnected] = useState(false);
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
 
+    // ESTADO DE ARBITRAGEM
+    const [arbitrageGap, setArbitrageGap] = useState(0);
+
     const updateNeuralPredictions = useCallback(() => {
         if (lastDigits.length < 50) return;
         const matrix = Array.from({ length: 10 }, () => new Array(10).fill(0));
@@ -74,7 +77,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     }, [asset, isConnected, fetchDerivHistory]);
 
-    // Lógica de Validação Virtual (Simula a entrada antes da real)
     const [virtualTradePending, setVirtualTradePending] = useState<any>(null);
 
     const processTickData = useCallback((tick: { quote: string, epoch: number }) => {
@@ -84,18 +86,17 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setLastDigits((prev: number[]) => {
             const newList = [lastDigit, ...prev].slice(0, 500);
             
-            // Se houver uma aposta virtual pendente, verificar o resultado aqui
             if (virtualTradePending) {
                 const isEven = lastDigit % 2 === 0;
                 const win = virtualTradePending.type === 'EVEN' ? isEven : !isEven;
                 
                 if (win) {
                     setVirtualLossStreak(0);
-                    addLog(`Loss Virtual Resetado: Vitória simulada no dígito ${lastDigit}`, "INFO");
+                    addLog(`Arbitragem Simulada: Reversão evitada no dígito ${lastDigit}`, "INFO");
                 } else {
                     const newStreak = virtualLossStreak + 1;
                     setVirtualLossStreak(newStreak);
-                    addLog(`Loss Virtual: ${newStreak}/${virtualTargetLosses} (Dígito: ${lastDigit})`, "INFO");
+                    addLog(`Gap de Arbitragem Confirmado: Loss ${newStreak}/${virtualTargetLosses}`, "INFO");
                 }
                 setVirtualTradePending(null);
             }
@@ -106,18 +107,26 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setLastTickEpoch(tick.epoch);
         updateNeuralPredictions();
 
+        // Cálculo do Gap de Arbitragem (Desvio Padrão de Probabilidade)
+        if (lastDigits.length > 50) {
+            const sample = lastDigits.slice(0, 50);
+            const evens = sample.filter(d => d % 2 === 0).length;
+            const odds = 50 - evens;
+            setArbitrageGap(Math.abs(evens - odds) * 2); // Transforma em porcentagem de desvio
+        }
+
         if (isStudying) {
             setStudyTicksCount((c: number) => {
                 const next = c + 1;
-                if (next >= 15) { // Aumentado para 15 ticks para análise mais profunda
+                if (next >= 15) {
                     setIsStudying(false);
-                    addLog("Mercado Recalibrado. Retomando fluxo neural.", "INFO");
+                    addLog("Sincronização de Arbitragem Completa.", "INFO");
                     return 0;
                 }
                 return next;
             });
         }
-    }, [setLastDigits, setLastTickEpoch, updateNeuralPredictions, isStudying, setIsStudying, setStudyTicksCount, addLog, virtualTradePending, virtualLossStreak, virtualTargetLosses, setVirtualLossStreak]);
+    }, [setLastDigits, setLastTickEpoch, updateNeuralPredictions, isStudying, setIsStudying, setStudyTicksCount, addLog, virtualTradePending, virtualLossStreak, virtualTargetLosses, setVirtualLossStreak, lastDigits]);
 
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
         const data = event.payload;
@@ -154,35 +163,29 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { sendMessage, connect, disconnect } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
+    // LÓGICA DE ARBITRAGEM ESTATÍSTICA
     const calculateTradeSignal = useCallback(() => {
-        if (lastDigits.length < 25 || isStudying || virtualTradePending) return null;
+        if (lastDigits.length < 30 || isStudying || virtualTradePending) return null;
 
-        const recent = lastDigits.slice(0, 25);
-        const evenCount = recent.filter(d => d % 2 === 0).length;
-        const oddCount = 25 - evenCount;
+        const sample = lastDigits.slice(0, 30);
+        const evens = sample.filter(d => d % 2 === 0).length;
+        const odds = 30 - evens;
         
-        const evenProb = (evenCount / 25) * 100;
-        const oddProb = (oddCount / 25) * 100;
+        // Gap de Arbitragem: Precisamos de um desvio significativo (mais de 65% de dominância)
+        const evenRatio = (evens / 30) * 100;
+        const oddRatio = (odds / 30) * 100;
 
+        // Neural Strength: A rede neural deve confirmar a direção do gap
         const evenNeural = neuralPredictions.filter((p, i) => i % 2 === 0).reduce((a, b) => a + b, 0);
         const oddNeural = neuralPredictions.filter((p, i) => i % 2 !== 0).reduce((a, b) => a + b, 0);
 
-        // PROTEÇÃO DE SATURAÇÃO: Não entra se a tendência já estiver muito esticada (evita o fim da vela)
-        let currentStreak = 0;
-        const lastParity = lastDigits[0] % 2 === 0 ? 'EVEN' : 'ODD';
-        for (const d of lastDigits) {
-            if ((d % 2 === 0 ? 'EVEN' : 'ODD') === lastParity) currentStreak++;
-            else break;
-        }
-
-        if (currentStreak > 4) return null; // Tendência saturada, risco de reversão alto
-
-        if (evenProb >= 65 && evenNeural > 55) {
-            return { type: 'EVEN', contract: 'DIGITEVEN', name: 'Fluxo Neural', details: `Forte Tendência Par: ${evenProb}%` };
+        // Se houver Arbitragem (Desvio Estatístico) confirmada pela Rede Neural:
+        if (evenRatio >= 66 && evenNeural > 60) {
+            return { type: 'EVEN', contract: 'DIGITEVEN', name: 'Arbitragem Neural', details: `Gap: +${(evenRatio-50).toFixed(0)}% | Confirmação: ${evenNeural.toFixed(0)}%` };
         }
         
-        if (oddProb >= 65 && oddNeural > 55) {
-            return { type: 'ODD', contract: 'DIGITODD', name: 'Fluxo Neural', details: `Forte Tendência Ímpar: ${oddProb}%` };
+        if (oddRatio >= 66 && oddNeural > 60) {
+            return { type: 'ODD', contract: 'DIGITODD', name: 'Arbitragem Neural', details: `Gap: +${(oddRatio-50).toFixed(0)}% | Confirmação: ${oddNeural.toFixed(0)}%` };
         }
 
         return null;
@@ -219,14 +222,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         
         const signal = calculateTradeSignal();
         if (signal) {
-            // Se o alvo de loss virtual for > 0 e ainda não atingimos, simulamos
             if (virtualTargetLosses > 0 && virtualLossStreak < virtualTargetLosses) {
                 setVirtualTradePending(signal);
-                addLog(`Análise Simulada: Aguardando Loss Virtual (${virtualLossStreak + 1}/${virtualTargetLosses})`, "INFO");
                 return;
             }
 
-            // Se chegamos aqui, é uma entrada REAL
             const sId = addSignal({ 
                 strategy: signal.name, 
                 signal: signal.type as any, 
@@ -235,7 +235,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             });
             executeBuy(signal.contract as ContractType, signal.name, sId, signal.name, (signal as any).barrier);
         }
-    }, [isBotRunning, lastTickEpoch, calculateTradeSignal, addSignal, executeBuy, isPaused, isStudying, virtualTargetLosses, virtualLossStreak, addLog]);
+    }, [isBotRunning, lastTickEpoch, calculateTradeSignal, addSignal, executeBuy, isPaused, isStudying, virtualTargetLosses, virtualLossStreak]);
 
     useEffect(() => {
         if (!lastCompletedContract) return;
@@ -252,17 +252,15 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setLosses((prev: number) => prev + 1);
             setConsecutiveLosses((p: number) => p + 1);
             martingaleLevel.current += 1;
-            
             setIsStudying(true);
             setStudyTicksCount(0);
-            setVirtualLossStreak(0); // Reseta o filtro virtual após um red real para recalibrar
-            addLog("Recalibrando Sniper: Entrando em modo de análise profunda pós-red.", "TRADE");
-            
+            setVirtualLossStreak(0);
+            addLog("Desvio de Arbitragem. Sincronizando novos parâmetros...", "TRADE");
         } else {
             setWins((prev: number) => prev + 1);
             setConsecutiveLosses(0);
             martingaleLevel.current = 0;
-            setVirtualLossStreak(0); // Reseta para buscar novo ciclo de entrada segura
+            setVirtualLossStreak(0);
         }
 
         if (lastTradeDetails.current?.signalId) {
@@ -293,7 +291,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setConsecutiveLosses(0); setIsPaused(false);
             setIsStudying(false);
             setVirtualLossStreak(0);
-            addLog(`Ativado Núcleo: ${selectedAIInfo?.name || 'Manual'}`, "INFO");
+            addLog(`Ativado Modo Arbitragem: ${selectedAIInfo?.name || 'Manual'}`, "INFO");
         }
     }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog, selectedAIInfo, setIsStudying, setVirtualLossStreak]);
 
@@ -307,8 +305,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const contextValue = useMemo(() => ({
         ...stateAndSetters, isConnected, status, handleConnect, handleDisconnect: disconnect, 
-        toggleBot, appFlow, setAppFlow, selectedAIInfo, selectAI, exitToSelection
-    }), [stateAndSetters, isConnected, status, handleConnect, disconnect, toggleBot, appFlow, selectedAIInfo, selectAI, exitToSelection]);
+        toggleBot, appFlow, setAppFlow, selectedAIInfo, selectAI, exitToSelection, arbitrageGap
+    }), [stateAndSetters, isConnected, status, handleConnect, disconnect, toggleBot, appFlow, selectedAIInfo, selectAI, exitToSelection, arbitrageGap]);
 
     return <BotContext.Provider value={contextValue}>{children}</BotContext.Provider>;
 };
