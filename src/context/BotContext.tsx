@@ -50,7 +50,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [isConnected, setIsConnected] = useState(false);
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
 
-    // ESTADO DE ARBITRAGEM
     const [arbitrageGap, setArbitrageGap] = useState(0);
 
     const updateNeuralPredictions = useCallback(() => {
@@ -92,11 +91,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 
                 if (win) {
                     setVirtualLossStreak(0);
-                    addLog(`Arbitragem Simulada: Reversão evitada no dígito ${lastDigit}`, "INFO");
+                    addLog(`Proteção Virtual: Win simulado no dígito ${lastDigit}`, "INFO");
                 } else {
                     const newStreak = virtualLossStreak + 1;
                     setVirtualLossStreak(newStreak);
-                    addLog(`Gap de Arbitragem Confirmado: Loss ${newStreak}/${virtualTargetLosses}`, "INFO");
+                    addLog(`Aguardando Loss Virtual: ${newStreak}/${virtualTargetLosses}`, "INFO");
                 }
                 setVirtualTradePending(null);
             }
@@ -107,20 +106,19 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setLastTickEpoch(tick.epoch);
         updateNeuralPredictions();
 
-        // Cálculo do Gap de Arbitragem (Desvio Padrão de Probabilidade)
         if (lastDigits.length > 50) {
-            const sample = lastDigits.slice(0, 50);
+            const sample = lastDigits.slice(0, 25);
             const evens = sample.filter(d => d % 2 === 0).length;
-            const odds = 50 - evens;
-            setArbitrageGap(Math.abs(evens - odds) * 2); // Transforma em porcentagem de desvio
+            const odds = 25 - evens;
+            setArbitrageGap(Math.abs(evens - odds) * 4); 
         }
 
         if (isStudying) {
             setStudyTicksCount((c: number) => {
                 const next = c + 1;
-                if (next >= 15) {
+                if (next >= 5) { // Reduzido para 5 ticks para ser mais rápido (tradicional)
                     setIsStudying(false);
-                    addLog("Sincronização de Arbitragem Completa.", "INFO");
+                    addLog("Fluxo Confirmado. Retomando modo Turbo.", "INFO");
                     return 0;
                 }
                 return next;
@@ -163,29 +161,26 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { sendMessage, connect, disconnect } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
-    // LÓGICA DE ARBITRAGEM ESTATÍSTICA
     const calculateTradeSignal = useCallback(() => {
-        if (lastDigits.length < 30 || isStudying || virtualTradePending) return null;
+        if (lastDigits.length < 15 || isStudying || virtualTradePending) return null;
 
-        const sample = lastDigits.slice(0, 30);
+        const sample = lastDigits.slice(0, 15);
         const evens = sample.filter(d => d % 2 === 0).length;
-        const odds = 30 - evens;
+        const odds = 15 - evens;
         
-        // Gap de Arbitragem: Precisamos de um desvio significativo (mais de 65% de dominância)
-        const evenRatio = (evens / 30) * 100;
-        const oddRatio = (odds / 30) * 100;
+        const evenProb = (evens / 15) * 100;
+        const oddProb = (odds / 15) * 100;
 
-        // Neural Strength: A rede neural deve confirmar a direção do gap
         const evenNeural = neuralPredictions.filter((p, i) => i % 2 === 0).reduce((a, b) => a + b, 0);
         const oddNeural = neuralPredictions.filter((p, i) => i % 2 !== 0).reduce((a, b) => a + b, 0);
 
-        // Se houver Arbitragem (Desvio Estatístico) confirmada pela Rede Neural:
-        if (evenRatio >= 66 && evenNeural > 60) {
-            return { type: 'EVEN', contract: 'DIGITEVEN', name: 'Arbitragem Neural', details: `Gap: +${(evenRatio-50).toFixed(0)}% | Confirmação: ${evenNeural.toFixed(0)}%` };
+        // MODO TRADICIONAL RÁPIDO: Limite de 55% para entradas mais frequentes
+        if (evenProb >= 55 && evenNeural > 50) {
+            return { type: 'EVEN', contract: 'DIGITEVEN', name: 'Turbo Sniper', details: `Frequência Par: ${evenProb.toFixed(0)}%` };
         }
         
-        if (oddRatio >= 66 && oddNeural > 60) {
-            return { type: 'ODD', contract: 'DIGITODD', name: 'Arbitragem Neural', details: `Gap: +${(oddRatio-50).toFixed(0)}% | Confirmação: ${oddNeural.toFixed(0)}%` };
+        if (oddProb >= 55 && oddNeural > 50) {
+            return { type: 'ODD', contract: 'DIGITODD', name: 'Turbo Sniper', details: `Frequência Ímpar: ${oddProb.toFixed(0)}%` };
         }
 
         return null;
@@ -255,7 +250,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setIsStudying(true);
             setStudyTicksCount(0);
             setVirtualLossStreak(0);
-            addLog("Desvio de Arbitragem. Sincronizando novos parâmetros...", "TRADE");
+            addLog("Loss no fluxo. Reajustando para recuperação rápida...", "TRADE");
         } else {
             setWins((prev: number) => prev + 1);
             setConsecutiveLosses(0);
@@ -291,7 +286,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setConsecutiveLosses(0); setIsPaused(false);
             setIsStudying(false);
             setVirtualLossStreak(0);
-            addLog(`Ativado Modo Arbitragem: ${selectedAIInfo?.name || 'Manual'}`, "INFO");
+            addLog(`Ativado Modo Tradicional Turbo: ${selectedAIInfo?.name || 'Manual'}`, "INFO");
         }
     }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog, selectedAIInfo, setIsStudying, setVirtualLossStreak]);
 
