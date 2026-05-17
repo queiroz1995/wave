@@ -8,6 +8,9 @@ import { ContractType } from '@/types/bot';
 
 const BotContext = createContext<any>(undefined);
 
+// URL de um som de vitória curto e satisfatório
+const WIN_SOUND_URL = "https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3";
+
 export const useBotContext = () => {
     const context = useContext(BotContext);
     if (!context) throw new Error('useBotContext must be used within a BotProvider');
@@ -44,13 +47,27 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isStudying, setIsStudying, studyTicksCount, setStudyTicksCount,
         virtualLossStreak, setVirtualLossStreak,
         virtualTargetLosses, setVirtualTargetLosses,
-        isWaitingForVirtualResult, setIsWaitingForVirtualResult
+        isWaitingForVirtualResult, setIsWaitingForVirtualResult,
+        isSoundEnabled
     } = stateAndSetters;
 
     const [isConnected, setIsConnected] = useState(false);
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
 
     const [arbitrageGap, setArbitrageGap] = useState(0);
+
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+
+    useEffect(() => {
+        audioRef.current = new Audio(WIN_SOUND_URL);
+    }, []);
+
+    const playWinSound = useCallback(() => {
+        if (isSoundEnabled && audioRef.current) {
+            audioRef.current.currentTime = 0;
+            audioRef.current.play().catch(err => console.warn("Erro ao tocar som:", err));
+        }
+    }, [isSoundEnabled]);
 
     const updateNeuralPredictions = useCallback(() => {
         if (lastDigits.length < 50) return;
@@ -116,7 +133,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (isStudying) {
             setStudyTicksCount((c: number) => {
                 const next = c + 1;
-                if (next >= 5) { // Reduzido para 5 ticks para ser mais rápido (tradicional)
+                if (next >= 5) {
                     setIsStudying(false);
                     addLog("Fluxo Confirmado. Retomando modo Turbo.", "INFO");
                     return 0;
@@ -174,7 +191,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const evenNeural = neuralPredictions.filter((p, i) => i % 2 === 0).reduce((a, b) => a + b, 0);
         const oddNeural = neuralPredictions.filter((p, i) => i % 2 !== 0).reduce((a, b) => a + b, 0);
 
-        // MODO TRADICIONAL RÁPIDO: Limite de 55% para entradas mais frequentes
         if (evenProb >= 55 && evenNeural > 50) {
             return { type: 'EVEN', contract: 'DIGITEVEN', name: 'Turbo Sniper', details: `Frequência Par: ${evenProb.toFixed(0)}%` };
         }
@@ -256,6 +272,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setConsecutiveLosses(0);
             martingaleLevel.current = 0;
             setVirtualLossStreak(0);
+            playWinSound(); // Tocar som na vitória
         }
 
         if (lastTradeDetails.current?.signalId) {
@@ -266,7 +283,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTradeStatus('IDLE');
         setLastCompletedContract(null);
         if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Sniper: Meta Batida!");
-    }, [lastCompletedContract, takeProfit, setTotalProfit, setWins, setLosses, setAccountBalance, setTradeStatus, updateSignalResult, addLog, setIsStudying, setStudyTicksCount, setVirtualLossStreak]);
+    }, [lastCompletedContract, takeProfit, setTotalProfit, setWins, setLosses, setAccountBalance, setTradeStatus, updateSignalResult, addLog, setIsStudying, setStudyTicksCount, setVirtualLossStreak, playWinSound]);
 
     const stopBot = useCallback((reason: string) => {
         setIsBotRunning(false);

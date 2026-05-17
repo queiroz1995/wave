@@ -55,6 +55,7 @@ const DEFAULTS = {
     maxStreakAllowed: 4,
     scoreThreshold: 4,
     learningData: {} as Record<string, { wins: number, losses: number, total: number }>,
+    isSoundEnabled: true, // Novo estado padrão
 };
 
 const getInitialState = () => {
@@ -114,6 +115,7 @@ export const useBotState = () => {
     const [scoreThreshold, setScoreThreshold] = useState(initialState.scoreThreshold);
     const [isManipulationDetected, setIsManipulationDetected] = useState(false);
     const [neuralPredictions, setNeuralPredictions] = useState<number[]>(new Array(10).fill(10));
+    const [isSoundEnabled, setIsSoundEnabled] = useState(initialState.isSoundEnabled);
 
     // Estados de inteligência pós-red
     const [isStudying, setIsStudying] = useState(false);
@@ -177,6 +179,7 @@ export const useBotState = () => {
         virtualLossStreak, setVirtualLossStreak, virtualWinStreak, setVirtualWinStreak, 
         virtualTargetLosses, setVirtualTargetLosses, virtualTargetWins, setVirtualTargetWins,
         isWaitingForVirtualResult, setIsWaitingForVirtualResult, lossRecoveryStrategy, setLossRecoveryStrategy,
-        isStudying, setIsStudying, studyTicksCount, setStudyTicksCount
+        isStudying, setIsStudying, studyTicksCount, setStudyTicksCount,
+        isSoundEnabled, setIsSoundEnabled
     };
 };

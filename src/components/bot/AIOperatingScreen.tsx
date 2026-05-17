@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, Trash2, Bot, ShieldAlert, Timer, TrendingUp, Target, Radar, DollarSign, FileSpreadsheet, Settings, BrainCircuit, Activity, Zap } from 'lucide-react';
+import { Power, RefreshCw, Trash2, Bot, ShieldAlert, Timer, TrendingUp, Target, Radar, DollarSign, FileSpreadsheet, Settings, BrainCircuit, Activity, Zap, Volume2, VolumeX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -21,7 +21,8 @@ export const AIOperatingScreen = () => {
         handleConnect, accountType, realToken, demoToken,
         isPaused, pauseTimeRemaining,
         isManipulationDetected, neuralPredictions,
-        isStudying, studyTicksCount, arbitrageGap
+        isStudying, studyTicksCount, arbitrageGap,
+        isSoundEnabled, setIsSoundEnabled
     } = useBotContext();
 
     const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
@@ -118,6 +119,16 @@ export const AIOperatingScreen = () => {
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
+                            {/* Controle de Som */}
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-12 w-12 rounded-2xl hover:bg-gray-100"
+                                onClick={() => setIsSoundEnabled(!isSoundEnabled)}
+                            >
+                                {isSoundEnabled ? <Volume2 className="h-6 w-6 text-primary" /> : <VolumeX className="h-6 w-6 text-muted-foreground" />}
+                            </Button>
+                            
                             <SettingsSheet trigger={
                                 <Button variant="ghost" size="icon" className="h-12 w-12 rounded-2xl hover:bg-blue-50 hover:text-blue-500">
                                     <FileSpreadsheet className="h-6 w-6" />
