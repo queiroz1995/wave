@@ -178,20 +178,22 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
     const calculateTradeSignal = useCallback(() => {
-        if (lastDigits.length < 15 || isStudying || virtualTradePending) return null;
+        if (lastDigits.length < 20 || isStudying || virtualTradePending) return null;
 
-        // LÓGICA SNIPER X-HUNTER (ALTA RECOMPENSA)
+        // LÓGICA SNIPER X-HUNTER (MODO ULTRA SEGURO)
         if (activeStrategy === 'xHunter') {
-            const lastThree = lastDigits.slice(0, 3);
-            const allLow = lastThree.every(d => d <= 4); // Se os últimos 3 foram baixos, probabilidade de vir alto aumenta
+            const sequenceSize = 6;
+            const lastSequence = lastDigits.slice(0, sequenceSize);
+            const isExhausted = lastSequence.every(d => d <= 7);
+            const probHigh = neuralPredictions[8] + neuralPredictions[9];
             
-            if (allLow) {
+            if (isExhausted && probHigh > 20) {
                 return { 
                     type: 'OVER', 
                     contract: 'DIGITOVER', 
                     barrier: 7, 
                     name: 'Sniper X-Hunter', 
-                    details: 'Padrão de Baixa Detectado (Buscando 8 ou 9)' 
+                    details: `Sequência de exaustão (${sequenceSize}x) detectada. Probabilidade Neural: ${probHigh.toFixed(1)}%` 
                 };
             }
             return null;
@@ -289,7 +291,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setConsecutiveLosses(0);
             martingaleLevel.current = 0;
             setVirtualLossStreak(0);
-            playWinSound(); // Tocar som na vitória
+            playWinSound();
         }
 
         if (lastTradeDetails.current?.signalId) {
@@ -327,7 +329,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const selectAI = useCallback((ia: any) => { 
         setSelectedAIInfo(ia); 
         setActiveStrategy(ia.id); 
-        if (ia.id === 'xHunter') setInitialStake('0.35'); // Configura stake de 0.35 para o Hunter
+        if (ia.id === 'xHunter') setInitialStake('0.35'); 
         setAppFlow('operating'); 
     }, [setActiveStrategy, setInitialStake]);
 
