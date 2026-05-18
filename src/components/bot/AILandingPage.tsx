@@ -3,7 +3,7 @@
 import React from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { StrategyAICard } from './StrategyAICard';
-import { Sparkles, Zap } from 'lucide-react';
+import { Sparkles, Zap, Target } from 'lucide-react';
 
 const strategies = [
     { 
@@ -12,8 +12,17 @@ const strategies = [
         style: "Vortex-Momentum", 
         image: "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&q=80&w=600",
         color: "blue",
-        description: "Núcleo de Tendência. Combina Momentum Neural com proteção de reversão para ciclos de lucro consistentes.",
+        description: "Núcleo de Tendência Tradicional. Foco em Par/Ímpar com alta frequência de entradas.",
         compatibleModes: ['evenOdd'] 
+    },
+    { 
+        id: "xHunter", 
+        name: "SNIPER X-HUNTER", 
+        style: "High-Reward Barrier", 
+        image: "https://images.unsplash.com/photo-1531746790731-6c087fecd05a?auto=format&fit=crop&q=80&w=600",
+        color: "orange",
+        description: "Busca lucros de 300%. Entra com $0.35 para retornar $1.00 de lucro usando barreiras matemáticas avançadas.",
+        compatibleModes: ['overUnder'] 
     }
 ];
 
@@ -30,7 +39,7 @@ export const AILandingPage = () => {
                 <p className="text-sm text-muted-foreground font-medium">Escolha a inteligência que melhor se adapta à sua banca.</p>
             </div>
 
-            <div className="grid grid-cols-1 max-w-md mx-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
                 {strategies.map((ia) => (
                     <StrategyAICard 
                         key={ia.id}

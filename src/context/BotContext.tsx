@@ -8,7 +8,6 @@ import { ContractType } from '@/types/bot';
 
 const BotContext = createContext<any>(undefined);
 
-// URL de um som de "plim" mais suave e limpo
 const WIN_SOUND_URL = "https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3";
 
 export const useBotContext = () => {
@@ -37,9 +36,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const {
         addLog, setAccountBalance, setLastDigits, setIsBotRunning,
         setTotalProfit, setWins, setLosses,
-        asset, initialStake, addSignal, updateSignalResult,
+        asset, initialStake, setInitialStake, addSignal, updateSignalResult,
         lastDigits, setLastTickEpoch, lastTickEpoch,
-        setTradeStatus, isBotRunning, setActiveStrategy,
+        setTradeStatus, isBotRunning, setActiveStrategy, activeStrategy,
         accountType, realToken, demoToken,
         takeProfit, martingaleFactor,
         setConsecutiveLosses, isPaused, setIsPaused,
@@ -181,6 +180,24 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const calculateTradeSignal = useCallback(() => {
         if (lastDigits.length < 15 || isStudying || virtualTradePending) return null;
 
+        // LÓGICA SNIPER X-HUNTER (ALTA RECOMPENSA)
+        if (activeStrategy === 'xHunter') {
+            const lastThree = lastDigits.slice(0, 3);
+            const allLow = lastThree.every(d => d <= 4); // Se os últimos 3 foram baixos, probabilidade de vir alto aumenta
+            
+            if (allLow) {
+                return { 
+                    type: 'OVER', 
+                    contract: 'DIGITOVER', 
+                    barrier: 7, 
+                    name: 'Sniper X-Hunter', 
+                    details: 'Padrão de Baixa Detectado (Buscando 8 ou 9)' 
+                };
+            }
+            return null;
+        }
+
+        // LÓGICA TRADICIONAL I.A WAVE
         const sample = lastDigits.slice(0, 15);
         const evens = sample.filter(d => d % 2 === 0).length;
         const odds = 15 - evens;
@@ -200,7 +217,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         return null;
-    }, [lastDigits, neuralPredictions, isStudying, virtualTradePending]);
+    }, [lastDigits, neuralPredictions, isStudying, virtualTradePending, activeStrategy]);
 
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, patternName: string, barrier?: number) => {
         if (!isConnected || isTradeOpen.current || isPaused || isStudying) return;
@@ -307,7 +324,13 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog, selectedAIInfo, setIsStudying, setVirtualLossStreak]);
 
-    const selectAI = useCallback((ia: any) => { setSelectedAIInfo(ia); setActiveStrategy(ia.id); setAppFlow('operating'); }, [setActiveStrategy]);
+    const selectAI = useCallback((ia: any) => { 
+        setSelectedAIInfo(ia); 
+        setActiveStrategy(ia.id); 
+        if (ia.id === 'xHunter') setInitialStake('0.35'); // Configura stake de 0.35 para o Hunter
+        setAppFlow('operating'); 
+    }, [setActiveStrategy, setInitialStake]);
+
     const exitToSelection = useCallback(() => { stopBot("Sessão Finalizada"); setAppFlow('selection'); }, [stopBot]);
     const handleConnect = useCallback((targetType?: 'real' | 'demo', targetToken?: string) => {
         const type = targetType || accountType;
