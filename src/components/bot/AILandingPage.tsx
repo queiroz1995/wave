@@ -9,29 +9,11 @@ const strategies = [
     { 
         id: "trendSurfer", 
         name: "I.A WAVE", 
-        style: "Vortex-Momentum", 
+        style: "All-In-One Sniper", 
         image: "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&q=80&w=600",
         color: "blue",
-        description: "Núcleo de Tendência Tradicional. Foco em Par/Ímpar com alta frequência de entradas.",
-        compatibleModes: ['evenOdd'] 
-    },
-    { 
-        id: "xHunter4", 
-        name: "X-HUNTER (4+)", 
-        style: "High Frequency", 
-        image: "https://images.unsplash.com/photo-1531746790731-6c087fecd05a?auto=format&fit=crop&q=80&w=600",
-        color: "green",
-        description: "Equilíbrio e assertividade. Vence se o dígito for 5, 6, 7, 8 ou 9. Lucro moderado e constante.",
-        compatibleModes: ['overUnder'] 
-    },
-    { 
-        id: "xHunter6", 
-        name: "X-HUNTER (6+)", 
-        style: "High Reward", 
-        image: "https://images.unsplash.com/photo-1531746790731-6c087fecd05a?auto=format&fit=crop&q=80&w=600",
-        color: "orange",
-        description: "Busca lucros de 230%. Vence se o dígito for 7, 8 ou 9. Exige mais paciência e exaustão de mercado.",
-        compatibleModes: ['overUnder'] 
+        description: "O núcleo mais poderoso da Rico Intelligence. Inclui modos tradicionais (Par/Ímpar) e os snipers de barreira (3+, 4+, 6+).",
+        compatibleModes: ['evenOdd', 'overUnder'] 
     }
 ];
 
@@ -45,22 +27,23 @@ export const AILandingPage = () => {
                     <Zap className="h-3 w-3" /> Rico Intelligence v2.0
                 </div>
                 <h1 className="text-4xl font-black uppercase tracking-tighter">Selecione o Núcleo</h1>
-                <p className="text-sm text-muted-foreground font-medium">Escolha a inteligência que melhor se adapta à sua banca.</p>
+                <p className="text-sm text-muted-foreground font-medium">Ative a inteligência WAVE para acessar todos os modos de operação.</p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
+            <div className="flex justify-center max-w-4xl mx-auto">
                 {strategies.map((ia) => (
-                    <StrategyAICard 
-                        key={ia.id}
-                        id={ia.id}
-                        name={ia.name}
-                        style={ia.style}
-                        image={ia.image}
-                        color={ia.color}
-                        description={ia.description}
-                        isActive={false}
-                        onClick={() => selectAI(ia)}
-                    />
+                    <div key={ia.id} className="max-w-sm">
+                        <StrategyAICard 
+                            id={ia.id}
+                            name={ia.name}
+                            style={ia.style}
+                            image={ia.image}
+                            color={ia.color}
+                            description={ia.description}
+                            isActive={false}
+                            onClick={() => selectAI(ia)}
+                        />
+                    </div>
                 ))}
             </div>
         </div>

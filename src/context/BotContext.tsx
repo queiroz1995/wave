@@ -38,7 +38,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTotalProfit, setWins, setLosses,
         asset, initialStake, setInitialStake, addSignal, updateSignalResult,
         lastDigits, setLastTickEpoch, lastTickEpoch,
-        setTradeStatus, isBotRunning, setActiveStrategy, activeStrategy,
+        setTradeStatus, isBotRunning, setActiveStrategy, attackMode,
         accountType, realToken, demoToken,
         takeProfit, martingaleFactor,
         setConsecutiveLosses, isPaused, setIsPaused,
@@ -180,65 +180,58 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const calculateTradeSignal = useCallback(() => {
         if (lastDigits.length < 20 || isStudying || virtualTradePending) return null;
 
-        // LÓGICA SNIPER X-HUNTER (MODO ULTRA SEGURO - ACIMA DE 6)
-        if (activeStrategy === 'xHunter6') {
+        // MODO 6+
+        if (attackMode === '6+') {
             const sequenceSize = 6;
             const lastSequence = lastDigits.slice(0, sequenceSize);
             const isExhausted = lastSequence.every(d => d <= 6); 
             const probHigh = neuralPredictions[7] + neuralPredictions[8] + neuralPredictions[9]; 
-            
             if (isExhausted && probHigh > 20) {
-                return { 
-                    type: 'OVER', 
-                    contract: 'DIGITOVER', 
-                    barrier: 6, 
-                    name: 'Sniper X-Hunter (6+)', 
-                    details: `Exaustão detectada. Probabilidade Neural (7,8,9): ${probHigh.toFixed(1)}%` 
-                };
+                return { type: 'OVER', contract: 'DIGITOVER', barrier: 6, name: 'WAVE Hunter (6+)', details: `Sniper 6+ Ativo. Probabilidade: ${probHigh.toFixed(1)}%` };
             }
             return null;
         }
 
-        // LÓGICA SNIPER X-HUNTER (MODO FREQUÊNCIA - ACIMA DE 4)
-        if (activeStrategy === 'xHunter4') {
+        // MODO 4+
+        if (attackMode === '4+') {
             const sequenceSize = 4;
             const lastSequence = lastDigits.slice(0, sequenceSize);
             const isExhausted = lastSequence.every(d => d <= 4); 
             const probHigh = neuralPredictions[5] + neuralPredictions[6] + neuralPredictions[7] + neuralPredictions[8] + neuralPredictions[9];
-            
             if (isExhausted && probHigh > 45) {
-                return { 
-                    type: 'OVER', 
-                    contract: 'DIGITOVER', 
-                    barrier: 4, 
-                    name: 'Sniper X-Hunter (4+)', 
-                    details: `Sinal de Frequência. Probabilidade Neural (5-9): ${probHigh.toFixed(1)}%` 
-                };
+                return { type: 'OVER', contract: 'DIGITOVER', barrier: 4, name: 'WAVE Hunter (4+)', details: `Sniper 4+ Ativo. Probabilidade: ${probHigh.toFixed(1)}%` };
             }
             return null;
         }
 
-        // LÓGICA TRADICIONAL I.A WAVE
+        // MODO 3+
+        if (attackMode === '3+') {
+            const sequenceSize = 3;
+            const lastSequence = lastDigits.slice(0, sequenceSize);
+            const isExhausted = lastSequence.every(d => d <= 3); 
+            const probHigh = neuralPredictions[4] + neuralPredictions[5] + neuralPredictions[6] + neuralPredictions[7] + neuralPredictions[8] + neuralPredictions[9];
+            if (isExhausted && probHigh > 55) {
+                return { type: 'OVER', contract: 'DIGITOVER', barrier: 3, name: 'WAVE Hunter (3+)', details: `Sniper 3+ Ativo. Probabilidade: ${probHigh.toFixed(1)}%` };
+            }
+            return null;
+        }
+
+        // MODO TRADICIONAL (EVEN/ODD)
         const sample = lastDigits.slice(0, 15);
         const evens = sample.filter(d => d % 2 === 0).length;
         const odds = 15 - evens;
-        
-        const evenProb = (evens / 15) * 100;
-        const oddProb = (odds / 15) * 100;
-
         const evenNeural = neuralPredictions.filter((p, i) => i % 2 === 0).reduce((a, b) => a + b, 0);
         const oddNeural = neuralPredictions.filter((p, i) => i % 2 !== 0).reduce((a, b) => a + b, 0);
 
-        if (evenProb >= 55 && evenNeural > 50) {
-            return { type: 'EVEN', contract: 'DIGITEVEN', name: 'Turbo Sniper', details: `Frequência Par: ${evenProb.toFixed(0)}%` };
+        if (evens >= 9 && evenNeural > 50) {
+            return { type: 'EVEN', contract: 'DIGITEVEN', name: 'WAVE Traditional', details: `Tendência Par Ativa.` };
         }
-        
-        if (oddProb >= 55 && oddNeural > 50) {
-            return { type: 'ODD', contract: 'DIGITODD', name: 'Turbo Sniper', details: `Frequência Ímpar: ${oddProb.toFixed(0)}%` };
+        if (odds >= 9 && oddNeural > 50) {
+            return { type: 'ODD', contract: 'DIGITODD', name: 'WAVE Traditional', details: `Tendência Ímpar Ativa.` };
         }
 
         return null;
-    }, [lastDigits, neuralPredictions, isStudying, virtualTradePending, activeStrategy]);
+    }, [lastDigits, neuralPredictions, isStudying, virtualTradePending, attackMode]);
 
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, patternName: string, barrier?: number) => {
         if (!isConnected || isTradeOpen.current || isPaused || isStudying) return;
@@ -341,14 +334,14 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setConsecutiveLosses(0); setIsPaused(false);
             setIsStudying(false);
             setVirtualLossStreak(0);
-            addLog(`Ativado Modo Tradicional Turbo: ${selectedAIInfo?.name || 'Manual'}`, "INFO");
+            addLog(`Ativado Modo WAVE AI: ${attackMode}`, "INFO");
         }
-    }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog, selectedAIInfo, setIsStudying, setVirtualLossStreak]);
+    }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog, attackMode, setIsStudying, setVirtualLossStreak]);
 
     const selectAI = useCallback((ia: any) => { 
         setSelectedAIInfo(ia); 
         setActiveStrategy(ia.id); 
-        if (ia.id === 'xHunter4' || ia.id === 'xHunter6') setInitialStake('0.35'); 
+        setInitialStake('0.35'); 
         setAppFlow('operating'); 
     }, [setActiveStrategy, setInitialStake]);
 

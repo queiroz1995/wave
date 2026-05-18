@@ -11,6 +11,7 @@ const DEFAULTS = {
     duration: 1,
     initialStake: '1.00',
     digitTradeMode: 'evenOdd' as 'evenOdd' | 'overUnder',
+    attackMode: 'traditional' as 'traditional' | '3+' | '4+' | '6+',
     digitPrediction: 5,
     overUnderDirection: 'OVER' as 'OVER' | 'UNDER',
     isManualMode: true,
@@ -21,7 +22,7 @@ const DEFAULTS = {
     stopLoss: '50.00',
     lossRecoveryStrategy: 'martingale' as 'martingale',
     targetProfitPerTrade: '0.35',
-    activeStrategy: 'trendSurfer' as 'trendSurfer' | 'xHunter4' | 'xHunter6',
+    activeStrategy: 'trendSurfer' as 'trendSurfer',
     minWinRate: 55,
     marketStabilityThreshold: '10',
     colorPatternProfiles: {},
@@ -83,6 +84,7 @@ export const useBotState = () => {
     const [duration, setDuration] = useState(initialState.duration);
     const [initialStake, setInitialStake] = useState(initialState.initialStake);
     const [digitTradeMode, setDigitTradeMode] = useState<'evenOdd' | 'overUnder'>(initialState.digitTradeMode);
+    const [attackMode, setAttackMode] = useState<'traditional' | '3+' | '4+' | '6+'>(initialState.attackMode);
     const [digitPrediction, setDigitPrediction] = useState<number>(initialState.digitPrediction);
     const [overUnderDirection, setOverUnderDirection] = useState<'OVER' | 'UNDER'>(initialState.overUnderDirection);
     const [isManualMode, setIsManualMode] = useState(initialState.isManualMode);
@@ -94,7 +96,7 @@ export const useBotState = () => {
     const [lossRecoveryStrategy, setLossRecoveryStrategy] = useState<'martingale'>(initialState.lossRecoveryStrategy);
     const [isMartingaleActive, setIsMartingaleActive] = useState(initialState.isMartingaleActive);
     const [martingaleMode, setMartingaleMode] = useState<'IMMEDIATE'>(initialState.martingaleMode);
-    const [activeStrategy, setActiveStrategy] = useState<'trendSurfer' | 'xHunter4' | 'xHunter6'>(initialState.activeStrategy);
+    const [activeStrategy, setActiveStrategy] = useState<'trendSurfer'>(initialState.activeStrategy);
     const [marketStabilityThreshold, setMarketStabilityThreshold] = useState<number | string>(initialState.marketStabilityThreshold);
     const [analyzerWindowSize, setAnalyzerWindowSize] = useState(initialState.analyzerWindowSize);
     const [isBotRunning, setIsBotRunning] = useState(false);
@@ -158,7 +160,7 @@ export const useBotState = () => {
     return {
         realToken, setRealToken, demoToken, setDemoToken, accountType, setAccountType, asset, setAsset,
         duration, setDuration, initialStake, setInitialStake,
-        digitTradeMode, setDigitTradeMode, digitPrediction, setDigitPrediction,
+        digitTradeMode, setDigitTradeMode, attackMode, setAttackMode, digitPrediction, setDigitPrediction,
         isMartingaleActive, setIsMartingaleActive, martingaleFactor, setMartingaleFactor, maxLevels, setMaxLevels,
         takeProfit, setTakeProfit, stopLoss, setStopLoss, martingaleMode, setMartingaleMode,
         isBotRunning, setIsBotRunning, isManualMode, setIsManualMode, isManualGaleActive, setIsManualGaleActive,
