@@ -21,7 +21,7 @@ const strategies = [
         style: "High-Reward Barrier", 
         image: "https://images.unsplash.com/photo-1531746790731-6c087fecd05a?auto=format&fit=crop&q=80&w=600",
         color: "orange",
-        description: "Busca lucros de 300%. Entra com $0.35 para retornar $1.00 de lucro usando barreiras matemáticas avançadas.",
+        description: "Busca lucros de 230%. Entra com $0.35 para retornar $0.80 de lucro líquido usando barreiras matemáticas avançadas (Acima de 6).",
         compatibleModes: ['overUnder'] 
     }
 ];

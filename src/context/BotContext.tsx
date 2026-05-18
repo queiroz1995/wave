@@ -180,18 +180,18 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const calculateTradeSignal = useCallback(() => {
         if (lastDigits.length < 20 || isStudying || virtualTradePending) return null;
 
-        // LÓGICA SNIPER X-HUNTER (MODO ULTRA SEGURO)
+        // LÓGICA SNIPER X-HUNTER (MODO ULTRA SEGURO - ACIMA DE 6)
         if (activeStrategy === 'xHunter') {
             const sequenceSize = 6;
             const lastSequence = lastDigits.slice(0, sequenceSize);
-            const isExhausted = lastSequence.every(d => d <= 7);
-            const probHigh = neuralPredictions[8] + neuralPredictions[9];
+            const isExhausted = lastSequence.every(d => d <= 6); // Agora exaustão é dígito 0 a 6
+            const probHigh = neuralPredictions[7] + neuralPredictions[8] + neuralPredictions[9]; // Probabilidade de 7, 8 ou 9
             
             if (isExhausted && probHigh > 20) {
                 return { 
                     type: 'OVER', 
                     contract: 'DIGITOVER', 
-                    barrier: 7, 
+                    barrier: 6, // Barreira mudada para 6
                     name: 'Sniper X-Hunter', 
                     details: `Sequência de exaustão (${sequenceSize}x) detectada. Probabilidade Neural: ${probHigh.toFixed(1)}%` 
                 };
