@@ -21,7 +21,7 @@ const DEFAULTS = {
     stopLoss: '50.00',
     lossRecoveryStrategy: 'martingale' as 'martingale',
     targetProfitPerTrade: '0.35',
-    activeStrategy: 'trendSurfer' as 'trendSurfer' | 'xHunter',
+    activeStrategy: 'trendSurfer' as 'trendSurfer' | 'xHunter4' | 'xHunter6',
     minWinRate: 55,
     marketStabilityThreshold: '10',
     colorPatternProfiles: {},
@@ -94,7 +94,7 @@ export const useBotState = () => {
     const [lossRecoveryStrategy, setLossRecoveryStrategy] = useState<'martingale'>(initialState.lossRecoveryStrategy);
     const [isMartingaleActive, setIsMartingaleActive] = useState(initialState.isMartingaleActive);
     const [martingaleMode, setMartingaleMode] = useState<'IMMEDIATE'>(initialState.martingaleMode);
-    const [activeStrategy, setActiveStrategy] = useState<'trendSurfer' | 'xHunter'>(initialState.activeStrategy);
+    const [activeStrategy, setActiveStrategy] = useState<'trendSurfer' | 'xHunter4' | 'xHunter6'>(initialState.activeStrategy);
     const [marketStabilityThreshold, setMarketStabilityThreshold] = useState<number | string>(initialState.marketStabilityThreshold);
     const [analyzerWindowSize, setAnalyzerWindowSize] = useState(initialState.analyzerWindowSize);
     const [isBotRunning, setIsBotRunning] = useState(false);

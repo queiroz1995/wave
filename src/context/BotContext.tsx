@@ -181,19 +181,38 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (lastDigits.length < 20 || isStudying || virtualTradePending) return null;
 
         // LÓGICA SNIPER X-HUNTER (MODO ULTRA SEGURO - ACIMA DE 6)
-        if (activeStrategy === 'xHunter') {
+        if (activeStrategy === 'xHunter6') {
             const sequenceSize = 6;
             const lastSequence = lastDigits.slice(0, sequenceSize);
-            const isExhausted = lastSequence.every(d => d <= 6); // Agora exaustão é dígito 0 a 6
-            const probHigh = neuralPredictions[7] + neuralPredictions[8] + neuralPredictions[9]; // Probabilidade de 7, 8 ou 9
+            const isExhausted = lastSequence.every(d => d <= 6); 
+            const probHigh = neuralPredictions[7] + neuralPredictions[8] + neuralPredictions[9]; 
             
             if (isExhausted && probHigh > 20) {
                 return { 
                     type: 'OVER', 
                     contract: 'DIGITOVER', 
-                    barrier: 6, // Barreira mudada para 6
-                    name: 'Sniper X-Hunter', 
-                    details: `Sequência de exaustão (${sequenceSize}x) detectada. Probabilidade Neural: ${probHigh.toFixed(1)}%` 
+                    barrier: 6, 
+                    name: 'Sniper X-Hunter (6+)', 
+                    details: `Exaustão detectada. Probabilidade Neural (7,8,9): ${probHigh.toFixed(1)}%` 
+                };
+            }
+            return null;
+        }
+
+        // LÓGICA SNIPER X-HUNTER (MODO FREQUÊNCIA - ACIMA DE 4)
+        if (activeStrategy === 'xHunter4') {
+            const sequenceSize = 4;
+            const lastSequence = lastDigits.slice(0, sequenceSize);
+            const isExhausted = lastSequence.every(d => d <= 4); 
+            const probHigh = neuralPredictions[5] + neuralPredictions[6] + neuralPredictions[7] + neuralPredictions[8] + neuralPredictions[9];
+            
+            if (isExhausted && probHigh > 45) {
+                return { 
+                    type: 'OVER', 
+                    contract: 'DIGITOVER', 
+                    barrier: 4, 
+                    name: 'Sniper X-Hunter (4+)', 
+                    details: `Sinal de Frequência. Probabilidade Neural (5-9): ${probHigh.toFixed(1)}%` 
                 };
             }
             return null;
@@ -329,7 +348,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const selectAI = useCallback((ia: any) => { 
         setSelectedAIInfo(ia); 
         setActiveStrategy(ia.id); 
-        if (ia.id === 'xHunter') setInitialStake('0.35'); 
+        if (ia.id === 'xHunter4' || ia.id === 'xHunter6') setInitialStake('0.35'); 
         setAppFlow('operating'); 
     }, [setActiveStrategy, setInitialStake]);
 

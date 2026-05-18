@@ -16,12 +16,21 @@ const strategies = [
         compatibleModes: ['evenOdd'] 
     },
     { 
-        id: "xHunter", 
-        name: "SNIPER X-HUNTER", 
-        style: "High-Reward Barrier", 
+        id: "xHunter4", 
+        name: "X-HUNTER (4+)", 
+        style: "High Frequency", 
+        image: "https://images.unsplash.com/photo-1531746790731-6c087fecd05a?auto=format&fit=crop&q=80&w=600",
+        color: "green",
+        description: "Equilíbrio e assertividade. Vence se o dígito for 5, 6, 7, 8 ou 9. Lucro moderado e constante.",
+        compatibleModes: ['overUnder'] 
+    },
+    { 
+        id: "xHunter6", 
+        name: "X-HUNTER (6+)", 
+        style: "High Reward", 
         image: "https://images.unsplash.com/photo-1531746790731-6c087fecd05a?auto=format&fit=crop&q=80&w=600",
         color: "orange",
-        description: "Busca lucros de 230%. Entra com $0.35 para retornar $0.80 de lucro líquido usando barreiras matemáticas avançadas (Acima de 6).",
+        description: "Busca lucros de 230%. Vence se o dígito for 7, 8 ou 9. Exige mais paciência e exaustão de mercado.",
         compatibleModes: ['overUnder'] 
     }
 ];
@@ -39,7 +48,7 @@ export const AILandingPage = () => {
                 <p className="text-sm text-muted-foreground font-medium">Escolha a inteligência que melhor se adapta à sua banca.</p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
                 {strategies.map((ia) => (
                     <StrategyAICard 
                         key={ia.id}
