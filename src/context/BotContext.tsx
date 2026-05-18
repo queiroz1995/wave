@@ -180,54 +180,56 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const calculateTradeSignal = useCallback(() => {
         if (lastDigits.length < 20 || isStudying || virtualTradePending) return null;
 
-        // MODO 6+
-        if (attackMode === '6+') {
-            const sequenceSize = 6;
-            const lastSequence = lastDigits.slice(0, sequenceSize);
-            const isExhausted = lastSequence.every(d => d <= 6); 
-            const probHigh = neuralPredictions[7] + neuralPredictions[8] + neuralPredictions[9]; 
-            if (isExhausted && probHigh > 20) {
-                return { type: 'OVER', contract: 'DIGITOVER', barrier: 6, name: 'WAVE Hunter (6+)', details: `Sniper 6+ Ativo. Probabilidade: ${probHigh.toFixed(1)}%` };
+        // Itera sobre todos os modos ativos para encontrar o primeiro sinal válido
+        for (const mode of attackMode) {
+            // MODO 6+
+            if (mode === '6+') {
+                const sequenceSize = 6;
+                const lastSequence = lastDigits.slice(0, sequenceSize);
+                const isExhausted = lastSequence.every(d => d <= 6); 
+                const probHigh = neuralPredictions[7] + neuralPredictions[8] + neuralPredictions[9]; 
+                if (isExhausted && probHigh > 20) {
+                    return { type: 'OVER', contract: 'DIGITOVER', barrier: 6, name: 'WAVE Hunter (6+)', details: `Sniper 6+ Ativo.` };
+                }
             }
-            return null;
-        }
 
-        // MODO 4+
-        if (attackMode === '4+') {
-            const sequenceSize = 4;
-            const lastSequence = lastDigits.slice(0, sequenceSize);
-            const isExhausted = lastSequence.every(d => d <= 4); 
-            const probHigh = neuralPredictions[5] + neuralPredictions[6] + neuralPredictions[7] + neuralPredictions[8] + neuralPredictions[9];
-            if (isExhausted && probHigh > 45) {
-                return { type: 'OVER', contract: 'DIGITOVER', barrier: 4, name: 'WAVE Hunter (4+)', details: `Sniper 4+ Ativo. Probabilidade: ${probHigh.toFixed(1)}%` };
+            // MODO 4+
+            if (mode === '4+') {
+                const sequenceSize = 4;
+                const lastSequence = lastDigits.slice(0, sequenceSize);
+                const isExhausted = lastSequence.every(d => d <= 4); 
+                const probHigh = neuralPredictions[5] + neuralPredictions[6] + neuralPredictions[7] + neuralPredictions[8] + neuralPredictions[9];
+                if (isExhausted && probHigh > 45) {
+                    return { type: 'OVER', contract: 'DIGITOVER', barrier: 4, name: 'WAVE Hunter (4+)', details: `Sniper 4+ Ativo.` };
+                }
             }
-            return null;
-        }
 
-        // MODO 3+
-        if (attackMode === '3+') {
-            const sequenceSize = 3;
-            const lastSequence = lastDigits.slice(0, sequenceSize);
-            const isExhausted = lastSequence.every(d => d <= 3); 
-            const probHigh = neuralPredictions[4] + neuralPredictions[5] + neuralPredictions[6] + neuralPredictions[7] + neuralPredictions[8] + neuralPredictions[9];
-            if (isExhausted && probHigh > 55) {
-                return { type: 'OVER', contract: 'DIGITOVER', barrier: 3, name: 'WAVE Hunter (3+)', details: `Sniper 3+ Ativo. Probabilidade: ${probHigh.toFixed(1)}%` };
+            // MODO 3+
+            if (mode === '3+') {
+                const sequenceSize = 3;
+                const lastSequence = lastDigits.slice(0, sequenceSize);
+                const isExhausted = lastSequence.every(d => d <= 3); 
+                const probHigh = neuralPredictions[4] + neuralPredictions[5] + neuralPredictions[6] + neuralPredictions[7] + neuralPredictions[8] + neuralPredictions[9];
+                if (isExhausted && probHigh > 55) {
+                    return { type: 'OVER', contract: 'DIGITOVER', barrier: 3, name: 'WAVE Hunter (3+)', details: `Sniper 3+ Ativo.` };
+                }
             }
-            return null;
-        }
 
-        // MODO TRADICIONAL (EVEN/ODD)
-        const sample = lastDigits.slice(0, 15);
-        const evens = sample.filter(d => d % 2 === 0).length;
-        const odds = 15 - evens;
-        const evenNeural = neuralPredictions.filter((p, i) => i % 2 === 0).reduce((a, b) => a + b, 0);
-        const oddNeural = neuralPredictions.filter((p, i) => i % 2 !== 0).reduce((a, b) => a + b, 0);
+            // MODO TRADICIONAL
+            if (mode === 'traditional') {
+                const sample = lastDigits.slice(0, 15);
+                const evens = sample.filter(d => d % 2 === 0).length;
+                const odds = 15 - evens;
+                const evenNeural = neuralPredictions.filter((p, i) => i % 2 === 0).reduce((a, b) => a + b, 0);
+                const oddNeural = neuralPredictions.filter((p, i) => i % 2 !== 0).reduce((a, b) => a + b, 0);
 
-        if (evens >= 9 && evenNeural > 50) {
-            return { type: 'EVEN', contract: 'DIGITEVEN', name: 'WAVE Traditional', details: `Tendência Par Ativa.` };
-        }
-        if (odds >= 9 && oddNeural > 50) {
-            return { type: 'ODD', contract: 'DIGITODD', name: 'WAVE Traditional', details: `Tendência Ímpar Ativa.` };
+                if (evens >= 9 && evenNeural > 50) {
+                    return { type: 'EVEN', contract: 'DIGITEVEN', name: 'WAVE Traditional', details: `Tendência Par.` };
+                }
+                if (odds >= 9 && oddNeural > 50) {
+                    return { type: 'ODD', contract: 'DIGITODD', name: 'WAVE Traditional', details: `Tendência Ímpar.` };
+                }
+            }
         }
 
         return null;
@@ -334,7 +336,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setConsecutiveLosses(0); setIsPaused(false);
             setIsStudying(false);
             setVirtualLossStreak(0);
-            addLog(`Ativado Modo WAVE AI: ${attackMode}`, "INFO");
+            addLog(`Ativado Modo WAVE AI: ${attackMode.join(' + ')}`, "INFO");
         }
     }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog, attackMode, setIsStudying, setVirtualLossStreak]);
 

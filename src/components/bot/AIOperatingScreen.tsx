@@ -41,6 +41,19 @@ export const AIOperatingScreen = () => {
         toggleBot();
     };
 
+    const toggleAttackMode = (id: string) => {
+        if (isBotRunning) return;
+        
+        setAttackMode((prev: string[]) => {
+            if (prev.includes(id)) {
+                // Não deixa ficar sem nenhum modo
+                if (prev.length <= 1) return prev;
+                return prev.filter(m => m !== id);
+            }
+            return [...prev, id];
+        });
+    };
+
     const getSignalLabel = (signal: string) => {
         switch (signal) {
             case 'EVEN': return { text: 'PAR', color: 'bg-green-50 text-green-600' };
@@ -60,20 +73,20 @@ export const AIOperatingScreen = () => {
     return (
         <div className="w-full max-w-md mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
             
-            {/* SELETOR DE MODO DE ATAQUE */}
+            {/* SELETOR DE MODO DE ATAQUE - MULTIMODAL */}
             <div className="bg-white/40 backdrop-blur-md border border-white/60 p-1.5 rounded-[2rem] shadow-sm">
                 <div className="grid grid-cols-4 gap-1">
                     {attackModes.map((mode) => (
                         <button
                             key={mode.id}
-                            onClick={() => !isBotRunning && setAttackMode(mode.id)}
+                            onClick={() => toggleAttackMode(mode.id)}
                             disabled={isBotRunning}
                             className={cn(
                                 "flex flex-col items-center justify-center py-2 rounded-2xl transition-all duration-300",
-                                attackMode === mode.id 
+                                attackMode.includes(mode.id) 
                                     ? "bg-primary text-white shadow-lg scale-100" 
-                                    : "text-muted-foreground hover:bg-white/50 opacity-60",
-                                isBotRunning && attackMode !== mode.id && "opacity-20"
+                                    : "text-muted-foreground hover:bg-white/50 opacity-40",
+                                isBotRunning && !attackMode.includes(mode.id) && "opacity-10"
                             )}
                         >
                             <span className="text-[9px] font-black tracking-widest">{mode.label}</span>
@@ -89,8 +102,8 @@ export const AIOperatingScreen = () => {
                     <div className="flex items-center gap-3">
                         <Swords className="h-6 w-6 text-green-500 animate-pulse" />
                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-green-600">MODO {attackMode} ATIVO</p>
-                            <p className="text-xs font-bold text-green-700">Sincronizando com Ticks...</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-green-600">NÚCLEO MULTIMODAL ATIVO</p>
+                            <p className="text-xs font-bold text-green-700">Sincronizando {attackMode.length} estratégias...</p>
                         </div>
                     </div>
                 </div>
@@ -126,7 +139,7 @@ export const AIOperatingScreen = () => {
                                     {selectedAIInfo?.name || 'WAVE AI'} <Zap className="h-5 w-5 text-blue-500 fill-current" />
                                 </h2>
                                 <Badge variant="secondary" className="text-[9px] font-black px-2 py-0 uppercase tracking-widest bg-blue-500/10 text-blue-600 border-none">
-                                    MODO DE ATAQUE: {attackMode}
+                                    {attackMode.length} MODOS ATIVOS
                                 </Badge>
                             </div>
                         </div>

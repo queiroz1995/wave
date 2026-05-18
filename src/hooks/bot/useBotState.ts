@@ -11,7 +11,7 @@ const DEFAULTS = {
     duration: 1,
     initialStake: '1.00',
     digitTradeMode: 'evenOdd' as 'evenOdd' | 'overUnder',
-    attackMode: 'traditional' as 'traditional' | '3+' | '4+' | '6+',
+    attackMode: ['traditional'] as string[], // Agora é um array
     digitPrediction: 5,
     overUnderDirection: 'OVER' as 'OVER' | 'UNDER',
     isManualMode: true,
@@ -84,7 +84,7 @@ export const useBotState = () => {
     const [duration, setDuration] = useState(initialState.duration);
     const [initialStake, setInitialStake] = useState(initialState.initialStake);
     const [digitTradeMode, setDigitTradeMode] = useState<'evenOdd' | 'overUnder'>(initialState.digitTradeMode);
-    const [attackMode, setAttackMode] = useState<'traditional' | '3+' | '4+' | '6+'>(initialState.attackMode);
+    const [attackMode, setAttackMode] = useState<string[]>(initialState.attackMode); // Array de strings
     const [digitPrediction, setDigitPrediction] = useState<number>(initialState.digitPrediction);
     const [overUnderDirection, setOverUnderDirection] = useState<'OVER' | 'UNDER'>(initialState.overUnderDirection);
     const [isManualMode, setIsManualMode] = useState(initialState.isManualMode);
