@@ -97,74 +97,101 @@ export const BankManagement = () => {
     };
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-primary"><DollarSign className="h-5 w-5" />Gerenciamento de Banca</CardTitle>
-                <CardDescription>Planeje e acompanhe seu progresso diário. Suas configurações e progresso são salvos automaticamente.</CardDescription>
+        <Card className="border-none shadow-none bg-transparent sm:bg-card sm:border sm:shadow-sm">
+            <CardHeader className="px-4 py-3 sm:p-6">
+                <CardTitle className="flex items-center gap-2 text-primary text-lg sm:text-xl">
+                    <DollarSign className="h-5 w-5" />Gerenciamento
+                </CardTitle>
+                <CardDescription className="text-[11px] sm:text-sm">Planeje e acompanhe seu progresso diário.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-                <div className="space-y-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="initial-bankroll">Banca Inicial ($)</Label>
+            <CardContent className="px-4 py-2 space-y-4 sm:space-y-6 sm:p-6">
+                <div className="grid grid-cols-1 gap-4">
+                    <div className="space-y-1.5">
+                        <Label htmlFor="initial-bankroll" className="text-xs font-bold uppercase tracking-wider opacity-60">Banca Inicial ($)</Label>
                         <Input
                             id="initial-bankroll"
                             value={bankManagementInitialBankroll}
                             onChange={(e) => {
                                 const value = e.target.value;
-                                // Allow only numbers and a single decimal point, replacing comma with dot
                                 if (/^\d*[,.]?\d*$/.test(value)) {
                                     setBankManagementInitialBankroll(value.replace(',', '.'));
                                 }
                             }}
                             placeholder="Ex: 100.00"
-                            className="text-base"
+                            className="h-9 text-sm"
                         />
                     </div>
-                    <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                            <Label htmlFor="daily-goal">Meta Diária (%)</Label>
-                            <span className="font-bold text-primary">{(parseFloat(bankManagementDailyGoalPercent) || 5).toFixed(1)}%</span>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                            <div className="flex justify-between items-center">
+                                <Label className="text-[10px] font-bold uppercase opacity-60">Meta (%)</Label>
+                                <span className="text-xs font-black text-primary">{(parseFloat(bankManagementDailyGoalPercent) || 5).toFixed(1)}%</span>
+                            </div>
+                            <Slider value={[parseFloat(bankManagementDailyGoalPercent) || 5]} onValueChange={(v) => setBankManagementDailyGoalPercent(v[0].toFixed(1))} min={0.5} max={20} step={0.5} className="py-2" />
                         </div>
-                        <Slider id="daily-goal" value={[parseFloat(bankManagementDailyGoalPercent) || 5]} onValueChange={(v) => setBankManagementDailyGoalPercent(v[0].toFixed(1))} min={0.5} max={20} step={0.5} />
-                    </div>
-                    <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                            <Label htmlFor="daily-stop">Stop Diário (%)</Label>
-                            <span className="font-bold text-primary">{(parseFloat(bankManagementDailyStopPercent) || 10).toFixed(1)}%</span>
+                        <div className="space-y-1.5">
+                            <div className="flex justify-between items-center">
+                                <Label className="text-[10px] font-bold uppercase opacity-60">Stop (%)</Label>
+                                <span className="text-xs font-black text-primary">{(parseFloat(bankManagementDailyStopPercent) || 10).toFixed(1)}%</span>
+                            </div>
+                            <Slider value={[parseFloat(bankManagementDailyStopPercent) || 10]} onValueChange={(v) => setBankManagementDailyStopPercent(v[0].toFixed(1))} min={0.5} max={20} step={0.5} className="py-2" />
                         </div>
-                        <Slider id="daily-stop" value={[parseFloat(bankManagementDailyStopPercent) || 10]} onValueChange={(v) => setBankManagementDailyStopPercent(v[0].toFixed(1))} min={0.5} max={20} step={0.5} />
                     </div>
                 </div>
 
-                <ScrollArea className="h-[400px] border rounded-md"><Table><TableHeader className="sticky top-0 bg-card/95 backdrop-blur-sm"><TableRow>
-                    <TableHead className="w-[50px] p-2 text-xs sm:text-sm">Dia</TableHead>
-                    <TableHead className="p-2 text-xs sm:text-sm"><span className="sm:hidden">Inicial</span><span className="hidden sm:inline">Banca Inicial</span></TableHead>
-                    <TableHead className="p-2 text-xs text-green-500 sm:text-sm"><span className="sm:hidden">Meta</span><span className="hidden sm:inline">Meta do Dia</span></TableHead>
-                    <TableHead className="p-2 text-xs text-red-500 sm:text-sm"><span className="sm:hidden">Stop</span><span className="hidden sm:inline">Stop do Dia</span></TableHead>
-                    <TableHead className="p-2 text-xs sm:text-sm text-right"><span className="sm:hidden">Final</span><span className="hidden sm:inline">Banca Final</span></TableHead>
-                </TableRow></TableHeader><TableBody>
-                    {plan.length > 0 ? plan.map(p => (
-                        <TableRow key={p.day} className={cn(p.day === bankManagementCurrentDay && "bg-primary/10 border-l-4 border-primary")}>
-                            <TableCell className="p-2 text-xs font-medium sm:text-sm">{p.day}</TableCell>
-                            <TableCell className="p-2 text-xs sm:text-sm">${p.initialBankroll.toFixed(2)}</TableCell>
-                            <TableCell className="p-2 text-xs font-semibold text-green-500 sm:text-sm">${p.goalValue.toFixed(2)}</TableCell>
-                            <TableCell className="p-2 text-xs font-semibold text-red-500 sm:text-sm">${p.stopValue.toFixed(2)}</TableCell>
-                            <TableCell className="p-2 text-xs sm:text-sm text-right">${p.projectedEndBankroll.toFixed(2)}</TableCell>
-                        </TableRow>
-                    )) : (<TableRow><TableCell colSpan={5} className="h-24 text-center text-muted-foreground">Preencha os campos acima para gerar seu plano.</TableCell></TableRow>)}
-                </TableBody></Table></ScrollArea>
+                <div className="rounded-xl border bg-white/50 overflow-hidden">
+                    <ScrollArea className="h-[250px] sm:h-[350px]">
+                        <Table>
+                            <TableHeader className="sticky top-0 bg-white/90 backdrop-blur-md z-10">
+                                <TableRow className="hover:bg-transparent border-b">
+                                    <TableHead className="w-[40px] px-2 py-2 text-[9px] font-black uppercase">Dia</TableHead>
+                                    <TableHead className="px-2 py-2 text-[9px] font-black uppercase text-center">Inicial</TableHead>
+                                    <TableHead className="px-2 py-2 text-[9px] font-black uppercase text-center text-green-600">Meta</TableHead>
+                                    <TableHead className="px-2 py-2 text-[9px] font-black uppercase text-right">Final</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {plan.length > 0 ? plan.map(p => (
+                                    <TableRow key={p.day} className={cn(
+                                        "hover:bg-gray-50/50",
+                                        p.day === bankManagementCurrentDay && "bg-primary/5 border-l-4 border-primary"
+                                    )}>
+                                        <TableCell className="px-2 py-2.5 text-[10px] font-bold">{p.day}</TableCell>
+                                        <TableCell className="px-2 py-2.5 text-[10px] text-center font-medium">${p.initialBankroll.toFixed(2)}</TableCell>
+                                        <TableCell className="px-2 py-2.5 text-[10px] text-center font-black text-green-600">${p.goalValue.toFixed(2)}</TableCell>
+                                        <TableCell className="px-2 py-2.5 text-[10px] text-right font-bold text-primary">${p.projectedEndBankroll.toFixed(2)}</TableCell>
+                                    </TableRow>
+                                )) : (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="h-24 text-center text-[10px] font-bold text-muted-foreground uppercase tracking-widest opacity-30">
+                                            Aguardando dados...
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </ScrollArea>
+                </div>
             </CardContent>
-            <CardFooter className="flex flex-col gap-4 pt-6 border-t">
-                <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <p className="text-lg font-bold">Controle do Dia {bankManagementCurrentDay}</p>
-                    <div className="flex gap-2">
-                        <Button onClick={handleGoalMet} className="bg-green-600 hover:bg-green-700"><ThumbsUp className="h-4 w-4 mr-2" />Meta Batida</Button>
-                        <Button onClick={handleStopLossHit} variant="destructive"><ThumbsDown className="h-4 w-4 mr-2" />Stop Atingido</Button>
+            <CardFooter className="px-4 py-4 flex flex-col gap-3 border-t sm:p-6 bg-gray-50/30">
+                <div className="w-full flex items-center justify-between">
+                    <p className="text-xs font-black uppercase tracking-tighter">Status Dia {bankManagementCurrentDay}</p>
+                    <div className="flex gap-1.5">
+                        <Button onClick={handleGoalMet} size="sm" className="h-8 px-3 bg-green-600 hover:bg-green-700 text-[10px] font-bold uppercase">
+                            <ThumbsUp className="h-3 w-3 mr-1" /> Meta
+                        </Button>
+                        <Button onClick={handleStopLossHit} size="sm" variant="destructive" className="h-8 px-3 text-[10px] font-bold uppercase">
+                            <ThumbsDown className="h-3 w-3 mr-1" /> Stop
+                        </Button>
                     </div>
                 </div>
-                <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t">
-                    <Button onClick={handleResetPlan} variant="outline" size="sm"><RotateCcw className="h-4 w-4 mr-2" />Resetar Plano</Button>
-                    <Button onClick={handleApplyToBot} size="lg" className="w-full sm:w-auto"><Target className="h-4 w-4 mr-2" />Aplicar Metas de Hoje</Button>
+                <div className="w-full grid grid-cols-2 gap-2">
+                    <Button onClick={handleResetPlan} variant="outline" size="sm" className="h-9 text-[10px] font-bold uppercase">
+                        <RotateCcw className="h-3 w-3 mr-1" /> Reset
+                    </Button>
+                    <Button onClick={handleApplyToBot} size="sm" className="h-9 text-[10px] font-bold uppercase">
+                        <Target className="h-3 w-3 mr-1" /> Aplicar Meta
+                    </Button>
                 </div>
             </CardFooter>
         </Card>
