@@ -6,26 +6,35 @@ import { useBotState } from './useBotState';
 export const useBotPersistence = (state: ReturnType<typeof useBotState>) => {
     const {
         realToken, demoToken, accountType, asset, duration, initialStake,
-        digitTradeMode, digitPrediction, overUnderDirection,
+        digitTradeMode, attackMode, digitPrediction, overUnderDirection,
         martingaleFactor, maxLevels, takeProfit, stopLoss,
         isMartingaleActive, analyzerWindowSize, isManualMode,
-        learningData, scoreThreshold, marketStabilityThreshold
+        learningData, scoreThreshold, marketStabilityThreshold,
+        bankManagementInitialBankroll, bankManagementDailyGoalPercent,
+        bankManagementDailyStopPercent, bankManagementCurrentDay,
+        bankManagementActualBankroll
     } = state;
     
     useEffect(() => {
         const stateToSave = {
             realToken, demoToken, accountType, asset, duration, initialStake,
-            digitTradeMode, digitPrediction, overUnderDirection,
+            digitTradeMode, attackMode, digitPrediction, overUnderDirection,
             martingaleFactor, maxLevels, takeProfit, stopLoss,
             isMartingaleActive, analyzerWindowSize, isManualMode,
-            learningData, scoreThreshold, marketStabilityThreshold
+            learningData, scoreThreshold, marketStabilityThreshold,
+            bankManagementInitialBankroll, bankManagementDailyGoalPercent,
+            bankManagementDailyStopPercent, bankManagementCurrentDay,
+            bankManagementActualBankroll
         };
         localStorage.setItem('derivBotState', JSON.stringify(stateToSave));
     }, [
         realToken, demoToken, accountType, asset, duration, initialStake,
-        digitTradeMode, digitPrediction, overUnderDirection,
+        digitTradeMode, attackMode, digitPrediction, overUnderDirection,
         martingaleFactor, maxLevels, takeProfit, stopLoss,
         isMartingaleActive, analyzerWindowSize, isManualMode,
-        learningData, scoreThreshold, marketStabilityThreshold
+        learningData, scoreThreshold, marketStabilityThreshold,
+        bankManagementInitialBankroll, bankManagementDailyGoalPercent,
+        bankManagementDailyStopPercent, bankManagementCurrentDay,
+        bankManagementActualBankroll
     ]);
 };
