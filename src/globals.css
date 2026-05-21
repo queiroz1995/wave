@@ -61,3 +61,17 @@
     background-size: 100% 4px;
   }
 }
+
+@keyframes scan {
+  0% { top: 0; }
+  100% { top: 100%; }
+}
+
+@keyframes pulse-bright {
+  0%, 100% { opacity: 1; filter: brightness(1); }
+  50% { opacity: 0.8; filter: brightness(1.3); }
+}
+
+.animate-pulse-bright {
+  animation: pulse-bright 2s ease-in-out infinite;
+}
