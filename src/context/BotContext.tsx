@@ -35,7 +35,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         signalId: string | null, 
         contractType: ContractType | null, 
         patternName: string, 
-        barrier?: number 
+        barrier?: number,
+        isSuperOp?: boolean
     } | null>(null);
     
     const lastLossContractType = useRef<ContractType | null>(null);
@@ -202,7 +203,15 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (mode === '1+') {
                 const lastSeq = lastDigits.slice(0, 3);
                 const isUnder = lastSeq.every(d => d <= 1);
+                // Calcula probabilidade neural para dígitos > 1 (2 até 9)
                 const probHigh = neuralPredictions.slice(2).reduce((a, b) => a + b, 0);
+                
+                // Gatilho de Super Oportunidade ($6.00)
+                if (isUnder && probHigh > 85) {
+                    baseSignal = { type: 'OVER', contract: 'DIGITOVER', barrier: 1, name: 'Sniper 1+', details: 'SUPER OPORTUNIDADE: Confiança 85%+', isSuperOp: true };
+                    break;
+                }
+                // Gatilho Normal
                 if (isUnder && probHigh > 70) {
                     baseSignal = { type: 'OVER', contract: 'DIGITOVER', barrier: 1, name: 'Sniper 1+', details: 'Oportunidade 1+ detectada.' };
                     break;
@@ -213,7 +222,15 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (mode === '2+') {
                 const lastSeq = lastDigits.slice(0, 3);
                 const isUnder = lastSeq.every(d => d <= 2);
+                // Calcula probabilidade neural para dígitos > 2 (3 até 9)
                 const probHigh = neuralPredictions.slice(3).reduce((a, b) => a + b, 0);
+                
+                // Gatilho de Super Oportunidade ($6.00)
+                if (isUnder && probHigh > 80) {
+                    baseSignal = { type: 'OVER', contract: 'DIGITOVER', barrier: 2, name: 'Sniper 2+', details: 'SUPER OPORTUNIDADE: Confiança 80%+', isSuperOp: true };
+                    break;
+                }
+                // Gatilho Normal
                 if (isUnder && probHigh > 60) {
                     baseSignal = { type: 'OVER', contract: 'DIGITOVER', barrier: 2, name: 'Sniper 2+', details: 'Oportunidade 2+ detectada.' };
                     break;
@@ -275,12 +292,20 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return baseSignal;
     }, [lastDigits, neuralPredictions, isStudying, virtualTradePending, attackMode, consecutiveLosses]);
 
-    const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, patternName: string, barrier?: number) => {
+    const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string | null, patternName: string, barrier?: number, isSuperOp?: boolean) => {
         if (!isConnected || isTradeOpen.current || isPaused || isStudying) return;
         
-        const baseStake = parseFloat(initialStake) || 1.00;
-        const mgFactor = parseFloat(martingaleFactor) || 1.8;
-        const stakeToUse = martingaleLevel.current > 0 ? baseStake * Math.pow(mgFactor, martingaleLevel.current) : baseStake;
+        let stakeToUse = 0;
+        
+        // Regra de Super Oportunidade: se for Sniper 1+ ou 2+ com alta confiança, usa $6.00
+        if (isSuperOp) {
+            stakeToUse = 6.00;
+            addLog(`ALVO CONFIRMADO: Disparando Sniper com High Stake ($6.00)`, "TRADE");
+        } else {
+            const baseStake = parseFloat(initialStake) || 1.00;
+            const mgFactor = parseFloat(martingaleFactor) || 1.8;
+            stakeToUse = martingaleLevel.current > 0 ? baseStake * Math.pow(mgFactor, martingaleLevel.current) : baseStake;
+        }
         
         const params: any = { 
             amount: parseFloat(stakeToUse.toFixed(2)), 
@@ -294,11 +319,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (barrier !== undefined) params.barrier = barrier;
 
-        lastTradeDetails.current = { stake: stakeToUse, strategyName, signalId, contractType, patternName, barrier };
+        lastTradeDetails.current = { stake: stakeToUse, strategyName, signalId, contractType, patternName, barrier, isSuperOp };
         isTradeOpen.current = true;
         setTradeStatus('SENDING');
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params });
-    }, [isConnected, initialStake, asset, sendMessage, setTradeStatus, martingaleFactor, isPaused, isStudying]);
+    }, [isConnected, initialStake, asset, sendMessage, setTradeStatus, martingaleFactor, isPaused, isStudying, addLog]);
 
     useEffect(() => {
         if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isTradeOpen.current || isPaused || isStudying) return;
@@ -317,7 +342,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 details: signal.details,
                 winRate: 'N/A' 
             });
-            executeBuy(signal.contract as ContractType, signal.name, sId, signal.name, (signal as any).barrier);
+            executeBuy(signal.contract as ContractType, signal.name, sId, signal.name, signal.barrier, signal.isSuperOp);
         }
     }, [isBotRunning, lastTickEpoch, calculateTradeSignal, addSignal, executeBuy, isPaused, isStudying, virtualTargetLosses, virtualLossStreak]);
 
