@@ -56,10 +56,10 @@ export const AIOperatingScreen = () => {
 
     const getSignalLabel = (signal: string) => {
         switch (signal) {
-            case 'EVEN': return { text: 'PAR', color: 'bg-green-100 text-green-600 border-green-200' };
-            case 'ODD': return { text: 'ÍMPAR', color: 'bg-red-100 text-red-600 border-red-200' };
-            case 'OVER': return { text: 'ACIMA', color: 'bg-blue-100 text-blue-600 border-blue-200' };
-            default: return { text: signal, color: 'bg-gray-100 text-gray-600 border-gray-200' };
+            case 'EVEN': return { text: 'PAR', color: 'bg-green-100/50 text-green-600 border-green-200/50' };
+            case 'ODD': return { text: 'ÍMPAR', color: 'bg-red-100/50 text-red-600 border-red-200/50' };
+            case 'OVER': return { text: 'ACIMA', color: 'bg-blue-100/50 text-blue-600 border-blue-200/50' };
+            default: return { text: signal, color: 'bg-gray-100/50 text-gray-600 border-gray-200/50' };
         }
     };
 
@@ -74,7 +74,7 @@ export const AIOperatingScreen = () => {
         <div className="w-full max-w-md mx-auto space-y-4 sm:space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-700 px-2 sm:px-0">
             
             {/* Seleção de Modos HUD */}
-            <div className="bg-white/40 backdrop-blur-md border border-white/60 p-1.5 rounded-[1.5rem] sm:rounded-[2rem] shadow-sm">
+            <div className="bg-white/20 backdrop-blur-md border border-white/40 p-1.5 rounded-[1.5rem] sm:rounded-[2rem] shadow-sm">
                 <div className="grid grid-cols-4 gap-1">
                     {attackModes.map((mode) => (
                         <button
@@ -85,7 +85,7 @@ export const AIOperatingScreen = () => {
                                 "flex flex-col items-center justify-center py-2 rounded-xl sm:rounded-2xl transition-all duration-300 relative overflow-hidden group",
                                 attackMode.includes(mode.id) 
                                     ? "bg-primary text-white shadow-lg scale-100" 
-                                    : "text-muted-foreground hover:bg-white/50 opacity-40",
+                                    : "text-muted-foreground hover:bg-white/30 opacity-40",
                                 isBotRunning && !attackMode.includes(mode.id) && "opacity-10"
                             )}
                         >
@@ -104,8 +104,8 @@ export const AIOperatingScreen = () => {
                 <div className={cn(
                     "rounded-2xl p-3 sm:p-4 flex items-center justify-between border-2 transition-all duration-500",
                     isStudying 
-                        ? "bg-blue-500/10 border-blue-500/30 animate-pulse" 
-                        : "bg-green-500/10 border-green-500/30 shadow-[0_0_20px_rgba(34,197,94,0.1)]"
+                        ? "bg-blue-500/5 border-blue-500/20 animate-pulse" 
+                        : "bg-green-500/5 border-green-500/20 shadow-[0_0_20px_rgba(34,197,94,0.05)]"
                 )}>
                     <div className="flex items-center gap-3">
                         <div className="relative">
@@ -164,11 +164,11 @@ export const AIOperatingScreen = () => {
                     {/* Header do Perfil */}
                     <div className="flex justify-between items-center">
                         <div className="flex items-center gap-4">
-                            <div className="h-12 w-12 sm:h-16 sm:w-16 bg-white rounded-2xl p-1 shadow-inner border border-gray-100 overflow-hidden group-hover:scale-105 transition-transform duration-500">
+                            <div className="h-12 w-12 sm:h-16 sm:w-16 bg-white/40 backdrop-blur-md rounded-2xl p-1 shadow-inner border border-white/50 overflow-hidden group-hover:scale-105 transition-transform duration-500">
                                 {selectedAIInfo?.image ? (
                                     <img src={selectedAIInfo.image} alt="" className="w-full h-full object-cover rounded-xl" />
                                 ) : (
-                                    <div className="w-full h-full flex items-center justify-center bg-gray-50"><Bot className="h-6 w-6 text-primary" /></div>
+                                    <div className="w-full h-full flex items-center justify-center bg-gray-50/20"><Bot className="h-6 w-6 text-primary" /></div>
                                 )}
                             </div>
                             <div>
@@ -188,17 +188,17 @@ export const AIOperatingScreen = () => {
                             <Button 
                                 variant="ghost" 
                                 size="icon" 
-                                className="h-12 w-12 rounded-2xl hover:bg-gray-100 group/vol"
+                                className="h-12 w-12 rounded-2xl hover:bg-white/20 group/vol"
                                 onClick={() => setIsSoundEnabled(!isSoundEnabled)}
                             >
                                 {isSoundEnabled ? <Volume2 className="h-6 w-6 text-primary group-hover/vol:scale-110" /> : <VolumeX className="h-6 w-6 text-muted-foreground" />}
                             </Button>
                             <SettingsSheet trigger={
-                                <Button variant="ghost" size="icon" className="h-12 w-12 rounded-2xl hover:bg-blue-50 hover:text-blue-600">
+                                <Button variant="ghost" size="icon" className="h-12 w-12 rounded-2xl hover:bg-blue-50/20 hover:text-blue-600">
                                     <FileSpreadsheet className="h-6 w-6" />
                                 </Button>
                             } />
-                            <Button variant="ghost" size="icon" className="h-12 w-12 rounded-2xl hover:bg-red-50 hover:text-red-500" onClick={exitToSelection}>
+                            <Button variant="ghost" size="icon" className="h-12 w-12 rounded-2xl hover:bg-red-50/20 hover:text-red-500" onClick={exitToSelection}>
                                 <Power className="h-6 w-6" />
                             </Button>
                         </div>
@@ -225,7 +225,7 @@ export const AIOperatingScreen = () => {
 
                     {/* HUD de Lucro */}
                     <div className="text-center space-y-2 relative py-4">
-                        <div className="inline-block bg-white/60 px-4 py-1 rounded-full border border-white mb-2 shadow-sm">
+                        <div className="inline-block bg-white/20 backdrop-blur-md px-4 py-1 rounded-full border border-white/40 mb-2 shadow-sm">
                             <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.4em] opacity-80">NET_PROFIT_LIVE</p>
                         </div>
                         <div className={cn(
@@ -235,15 +235,10 @@ export const AIOperatingScreen = () => {
                             <span className="text-4xl sm:text-5xl opacity-40 mr-1">$</span>
                             {totalProfit.toFixed(2)}
                         </div>
-                        {isWin && totalProfit > 0 && (
-                            <div className="absolute -top-2 left-1/2 -translate-x-1/2 text-[10px] font-black text-green-600 uppercase tracking-widest animate-bounce">
-                                Meta em Progresso
-                            </div>
-                        )}
                     </div>
 
                     {/* Carteira Tech */}
-                    <div className="bg-white/80 border border-white rounded-[2rem] p-6 sm:p-8 flex items-center justify-between shadow-[0_15px_30px_-5px_rgba(0,0,0,0.05)] group/wallet hover:shadow-xl transition-all">
+                    <div className="bg-white/20 backdrop-blur-md border border-white/40 rounded-[2rem] p-6 sm:p-8 flex items-center justify-between shadow-[0_15px_30px_-5px_rgba(0,0,0,0.05)] group/wallet hover:shadow-xl transition-all">
                         <div className="flex items-center gap-4">
                             <div className="bg-primary/5 p-3 sm:p-4 rounded-2xl group-hover/wallet:scale-110 transition-transform">
                                 <DollarSign className="h-6 w-6 sm:h-7 sm:w-7 text-primary" />
@@ -264,16 +259,16 @@ export const AIOperatingScreen = () => {
             </Card>
 
             {/* Terminal de Transações */}
-            <div className="bg-white/40 backdrop-blur-md border border-white/60 rounded-[2rem] p-4 overflow-hidden shadow-sm">
+            <div className="bg-white/10 backdrop-blur-md border border-white/30 rounded-[2rem] p-4 overflow-hidden shadow-sm">
                 <ScrollArea className="h-44 sm:h-52 px-2">
                     <table className="w-full text-[9px] sm:text-[10px] font-bold">
-                        <tbody className="divide-y divide-gray-100">
+                        <tbody className="divide-y divide-white/10">
                             {signals.length > 0 ? signals.map((s: any) => {
                                 const label = getSignalLabel(s.signal);
                                 const hasFinished = typeof s.profit === 'number';
                                 
                                 return (
-                                    <tr key={s.id} className="group/row hover:bg-white/30 transition-colors">
+                                    <tr key={s.id} className="group/row hover:bg-white/10 transition-colors">
                                         <td className="py-3 font-mono opacity-40 text-[8px]">{s.timestamp}</td>
                                         <td className="py-3">
                                             <span className={cn("px-2 py-1 rounded-lg text-[8px] sm:text-[9px] font-black uppercase border", label.color)}>

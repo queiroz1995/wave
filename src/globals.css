@@ -44,8 +44,8 @@
 
 @layer components {
   .glass-panel {
-    /* Efeito de Vidro Branco (Frosted Glass) */
-    @apply bg-white/80 backdrop-blur-xl border border-white shadow-[0_10px_40px_-15px_rgba(0,0,0,0.1)];
+    /* Efeito de Vidro Branco Ultra Transparente */
+    @apply bg-white/30 backdrop-blur-2xl border border-white/50 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.1)];
   }
   
   /* Neon adaptado para fundo claro (mais saturação, menos brilho espalhado) */
