@@ -12,6 +12,7 @@ import { QuickConfigModal } from './QuickConfigModal';
 import { VirtualLossDisplay } from './VirtualLossDisplay';
 import { Progress } from "@/components/ui/progress";
 import { SettingsSheet } from './SettingsSheet';
+import { BackgroundMarketChart } from './BackgroundMarketChart';
 
 export const AIOperatingScreen = () => {
     const { 
@@ -129,6 +130,9 @@ export const AIOperatingScreen = () => {
             {/* PAINEL PRINCIPAL CORE */}
             <Card className="glass-panel border-none shadow-[0_40px_80px_-20px_rgba(0,0,0,0.15)] overflow-hidden rounded-[2.5rem] sm:rounded-[3.5rem] relative group">
                 
+                {/* GRÁFICO DE MERCADO NO FUNDO */}
+                <BackgroundMarketChart />
+
                 {/* ELEMENTOS HOLOGRÁFICOS DE FUNDO */}
                 {isBotRunning && (
                     <>
