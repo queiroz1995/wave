@@ -38,7 +38,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         barrier?: number 
     } | null>(null);
     
-    // Armazena o tipo de contrato da última perda para realizar a inversão
     const lastLossContractType = useRef<ContractType | null>(null);
 
     const reconnectAttemptsRef = useRef(0);
@@ -114,7 +113,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             
             if (virtualTradePending) {
                 const isEven = lastDigit % 2 === 0;
-                const win = virtualTradePending.type === 'EVEN' ? isEven : !isEven;
+                let win = false;
+                
+                if (virtualTradePending.contract === 'DIGITEVEN') win = isEven;
+                else if (virtualTradePending.contract === 'DIGITODD') win = !isEven;
+                else if (virtualTradePending.contract === 'DIGITOVER') win = lastDigit > (virtualTradePending.barrier || 0);
+                else if (virtualTradePending.contract === 'DIGITUNDER') win = lastDigit < (virtualTradePending.barrier || 0);
                 
                 if (win) {
                     setVirtualLossStreak(0);
@@ -193,15 +197,36 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         let baseSignal: any = null;
 
-        // Itera sobre todos os modos ativos para encontrar o primeiro sinal válido
         for (const mode of attackMode) {
+            // SNIPER 1+ (Muito Alta Assertividade)
+            if (mode === '1+') {
+                const lastSeq = lastDigits.slice(0, 3);
+                const isUnder = lastSeq.every(d => d <= 1);
+                const probHigh = neuralPredictions.slice(2).reduce((a, b) => a + b, 0);
+                if (isUnder && probHigh > 70) {
+                    baseSignal = { type: 'OVER', contract: 'DIGITOVER', barrier: 1, name: 'Sniper 1+', details: 'Oportunidade 1+ detectada.' };
+                    break;
+                }
+            }
+
+            // SNIPER 2+ (Alta Assertividade)
+            if (mode === '2+') {
+                const lastSeq = lastDigits.slice(0, 3);
+                const isUnder = lastSeq.every(d => d <= 2);
+                const probHigh = neuralPredictions.slice(3).reduce((a, b) => a + b, 0);
+                if (isUnder && probHigh > 60) {
+                    baseSignal = { type: 'OVER', contract: 'DIGITOVER', barrier: 2, name: 'Sniper 2+', details: 'Oportunidade 2+ detectada.' };
+                    break;
+                }
+            }
+
             if (mode === '6+') {
                 const sequenceSize = 6;
                 const lastSequence = lastDigits.slice(0, sequenceSize);
                 const isExhausted = lastSequence.every(d => d <= 6); 
                 const probHigh = neuralPredictions[7] + neuralPredictions[8] + neuralPredictions[9]; 
                 if (isExhausted && probHigh > 20) {
-                    baseSignal = { type: 'OVER', contract: 'DIGITOVER', barrier: 6, name: 'WAVE Hunter (6+)', details: `Sniper 6+ Ativo.` };
+                    baseSignal = { type: 'OVER', contract: 'DIGITOVER', barrier: 6, name: 'Sniper 6+', details: `Oportunidade 6+ detectada.` };
                     break;
                 }
             }
@@ -212,18 +237,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 const isExhausted = lastSequence.every(d => d <= 4); 
                 const probHigh = neuralPredictions[5] + neuralPredictions[6] + neuralPredictions[7] + neuralPredictions[8] + neuralPredictions[9];
                 if (isExhausted && probHigh > 45) {
-                    baseSignal = { type: 'OVER', contract: 'DIGITOVER', barrier: 4, name: 'WAVE Hunter (4+)', details: `Sniper 4+ Ativo.` };
-                    break;
-                }
-            }
-
-            if (mode === '3+') {
-                const sequenceSize = 3;
-                const lastSequence = lastDigits.slice(0, sequenceSize);
-                const isExhausted = lastSequence.every(d => d <= 3); 
-                const probHigh = neuralPredictions[4] + neuralPredictions[5] + neuralPredictions[6] + neuralPredictions[7] + neuralPredictions[8] + neuralPredictions[9];
-                if (isExhausted && probHigh > 55) {
-                    baseSignal = { type: 'OVER', contract: 'DIGITOVER', barrier: 3, name: 'WAVE Hunter (3+)', details: `Sniper 3+ Ativo.` };
+                    baseSignal = { type: 'OVER', contract: 'DIGITOVER', barrier: 4, name: 'Sniper 4+', details: `Oportunidade 4+ detectada.` };
                     break;
                 }
             }
@@ -246,10 +260,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
         }
 
-        // LÓGICA DE INVERSÃO (Mirror Inverse)
         if (baseSignal && consecutiveLosses > 0 && lastLossContractType.current) {
-            // Se o robô detectou um sinal mas estamos em recuperação de loss
-            // Inverte a direção para "enganar o mercado"
             if (baseSignal.contract === 'DIGITEVEN') {
                 baseSignal.contract = 'DIGITODD';
                 baseSignal.type = 'ODD';
@@ -258,14 +269,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 baseSignal.contract = 'DIGITEVEN';
                 baseSignal.type = 'EVEN';
                 baseSignal.details = "Mirror Inverse: Invertendo para Par.";
-            } else if (baseSignal.contract === 'DIGITOVER') {
-                baseSignal.contract = 'DIGITUNDER';
-                baseSignal.type = 'UNDER';
-                baseSignal.details = `Mirror Inverse: Invertendo para Abaixo de ${baseSignal.barrier}.`;
-            } else if (baseSignal.contract === 'DIGITUNDER') {
-                baseSignal.contract = 'DIGITOVER';
-                baseSignal.type = 'OVER';
-                baseSignal.details = `Mirror Inverse: Invertendo para Acima de ${baseSignal.barrier}.`;
             }
         }
 
@@ -333,20 +336,17 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setLosses((prev: number) => prev + 1);
             setConsecutiveLosses((p: number) => p + 1);
             martingaleLevel.current += 1;
-            
-            // Salva o tipo de contrato que deu loss para a próxima inversão
             lastLossContractType.current = lastTradeDetails.current?.contractType || null;
-            
             setIsStudying(true);
             setStudyTicksCount(0);
             setVirtualLossStreak(0);
-            addLog("Loss detectado. Ativando Mirror Inverse para a próxima entrada.", "TRADE");
+            addLog("Loss detectado. Analisando mercado para recuperação.", "TRADE");
         } else {
             setWins((prev: number) => prev + 1);
             setConsecutiveLosses(0);
             martingaleLevel.current = 0;
             setVirtualLossStreak(0);
-            lastLossContractType.current = null; // Reseta inversão no Win
+            lastLossContractType.current = null;
             playWinSound();
         }
 

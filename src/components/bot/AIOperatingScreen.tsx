@@ -64,9 +64,9 @@ export const AIOperatingScreen = () => {
     };
 
     const attackModes = [
-        { id: 'traditional', label: 'TRADICIONAL', desc: 'Par / Ímpar' },
-        { id: '3+', label: '3+', desc: 'Sniper 3' },
-        { id: '4+', label: '4+', desc: 'Sniper 4' },
+        { id: 'traditional', label: 'PAR/IMP', desc: 'Tradicional' },
+        { id: '1+', label: '1+', desc: '90% Win' },
+        { id: '2+', label: '2+', desc: '80% Win' },
         { id: '6+', label: '6+', desc: 'Sniper 6' },
     ];
 
