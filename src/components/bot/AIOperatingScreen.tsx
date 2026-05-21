@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, Trash2, Bot, ShieldAlert, Timer, TrendingUp, Target, Radar, DollarSign, FileSpreadsheet, Settings, BrainCircuit, Activity, Zap, Volume2, VolumeX, Swords } from 'lucide-react';
+import { Power, RefreshCw, Trash2, Bot, ShieldAlert, Timer, TrendingUp, Target, Radar, DollarSign, FileSpreadsheet, Settings, BrainCircuit, Activity, Zap, Volume2, VolumeX, Swords, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -120,8 +120,21 @@ export const AIOperatingScreen = () => {
 
             <VirtualLossDisplay />
 
-            <Card className="glass-panel border-none shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] overflow-hidden rounded-[2rem] sm:rounded-[3rem]">
-                <CardContent className="p-6 sm:p-10 space-y-6 sm:space-y-8">
+            <Card className="glass-panel border-none shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] overflow-hidden rounded-[2rem] sm:rounded-[3rem] relative">
+                {/* GLOBO HOLOGRÁFICO NO CENTRO QUANDO O BOT ESTÁ RODANDO */}
+                {isBotRunning && (
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-10">
+                        <div className="relative">
+                            <div className="absolute inset-0 scale-150 animate-ping bg-blue-500/20 rounded-full blur-3xl"></div>
+                            <Globe className="h-64 w-64 text-blue-500 animate-[spin_10s_linear_infinite]" />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="h-40 w-40 border-2 border-blue-500/30 rounded-full animate-[spin_5s_linear_infinite_reverse]"></div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                <CardContent className="p-6 sm:p-10 space-y-6 sm:space-y-8 relative z-10">
                     <div className="flex justify-between items-center">
                         <div className="flex items-center gap-3 sm:gap-4">
                             <div className="h-10 w-10 sm:h-14 sm:w-14 bg-primary/10 rounded-xl sm:rounded-2xl overflow-hidden border-2 border-white/50 shadow-sm">
@@ -172,7 +185,7 @@ export const AIOperatingScreen = () => {
                         {isBotRunning ? "Parar Sistema" : "Iniciar Sistema"}
                     </Button>
 
-                    <div className="text-center space-y-1 sm:space-y-2">
+                    <div className="text-center space-y-1 sm:space-y-2 relative">
                         <p className="text-[8px] sm:text-[10px] font-black text-muted-foreground uppercase tracking-[0.5em] opacity-50">Saldo Acumulado</p>
                         <div className={cn("text-5xl sm:text-7xl font-black tracking-tighter leading-none", isWin ? "text-green-500" : "text-red-500")}>
                             {isWin ? '+' : ''}{totalProfit.toFixed(2)}
