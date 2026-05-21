@@ -46,7 +46,6 @@ export const AIOperatingScreen = () => {
         
         setAttackMode((prev: string[]) => {
             if (prev.includes(id)) {
-                // Não deixa ficar sem nenhum modo
                 if (prev.length <= 1) return prev;
                 return prev.filter(m => m !== id);
             }
@@ -73,7 +72,6 @@ export const AIOperatingScreen = () => {
     return (
         <div className="w-full max-w-md mx-auto space-y-4 sm:space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-700 px-2 sm:px-0">
             
-            {/* SELETOR DE MODO DE ATAQUE - MULTIMODAL */}
             <div className="bg-white/40 backdrop-blur-md border border-white/60 p-1.5 rounded-[1.5rem] sm:rounded-[2rem] shadow-sm">
                 <div className="grid grid-cols-4 gap-1">
                     {attackModes.map((mode) => (
@@ -96,7 +94,6 @@ export const AIOperatingScreen = () => {
                 </div>
             </div>
 
-            {/* STATUS DO MODO ATIVO */}
             {isBotRunning && !isStudying && (
                 <div className="bg-green-500/10 border-2 border-green-500/20 rounded-2xl p-3 sm:p-4 flex items-center justify-between shadow-lg shadow-green-500/5">
                     <div className="flex items-center gap-3">
@@ -202,6 +199,8 @@ export const AIOperatingScreen = () => {
                     <tbody className="divide-y divide-gray-50">
                         {signals.length > 0 ? signals.map((s: any) => {
                             const label = getSignalLabel(s.signal);
+                            const hasFinished = typeof s.profit === 'number';
+                            
                             return (
                                 <tr key={s.id}>
                                     <td className="py-2.5 sm:py-3 font-mono opacity-40">{s.timestamp}</td>
@@ -211,8 +210,11 @@ export const AIOperatingScreen = () => {
                                         </span>
                                     </td>
                                     <td className="py-2.5 sm:py-3 text-center text-muted-foreground opacity-60 truncate max-w-[100px] sm:max-w-[120px]">{s.details}</td>
-                                    <td className={cn("py-2.5 sm:py-3 text-right font-black", s.result === 'WIN' ? "text-green-500" : "text-red-500")}>
-                                        {s.profit ? `${s.profit > 0 ? '+' : ''}${s.profit.toFixed(2)}` : 'OPERANDO...'}
+                                    <td className={cn(
+                                        "py-2.5 sm:py-3 text-right font-black", 
+                                        !hasFinished ? "text-blue-500 animate-pulse" : (s.result === 'WIN' ? "text-green-500" : "text-red-500")
+                                    )}>
+                                        {hasFinished ? `${s.profit > 0 ? '+' : ''}${s.profit.toFixed(2)}` : 'OPERANDO...'}
                                     </td>
                                 </tr>
                             );
