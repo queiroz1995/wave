@@ -27,6 +27,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const processedTickEpoch = useRef<number | null>(null);
     const totalProfitRef = useRef(0.00);
     const martingaleLevel = useRef(0);
+    const safetyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const [lastCompletedContract, setLastCompletedContract] = useState<any>(null);
     const lastTradeDetails = useRef<{ 
@@ -179,7 +180,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 } else if (data.error) {
                     isTradeOpen.current = false;
                     setTradeStatus('IDLE');
-                    addLog(`Erro: ${data.error.message}`, "ERROR");
+                    addLog(`Erro de Compra: ${data.error.message}`, "ERROR");
+                    if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current);
                 }
             } else if (data?.msg_type === 'proposal_open_contract') {
                 if (data.proposal_open_contract?.is_sold) {
@@ -199,7 +201,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         let baseSignal: any = null;
 
         for (const mode of attackMode) {
-            // NOVO: MODO SWEEP (Vassourilha $0.35)
+            // MODO SWEEP (Vassourilha $0.35)
             if (mode === 'sweep') {
                 const sample = lastDigits.slice(0, 10);
                 const evens = sample.filter(d => d % 2 === 0).length;
@@ -218,12 +220,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             }
 
-            // SNIPER 1+ (Muito Alta Assertividade)
+            // SNIPER 1+
             if (mode === '1+') {
                 const lastSeq = lastDigits.slice(0, 3);
                 const isUnder = lastSeq.every(d => d <= 1);
                 const probHigh = neuralPredictions.slice(2).reduce((a, b) => a + b, 0);
-                
                 if (isUnder && probHigh > 85) {
                     baseSignal = { type: 'OVER', contract: 'DIGITOVER', barrier: 1, name: 'Sniper 1+', details: 'SUPER OPORTUNIDADE: Confiança 85%+', isSuperOp: true };
                     break;
@@ -234,12 +235,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             }
 
-            // SNIPER 2+ (Alta Assertividade)
+            // SNIPER 2+
             if (mode === '2+') {
                 const lastSeq = lastDigits.slice(0, 3);
                 const isUnder = lastSeq.every(d => d <= 2);
                 const probHigh = neuralPredictions.slice(3).reduce((a, b) => a + b, 0);
-                
                 if (isUnder && probHigh > 80) {
                     baseSignal = { type: 'OVER', contract: 'DIGITOVER', barrier: 2, name: 'Sniper 2+', details: 'SUPER OPORTUNIDADE: Confiança 80%+', isSuperOp: true };
                     break;
@@ -287,10 +287,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!isConnected || isTradeOpen.current || isPaused || isStudying) return;
         
         let stakeToUse = 0;
-        
         if (isSuperOp) {
             stakeToUse = 6.00;
-            addLog(`ALVO CONFIRMADO: Disparando Sniper com High Stake ($6.00)`, "TRADE");
+            addLog(`ALVO CONFIRMADO: Disparando Sniper ($6.00)`, "TRADE");
         } else {
             const baseStake = parseFloat(initialStake) || 0.35;
             const mgFactor = parseFloat(martingaleFactor) || 1.8;
@@ -312,6 +311,17 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         lastTradeDetails.current = { stake: stakeToUse, strategyName, signalId, contractType, patternName, barrier, isSuperOp };
         isTradeOpen.current = true;
         setTradeStatus('SENDING');
+        
+        // Trava de segurança: se em 10s não houver resultado, destrava o bot
+        if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current);
+        safetyTimeoutRef.current = setTimeout(() => {
+            if (isTradeOpen.current) {
+                isTradeOpen.current = false;
+                setTradeStatus('IDLE');
+                addLog("Tempo de espera excedido. Destravando motor neural.", "ERROR");
+            }
+        }, 10000);
+
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params });
     }, [isConnected, initialStake, asset, sendMessage, setTradeStatus, martingaleFactor, isPaused, isStudying, addLog]);
 
@@ -343,6 +353,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const exitDigit = parseInt(String(exit_tick).slice(-1));
         const profitValue = parseFloat(profit);
 
+        if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current);
+
         setAccountBalance((prev: number) => prev !== null ? prev + profitValue : null);
         totalProfitRef.current += profitValue;
         setTotalProfit(totalProfitRef.current);
@@ -354,13 +366,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             lastLossContractType.current = lastTradeDetails.current?.contractType || null;
             setIsStudying(true);
             setStudyTicksCount(0);
-            setVirtualLossStreak(0);
             addLog("Loss detectado. Analisando mercado para recuperação.", "TRADE");
         } else {
             setWins((prev: number) => prev + 1);
             setConsecutiveLosses(0);
             martingaleLevel.current = 0;
-            setVirtualLossStreak(0);
             lastLossContractType.current = null;
             playWinSound();
         }
@@ -373,17 +383,17 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTradeStatus('IDLE');
         setLastCompletedContract(null);
         if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Sniper: Meta Batida!");
-    }, [lastCompletedContract, takeProfit, setTotalProfit, setWins, setLosses, setAccountBalance, setTradeStatus, updateSignalResult, addLog, setIsStudying, setStudyTicksCount, setVirtualLossStreak, playWinSound]);
+    }, [lastCompletedContract, takeProfit, setTotalProfit, setWins, setLosses, setAccountBalance, setTradeStatus, updateSignalResult, addLog, setIsStudying, setStudyTicksCount, playWinSound]);
 
     const stopBot = useCallback((reason: string) => {
         setIsBotRunning(false);
         isTradeOpen.current = false;
         martingaleLevel.current = 0;
         setIsStudying(false);
-        setVirtualLossStreak(0);
+        if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current);
         lastLossContractType.current = null;
         addLog(reason, 'INFO');
-    }, [setIsBotRunning, addLog, setIsStudying, setVirtualLossStreak]);
+    }, [setIsBotRunning, addLog, setIsStudying]);
 
     const toggleBot = useCallback(() => {
         if (!isConnected) return;
@@ -393,11 +403,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0);
             setConsecutiveLosses(0); setIsPaused(false);
             setIsStudying(false);
-            setVirtualLossStreak(0);
             lastLossContractType.current = null;
             addLog(`Ativado Modo WAVE AI: ${attackMode.join(' + ')}`, "INFO");
         }
-    }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog, attackMode, setIsStudying, setVirtualLossStreak]);
+    }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog, attackMode, setIsStudying]);
 
     const selectAI = useCallback((ia: any) => { 
         setSelectedAIInfo(ia); 
