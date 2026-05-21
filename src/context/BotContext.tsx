@@ -199,19 +199,35 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         let baseSignal: any = null;
 
         for (const mode of attackMode) {
+            // NOVO: MODO SWEEP (Vassourilha $0.35)
+            if (mode === 'sweep') {
+                const sample = lastDigits.slice(0, 10);
+                const evens = sample.filter(d => d % 2 === 0).length;
+                const odds = 10 - evens;
+                
+                const evenNeural = neuralPredictions.filter((p, i) => i % 2 === 0).reduce((a, b) => a + b, 0);
+                const oddNeural = neuralPredictions.filter((p, i) => i % 2 !== 0).reduce((a, b) => a + b, 0);
+
+                if (evens >= 7 && evenNeural > 58) {
+                    baseSignal = { type: 'EVEN', contract: 'DIGITEVEN', name: 'Neural Sweep', details: 'Vassourilha Par detectada.' };
+                    break;
+                }
+                if (odds >= 7 && oddNeural > 58) {
+                    baseSignal = { type: 'ODD', contract: 'DIGITODD', name: 'Neural Sweep', details: 'Vassourilha Ímpar detectada.' };
+                    break;
+                }
+            }
+
             // SNIPER 1+ (Muito Alta Assertividade)
             if (mode === '1+') {
                 const lastSeq = lastDigits.slice(0, 3);
                 const isUnder = lastSeq.every(d => d <= 1);
-                // Calcula probabilidade neural para dígitos > 1 (2 até 9)
                 const probHigh = neuralPredictions.slice(2).reduce((a, b) => a + b, 0);
                 
-                // Gatilho de Super Oportunidade ($6.00)
                 if (isUnder && probHigh > 85) {
                     baseSignal = { type: 'OVER', contract: 'DIGITOVER', barrier: 1, name: 'Sniper 1+', details: 'SUPER OPORTUNIDADE: Confiança 85%+', isSuperOp: true };
                     break;
                 }
-                // Gatilho Normal
                 if (isUnder && probHigh > 70) {
                     baseSignal = { type: 'OVER', contract: 'DIGITOVER', barrier: 1, name: 'Sniper 1+', details: 'Oportunidade 1+ detectada.' };
                     break;
@@ -222,39 +238,14 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (mode === '2+') {
                 const lastSeq = lastDigits.slice(0, 3);
                 const isUnder = lastSeq.every(d => d <= 2);
-                // Calcula probabilidade neural para dígitos > 2 (3 até 9)
                 const probHigh = neuralPredictions.slice(3).reduce((a, b) => a + b, 0);
                 
-                // Gatilho de Super Oportunidade ($6.00)
                 if (isUnder && probHigh > 80) {
                     baseSignal = { type: 'OVER', contract: 'DIGITOVER', barrier: 2, name: 'Sniper 2+', details: 'SUPER OPORTUNIDADE: Confiança 80%+', isSuperOp: true };
                     break;
                 }
-                // Gatilho Normal
                 if (isUnder && probHigh > 60) {
                     baseSignal = { type: 'OVER', contract: 'DIGITOVER', barrier: 2, name: 'Sniper 2+', details: 'Oportunidade 2+ detectada.' };
-                    break;
-                }
-            }
-
-            if (mode === '6+') {
-                const sequenceSize = 6;
-                const lastSequence = lastDigits.slice(0, sequenceSize);
-                const isExhausted = lastSequence.every(d => d <= 6); 
-                const probHigh = neuralPredictions[7] + neuralPredictions[8] + neuralPredictions[9]; 
-                if (isExhausted && probHigh > 20) {
-                    baseSignal = { type: 'OVER', contract: 'DIGITOVER', barrier: 6, name: 'Sniper 6+', details: `Oportunidade 6+ detectada.` };
-                    break;
-                }
-            }
-
-            if (mode === '4+') {
-                const sequenceSize = 4;
-                const lastSequence = lastDigits.slice(0, sequenceSize);
-                const isExhausted = lastSequence.every(d => d <= 4); 
-                const probHigh = neuralPredictions[5] + neuralPredictions[6] + neuralPredictions[7] + neuralPredictions[8] + neuralPredictions[9];
-                if (isExhausted && probHigh > 45) {
-                    baseSignal = { type: 'OVER', contract: 'DIGITOVER', barrier: 4, name: 'Sniper 4+', details: `Oportunidade 4+ detectada.` };
                     break;
                 }
             }
@@ -297,12 +288,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         
         let stakeToUse = 0;
         
-        // Regra de Super Oportunidade: se for Sniper 1+ ou 2+ com alta confiança, usa $6.00
         if (isSuperOp) {
             stakeToUse = 6.00;
             addLog(`ALVO CONFIRMADO: Disparando Sniper com High Stake ($6.00)`, "TRADE");
         } else {
-            const baseStake = parseFloat(initialStake) || 1.00;
+            const baseStake = parseFloat(initialStake) || 0.35;
             const mgFactor = parseFloat(martingaleFactor) || 1.8;
             stakeToUse = martingaleLevel.current > 0 ? baseStake * Math.pow(mgFactor, martingaleLevel.current) : baseStake;
         }

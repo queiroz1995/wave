@@ -64,10 +64,10 @@ export const AIOperatingScreen = () => {
     };
 
     const attackModes = [
-        { id: 'traditional', label: 'PAR/IMP', desc: 'Tradicional' },
+        { id: 'sweep', label: 'SWEEP', desc: 'Vassourilha $0.35' },
         { id: '1+', label: '1+', desc: '90% Win' },
         { id: '2+', label: '2+', desc: '80% Win' },
-        { id: '6+', label: '6+', desc: 'Sniper 6' },
+        { id: 'traditional', label: 'PAR/IMP', desc: 'Tendência' },
     ];
 
     return (
