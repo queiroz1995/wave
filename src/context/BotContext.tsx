@@ -394,7 +394,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (token) {
             if (isConnected) {
                 disconnect();
-                setTimeout(() => connect(token, type), 1000);
+                // Removido o delay de 1000ms para conexão instantânea
+                connect(token, type);
             } else {
                 connect(token, type);
             }
