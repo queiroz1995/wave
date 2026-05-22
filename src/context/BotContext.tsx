@@ -44,7 +44,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         lastDigits, setLastTickEpoch, lastTickEpoch,
         setTradeStatus, isBotRunning, setActiveStrategy,
         accountType, setAccountType, realToken, demoToken,
-        takeProfit, martingaleFactor,
+        takeProfit, stopLoss, martingaleFactor,
         consecutiveLosses, setConsecutiveLosses,
         neuralPredictions, setNeuralPredictions,
         isStudying, setIsStudying, studyTicksCount, setStudyTicksCount,
@@ -224,7 +224,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         // LÓGICA DE VITÓRIA VIRTUAL (DEMO -> REAL)
                         if (isHybridModeActive) {
                             if (accountType === 'real') {
-                                // Operação na Real finalizada
                                 if (isLoss) {
                                     setLosses((prev: number) => prev + 1);
                                     setConsecutiveLosses((p: number) => p + 1);
@@ -239,7 +238,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                     addLog("Win na Real! Resetando para Demo.", "INFO");
                                 }
                                 
-                                // Sempre volta para Demo após operação na Real no modo Vitória Virtual
                                 setIsBotRunning(false);
                                 activeTrades.current.clear();
                                 setTimeout(() => {
@@ -248,7 +246,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                 }, 1000);
 
                             } else {
-                                // Operação na Demo finalizada
                                 if (!isLoss) {
                                     winsRef.current += 1;
                                     if (winsRef.current >= hybridWinsRequired) {
@@ -262,13 +259,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                         }, 1000);
                                     }
                                 } else {
-                                    // Perda na Demo não reseta o Gale, apenas continua buscando a vitória virtual
                                     winsRef.current = 0;
                                     addLog("Loss na Demo. Continuando busca por Vitória Virtual...", "INFO");
                                 }
                             }
                         } else {
-                            // Lógica Normal (Sem Vitória Virtual)
                             if (isLoss) {
                                 setLosses((prev: number) => prev + 1);
                                 setConsecutiveLosses((p: number) => p + 1);
@@ -287,12 +282,20 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         pendingContracts.current.delete(contract.contract_id);
                         setTradeStatus('IDLE'); 
 
-                        if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Sucesso: Meta Alcançada!");
+                        // VERIFICAÇÃO DE LIMITES (STOP LOSS / TAKE PROFIT)
+                        const tp = parseFloat(takeProfit);
+                        const sl = Math.abs(parseFloat(stopLoss));
+
+                        if (totalProfitRef.current >= tp) {
+                            stopBot(`META ALCANÇADA: +$${totalProfitRef.current.toFixed(2)}`);
+                        } else if (totalProfitRef.current <= -sl) {
+                            stopBot(`STOP LOSS ATINGIDO: -$${Math.abs(totalProfitRef.current).toFixed(2)}`);
+                        }
                     }
                 }
             }
         }
-    }, [asset, processTickData, setAccountBalance, setTradeStatus, addLog, setLastDigits, setTotalProfit, setWins, setLosses, setConsecutiveLosses, updateSignalResult, playWinSound, takeProfit, isHybridModeActive, accountType, hybridWinsRequired, realToken, demoToken, setAccountType, stopBot, setIsBotRunning, setIsStudying]);
+    }, [asset, processTickData, setAccountBalance, setTradeStatus, addLog, setLastDigits, setTotalProfit, setWins, setLosses, setConsecutiveLosses, updateSignalResult, playWinSound, takeProfit, stopLoss, isHybridModeActive, accountType, hybridWinsRequired, realToken, demoToken, setAccountType, stopBot, setIsBotRunning, setIsStudying]);
 
     const ws = useTradingWebSocketManager({ isConnected, status, setIsConnected, setStatus, setAccountBalance, onMessage: handleWebSocketMessage, reconnectAttemptsRef });
     const { sendMessage, connect, disconnect } = ws;
@@ -301,7 +304,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const calculateTradeSignal = useCallback(() => {
         if (activeTrades.current.size > 0 || isStudying || virtualTradePending) return null;
 
-        // Se estamos na Real e temos prejuízo pendente, faz o Gale
         if (accountType === 'real' && martingaleLevel.current > 0) {
             const contract = lastContractType.current || 'DIGITEVEN';
             return { 
@@ -363,7 +365,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const baseStake = parseFloat(initialStake) || 0.35;
         const mgFactor = parseFloat(martingaleFactor) || 2.1; 
         
-        // Só aplica o Gale se estivermos na conta Real
         const stakeToUse = (accountType === 'real' && martingaleLevel.current > 0) 
             ? baseStake * Math.pow(mgFactor, martingaleLevel.current) 
             : baseStake;
