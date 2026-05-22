@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, Timer, Target, ShieldAlert, Trophy } from 'lucide-react';
+import { Target } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
 import { cn } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
@@ -21,40 +21,14 @@ export const GamePanel: React.FC = () => {
         isManualMode,
         currentSignal,
         currentSignalDetails,
-        isManualGaleActive,
-        manualGaleLevel,
-        lossRecoveryStrategy,
         martingaleFactor,
         digitTradeMode,
         digitPrediction,
         totalProfit,
-        wins,
-        losses,
-        // Filtros Virtuais
-        virtualTargetLosses, setVirtualTargetLosses,
-        virtualTargetWins, setVirtualTargetWins, // NOVO
     } = useBotContext();
 
     const handleStakeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setInitialStake(e.target.value.replace(',', '.'));
-    };
-
-    const handleVirtualLossChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = parseInt(e.target.value);
-        if (!isNaN(val) && val >= 0) {
-            setVirtualTargetLosses(val);
-        } else if (e.target.value === '') {
-            setVirtualTargetLosses(0);
-        }
-    };
-
-    const handleVirtualWinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const val = parseInt(e.target.value);
-        if (!isNaN(val) && val >= 0) {
-            setVirtualTargetWins(val);
-        } else if (e.target.value === '') {
-            setVirtualTargetWins(0);
-        }
     };
 
     const signalText = currentSignal === 'DIGITEVEN' ? 'PAR' :
@@ -69,27 +43,14 @@ export const GamePanel: React.FC = () => {
     const signalColor = isUpSignal ? 'text-green-500' : isDownSignal ? 'text-red-500' : 'text-muted-foreground';
     const signalBg = currentSignal ? (isUpSignal ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30') : 'bg-muted/50 border-border';
     
-    const winRate = currentSignalDetails?.winRate;
     const strategyName = currentSignalDetails?.strategyName;
 
-    const nextManualStake = useMemo(() => {
-        const baseStake = parseFloat(initialStake) || 0.35;
-        if (isManualGaleActive && manualGaleLevel > 0) {
-            const mgFactor = parseFloat(martingaleFactor) || 2.2;
-            return baseStake * Math.pow(mgFactor, manualGaleLevel);
-        }
-        return baseStake;
-    }, [initialStake, isManualGaleActive, manualGaleLevel, martingaleFactor]);
-
     const automationDisabled = !isConnected;
-
-    const totalTrades = wins + losses;
-    const sessionWinRate = totalTrades > 0 ? (wins / totalTrades) * 100 : 0;
 
     return (
         <Card className="bg-card/80 backdrop-blur-sm">
             <CardContent className="pt-4 space-y-3">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                     <div className="space-y-1">
                         <div className="flex justify-between items-center px-1">
                             <Label htmlFor="initialStake" className="text-sm">Stake ($)</Label>
@@ -109,40 +70,6 @@ export const GamePanel: React.FC = () => {
                             className="text-center text-sm font-bold h-9"
                             placeholder="0.35"
                         />
-                    </div>
-                    
-                    {/* INDICADORES DE FILTRO VIRTUAL NO GRID */}
-                    <div className="grid grid-cols-2 gap-2">
-                        <div className="space-y-1">
-                            <div className="flex justify-between items-center px-1">
-                                <Label htmlFor="virtualLoss" className="text-[10px] flex items-center gap-0.5 truncate">
-                                    Loss Virtual <ShieldAlert className="h-2.5 w-2.5 text-yellow-500" />
-                                </Label>
-                            </div>
-                            <Input 
-                                id="virtualLoss" 
-                                type="number"
-                                value={virtualTargetLosses} 
-                                onChange={handleVirtualLossChange} 
-                                className="text-center text-xs font-bold h-9 px-1"
-                                min="0"
-                            />
-                        </div>
-                        <div className="space-y-1">
-                            <div className="flex justify-between items-center px-1">
-                                <Label htmlFor="virtualWin" className="text-[10px] flex items-center gap-0.5 truncate">
-                                    Win Virtual <Trophy className="h-2.5 w-2.5 text-green-500" />
-                                </Label>
-                            </div>
-                            <Input 
-                                id="virtualWin" 
-                                type="number"
-                                value={virtualTargetWins} 
-                                onChange={handleVirtualWinChange} 
-                                className="text-center text-xs font-bold h-9 px-1"
-                                min="0"
-                            />
-                        </div>
                     </div>
                 </div>
 
@@ -175,45 +102,22 @@ export const GamePanel: React.FC = () => {
                             )}
                         </div>
                         
-                        {digitTradeMode === 'evenOdd' ? (
-                            <div className="grid grid-cols-2 gap-2">
-                                <Button 
-                                    onClick={() => manualBuy('DIGITEVEN', 'Manual')}
-                                    disabled={!isConnected}
-                                    className="h-full py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold flex-col"
-                                >
-                                    <span>PAR</span>
-                                    <span className="text-[9px] font-normal opacity-80">(${nextManualStake.toFixed(2)})</span>
-                                </Button>
-                                <Button 
-                                    onClick={() => manualBuy('DIGITODD', 'Manual')}
-                                    disabled={!isConnected}
-                                    className="h-full py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex-col"
-                                >
-                                    <span>ÍMPAR</span>
-                                    <span className="text-[9px] font-normal opacity-80">(${nextManualStake.toFixed(2)})</span>
-                                </Button>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-2 gap-2">
-                                <Button 
-                                    onClick={() => manualBuy('DIGITOVER', 'Manual')}
-                                    disabled={!isConnected || digitPrediction === 9}
-                                    className="h-full py-1.5 bg-green-600 hover:bg-green-700 text-white text-[10px] font-bold flex-col gap-0.5"
-                                >
-                                    <span>ACIMA {digitPrediction}</span>
-                                    <span className="text-[9px] font-normal opacity-80">(${nextManualStake.toFixed(2)})</span>
-                                </Button>
-                                <Button 
-                                    onClick={() => manualBuy('DIGITUNDER', 'Manual')}
-                                    disabled={!isConnected || digitPrediction === 0}
-                                    className="h-full py-1.5 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold flex-col gap-0.5"
-                                >
-                                    <span>ABAIXO {digitPrediction}</span>
-                                    <span className="text-[9px] font-normal opacity-80">(${nextManualStake.toFixed(2)})</span>
-                                </Button>
-                            </div>
-                        )}
+                        <div className="grid grid-cols-2 gap-2">
+                            <Button 
+                                onClick={() => manualBuy('DIGITEVEN', 'Manual')}
+                                disabled={!isConnected}
+                                className="h-full py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold flex-col"
+                            >
+                                <span>PAR</span>
+                            </Button>
+                            <Button 
+                                onClick={() => manualBuy('DIGITODD', 'Manual')}
+                                disabled={!isConnected}
+                                className="h-full py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex-col"
+                            >
+                                <span>ÍMPAR</span>
+                            </Button>
+                        </div>
                     </div>
                 )}
                 <TooltipProvider>
@@ -227,7 +131,7 @@ export const GamePanel: React.FC = () => {
                                     className={cn(
                                         "w-full transition-all text-sm h-9", 
                                         isBotRunning 
-                                            ? "bg-yellow-600 hover:bg-yellow-700" 
+                                            ? "bg-red-500 hover:bg-red-600" 
                                             : "bg-primary hover:bg-primary/90 animate-pulse-bright",
                                         automationDisabled && "cursor-not-allowed"
                                     )}

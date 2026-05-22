@@ -8,7 +8,6 @@ import { Power, RefreshCw, Bot, Zap, Volume2, VolumeX, Globe, Cpu, DollarSign, F
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
-import { VirtualLossDisplay } from './VirtualLossDisplay';
 import { SettingsSheet } from './SettingsSheet';
 import { BackgroundMarketChart } from './BackgroundMarketChart';
 
@@ -16,7 +15,7 @@ export const AIOperatingScreen = () => {
     const { 
         selectedAIInfo, totalProfit, accountBalance, 
         isBotRunning, toggleBot, exitToSelection, 
-        status, wins, losses, signals,
+        status, signals,
         handleConnect, accountType, realToken, demoToken,
         isPaused, isManipulationDetected,
         isStudying, studyTicksCount,
@@ -50,7 +49,6 @@ export const AIOperatingScreen = () => {
     return (
         <div className="w-full max-w-md mx-auto space-y-4 sm:space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-700 px-2 sm:px-0">
             
-            {/* Status de Processamento Neural */}
             {isBotRunning && (
                 <div className={cn(
                     "rounded-2xl p-3 sm:p-4 flex items-center justify-between border-2 transition-all duration-500",
@@ -82,9 +80,6 @@ export const AIOperatingScreen = () => {
                 </div>
             )}
 
-            <VirtualLossDisplay />
-
-            {/* PAINEL PRINCIPAL CORE */}
             <Card className="glass-panel border-none shadow-[0_40px_80px_-20px_rgba(0,0,0,0.15)] overflow-hidden rounded-[2.5rem] sm:rounded-[3.5rem] relative group">
                 
                 <BackgroundMarketChart />
@@ -202,7 +197,6 @@ export const AIOperatingScreen = () => {
                 </CardContent>
             </Card>
 
-            {/* Terminal de Sinais */}
             <div className="bg-white/10 backdrop-blur-md border border-white/30 rounded-[2rem] p-4 overflow-hidden shadow-sm">
                 <ScrollArea className="h-44 sm:h-52 px-2">
                     <table className="w-full text-[9px] sm:text-[10px] font-bold">

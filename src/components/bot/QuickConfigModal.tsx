@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DollarSign, Target, Play, ShieldAlert, Zap, AlertTriangle, ListOrdered, ArrowRightLeft, BrainCircuit, Sparkles } from 'lucide-react';
+import { DollarSign, Target, Play, Zap, ListOrdered, BrainCircuit, Sparkles } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
 import { cn } from '@/lib/utils';
 
@@ -28,23 +28,16 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
         initialStake, setInitialStake, 
         takeProfit, setTakeProfit,
         stopLoss, setStopLoss,
-        virtualTargetLosses, setVirtualTargetLosses,
         consecutiveTarget, setConsecutiveTarget,
         entryDirection, setEntryDirection,
-        isHybridModeActive, setIsHybridModeActive,
-        hybridWinsRequired, setHybridWinsRequired,
         isSmartModeActive, setIsSmartModeActive
     } = useBotContext();
     
     const [tempStake, setTempStake] = useState(initialStake);
     const [tempMeta, setTempMeta] = useState(takeProfit);
     const [tempStop, setTempStop] = useState(stopLoss);
-    const [virtualActive, setVirtualActive] = useState(virtualTargetLosses > 0);
-    const [tempVirtualLoss, setTempVirtualLoss] = useState(virtualTargetLosses || 1);
     const [tempConsecutive, setTempConsecutive] = useState(consecutiveTarget);
     const [tempDirection, setTempDirection] = useState(entryDirection);
-    const [tempHybridActive, setTempHybridActive] = useState(isHybridModeActive);
-    const [tempHybridWins, setTempHybridWins] = useState(hybridWinsRequired);
     const [tempSmartActive, setTempSmartActive] = useState(isSmartModeActive);
 
     useEffect(() => {
@@ -52,25 +45,18 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
             setTempStake(initialStake);
             setTempMeta(takeProfit);
             setTempStop(stopLoss);
-            setVirtualActive(virtualTargetLosses > 0);
-            setTempVirtualLoss(virtualTargetLosses || 1);
             setTempConsecutive(consecutiveTarget);
             setTempDirection(entryDirection);
-            setTempHybridActive(isHybridModeActive);
-            setTempHybridWins(hybridWinsRequired);
             setTempSmartActive(isSmartModeActive);
         }
-    }, [isOpen, initialStake, takeProfit, stopLoss, virtualTargetLosses, consecutiveTarget, entryDirection, isHybridModeActive, hybridWinsRequired, isSmartModeActive]);
+    }, [isOpen, initialStake, takeProfit, stopLoss, consecutiveTarget, entryDirection, isSmartModeActive]);
 
     const handleConfirm = () => {
         setInitialStake(tempStake);
         setTakeProfit(tempMeta);
         setStopLoss(tempStop);
-        setVirtualTargetLosses(virtualActive ? tempVirtualLoss : 0);
         setConsecutiveTarget(tempConsecutive);
         setEntryDirection(tempDirection);
-        setIsHybridModeActive(tempHybridActive);
-        setHybridWinsRequired(tempHybridWins);
         setIsSmartModeActive(tempSmartActive);
         onConfirm();
     };
@@ -87,7 +73,6 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                 </DialogHeader>
                 
                 <div className="space-y-6 py-6">
-                    {/* MODO SMART NEURAL - DESTAQUE */}
                     <div className={cn(
                         "p-5 rounded-3xl border-2 transition-all duration-500 space-y-4 relative overflow-hidden",
                         tempSmartActive ? "bg-blue-600/10 border-blue-500/40 shadow-[0_0_20px_rgba(59,130,246,0.1)]" : "bg-gray-50 border-transparent"
@@ -108,14 +93,8 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                                 onCheckedChange={setTempSmartActive} 
                             />
                         </div>
-                        {tempSmartActive && (
-                            <p className="text-[9px] font-bold text-blue-600/80 italic animate-in fade-in slide-in-from-top-1">
-                                * Otimização dinâmica de ciclos e direção ativada.
-                            </p>
-                        )}
                     </div>
 
-                    {/* Configuração de Sequência - Esconde se Smart estiver ativo */}
                     {!tempSmartActive && (
                         <div className="p-5 rounded-3xl bg-primary/5 border border-primary/10 space-y-4 animate-in fade-in zoom-in-95">
                             <div className="flex items-center gap-2 mb-2">
@@ -150,40 +129,6 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                         </div>
                     )}
 
-                    {/* VITÓRIA VIRTUAL (ANTIGO MODO HÍBRIDO) */}
-                    <div className={cn(
-                        "p-5 rounded-3xl border-2 transition-all duration-500 space-y-4",
-                        tempHybridActive ? "bg-green-500/5 border-green-500/20" : "bg-gray-50 border-transparent"
-                    )}>
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <ArrowRightLeft className={cn("h-4 w-4", tempHybridActive ? "text-green-600" : "text-gray-400")} />
-                                <div className="space-y-0.5">
-                                    <Label className="text-[10px] font-black uppercase tracking-tight">Vitória Virtual (Demo → Real)</Label>
-                                    <p className="text-[8px] font-bold text-muted-foreground uppercase">Aguardar vitórias simuladas antes da Real</p>
-                                </div>
-                            </div>
-                            <Switch 
-                                checked={tempHybridActive} 
-                                onCheckedChange={setTempHybridActive} 
-                            />
-                        </div>
-
-                        {tempHybridActive && (
-                            <div className="flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
-                                <Label className="text-[10px] font-bold text-green-600 whitespace-nowrap">Quantas vitórias esperar?</Label>
-                                <Input 
-                                    type="number"
-                                    value={tempHybridWins}
-                                    onChange={(e) => setTempHybridWins(parseInt(e.target.value) || 1)}
-                                    min="1"
-                                    max="10"
-                                    className="h-9 rounded-xl font-black text-center border-green-200 bg-white"
-                                />
-                            </div>
-                        )}
-                    </div>
-
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label className="text-[9px] font-black uppercase tracking-widest ml-1 opacity-60">Entrada ($)</Label>
@@ -213,46 +158,13 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                     <div className="space-y-2">
                         <Label className="text-[9px] font-black uppercase tracking-widest ml-1 opacity-60">Stop Loss ($)</Label>
                         <div className="relative">
-                            <AlertTriangle className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-red-500" />
+                            <Target className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-red-500" />
                             <Input 
                                 value={tempStop}
                                 onChange={(e) => setTempStop(e.target.value.replace(',', '.'))}
                                 className="pl-9 h-11 rounded-xl font-bold text-sm bg-gray-50/50 border-none"
                             />
                         </div>
-                    </div>
-
-                    <div className={cn(
-                        "p-4 rounded-2xl border-2 transition-all duration-500 space-y-4",
-                        virtualActive ? "bg-blue-500/5 border-blue-500/20" : "bg-gray-50 border-transparent"
-                    )}>
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <ShieldAlert className={cn("h-4 w-4", virtualActive ? "text-blue-500" : "text-gray-400")} />
-                                <div className="space-y-0.5">
-                                    <Label className="text-[10px] font-black uppercase tracking-tight">Filtro de Loss Virtual</Label>
-                                    <p className="text-[8px] font-bold text-muted-foreground uppercase">Aguardar erros simulados</p>
-                                </div>
-                            </div>
-                            <Switch 
-                                checked={virtualActive} 
-                                onCheckedChange={setVirtualActive} 
-                            />
-                        </div>
-
-                        {virtualActive && (
-                            <div className="flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
-                                <Label className="text-[10px] font-bold text-blue-600 whitespace-nowrap">Quantos Losses?</Label>
-                                <Input 
-                                    type="number"
-                                    value={tempVirtualLoss}
-                                    onChange={(e) => setTempVirtualLoss(parseInt(e.target.value) || 1)}
-                                    min="1"
-                                    max="10"
-                                    className="h-9 rounded-xl font-black text-center border-blue-200 bg-white"
-                                />
-                            </div>
-                        )}
                     </div>
                 </div>
 
