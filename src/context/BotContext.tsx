@@ -221,16 +221,65 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         totalProfitRef.current += profitValue;
                         setTotalProfit(totalProfitRef.current);
 
-                        if (isLoss) {
-                            setLosses((prev: number) => prev + 1);
-                            setConsecutiveLosses((p: number) => p + 1);
-                            martingaleLevel.current += 1;
+                        // LÓGICA DE VITÓRIA VIRTUAL (DEMO -> REAL)
+                        if (isHybridModeActive) {
+                            if (accountType === 'real') {
+                                // Operação na Real finalizada
+                                if (isLoss) {
+                                    setLosses((prev: number) => prev + 1);
+                                    setConsecutiveLosses((p: number) => p + 1);
+                                    martingaleLevel.current += 1;
+                                    addLog(`Loss na Real. Nível ${martingaleLevel.current}. Voltando para Demo...`, "INFO");
+                                } else {
+                                    winsRef.current += 1;
+                                    setWins(winsRef.current);
+                                    setConsecutiveLosses(0);
+                                    martingaleLevel.current = 0;
+                                    playWinSound();
+                                    addLog("Win na Real! Resetando para Demo.", "INFO");
+                                }
+                                
+                                // Sempre volta para Demo após operação na Real no modo Vitória Virtual
+                                setIsBotRunning(false);
+                                activeTrades.current.clear();
+                                setTimeout(() => {
+                                    setAccountType('demo');
+                                    sendMessageRef.current({ authorize: demoToken });
+                                }, 1000);
+
+                            } else {
+                                // Operação na Demo finalizada
+                                if (!isLoss) {
+                                    winsRef.current += 1;
+                                    if (winsRef.current >= hybridWinsRequired) {
+                                        addLog(`Vitória Virtual! Migrando para Real para ${martingaleLevel.current > 0 ? 'Recuperação' : 'Entrada'}...`, "INFO");
+                                        setIsBotRunning(false);
+                                        activeTrades.current.clear();
+                                        shouldAutoStartOnReal.current = true;
+                                        setTimeout(() => {
+                                            setAccountType('real');
+                                            sendMessageRef.current({ authorize: realToken });
+                                        }, 1000);
+                                    }
+                                } else {
+                                    // Perda na Demo não reseta o Gale, apenas continua buscando a vitória virtual
+                                    winsRef.current = 0;
+                                    addLog("Loss na Demo. Continuando busca por Vitória Virtual...", "INFO");
+                                }
+                            }
                         } else {
-                            winsRef.current += 1;
-                            setWins(winsRef.current);
-                            setConsecutiveLosses(0);
-                            martingaleLevel.current = 0;
-                            playWinSound();
+                            // Lógica Normal (Sem Vitória Virtual)
+                            if (isLoss) {
+                                setLosses((prev: number) => prev + 1);
+                                setConsecutiveLosses((p: number) => p + 1);
+                                martingaleLevel.current += 1;
+                            } else {
+                                winsRef.current += 1;
+                                setWins(winsRef.current);
+                                setConsecutiveLosses(0);
+                                martingaleLevel.current = 0;
+                                playWinSound();
+                            }
                         }
 
                         updateSignalResult(savedData.signalId, isLoss ? 'LOSS' : 'WIN', profitValue, savedData.stake, exitDigit);
@@ -238,47 +287,33 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         pendingContracts.current.delete(contract.contract_id);
                         setTradeStatus('IDLE'); 
 
-                        if (isHybridModeActive && accountType === 'demo' && !isLoss) {
-                            if (winsRef.current >= hybridWinsRequired) {
-                                addLog(`VITÓRIA VIRTUAL ATINGIDA: ${winsRef.current} Wins!`, "INFO");
-                                addLog("Migrando para Conta Real agora...", "INFO");
-                                
-                                setIsBotRunning(false);
-                                activeTrades.current.clear();
-                                
-                                if (!realToken) {
-                                    addLog("Erro: Token Real não encontrado.", "ERROR");
-                                    return;
-                                }
-
-                                shouldAutoStartOnReal.current = true;
-                                
-                                setTimeout(() => {
-                                    setAccountType('real');
-                                    sendMessageRef.current({ authorize: realToken });
-                                }, 1000);
-                                return;
-                            }
-                        }
-
                         if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Sucesso: Meta Alcançada!");
                     }
                 }
             }
         }
-    }, [asset, processTickData, setAccountBalance, setTradeStatus, addLog, setLastDigits, setTotalProfit, setWins, setLosses, setConsecutiveLosses, updateSignalResult, playWinSound, takeProfit, isHybridModeActive, accountType, hybridWinsRequired, realToken, setAccountType, stopBot, setIsBotRunning, setIsStudying]);
+    }, [asset, processTickData, setAccountBalance, setTradeStatus, addLog, setLastDigits, setTotalProfit, setWins, setLosses, setConsecutiveLosses, updateSignalResult, playWinSound, takeProfit, isHybridModeActive, accountType, hybridWinsRequired, realToken, demoToken, setAccountType, stopBot, setIsBotRunning, setIsStudying]);
 
     const ws = useTradingWebSocketManager({ isConnected, status, setIsConnected, setStatus, setAccountBalance, onMessage: handleWebSocketMessage, reconnectAttemptsRef });
     const { sendMessage, connect, disconnect } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
     const calculateTradeSignal = useCallback(() => {
-        if (martingaleLevel.current > 0 && activeTrades.current.size === 0) {
+        if (activeTrades.current.size > 0 || isStudying || virtualTradePending) return null;
+
+        // Se estamos na Real e temos prejuízo pendente, faz o Gale
+        if (accountType === 'real' && martingaleLevel.current > 0) {
             const contract = lastContractType.current || 'DIGITEVEN';
-            return { type: contract === 'DIGITEVEN' ? 'EVEN' : 'ODD', contract, name: 'Gale Imediato', confidence: 100, details: `Recuperação Nível ${martingaleLevel.current}` };
+            return { 
+                type: contract === 'DIGITEVEN' ? 'EVEN' : 'ODD', 
+                contract, 
+                name: 'Recuperação Sniper', 
+                confidence: 100, 
+                details: `Gale Nível ${martingaleLevel.current}` 
+            };
         }
         
-        if (lastDigits.length < 10 || isStudying || virtualTradePending || activeTrades.current.size > 0) return null;
+        if (lastDigits.length < 10) return null;
 
         let targetConsecutive = consecutiveTarget;
         let targetDirection = entryDirection;
@@ -321,19 +356,24 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             };
         }
         return null;
-    }, [lastDigits, consecutiveTarget, entryDirection, isStudying, virtualTradePending, currentConfidence, isSmartModeActive]);
+    }, [lastDigits, consecutiveTarget, entryDirection, isStudying, virtualTradePending, currentConfidence, isSmartModeActive, accountType]);
 
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string, confidence: number) => {
         if (!isConnected || isStudying || activeTrades.current.size > 0) return;
         const baseStake = parseFloat(initialStake) || 0.35;
         const mgFactor = parseFloat(martingaleFactor) || 2.1; 
-        const stakeToUse = martingaleLevel.current > 0 ? baseStake * Math.pow(mgFactor, martingaleLevel.current) : baseStake;
+        
+        // Só aplica o Gale se estivermos na conta Real
+        const stakeToUse = (accountType === 'real' && martingaleLevel.current > 0) 
+            ? baseStake * Math.pow(mgFactor, martingaleLevel.current) 
+            : baseStake;
+
         const params: any = { amount: parseFloat(stakeToUse.toFixed(2)), basis: 'stake', contract_type: contractType, currency: 'USD', duration: 1, duration_unit: 't', symbol: asset };
         lastContractType.current = contractType;
         activeTrades.current.add(signalId);
         setTradeStatus('SENDING');
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params, passthrough: { signalId, strategyName } });
-    }, [isConnected, initialStake, asset, sendMessage, setTradeStatus, martingaleFactor, isStudying]);
+    }, [isConnected, initialStake, asset, sendMessage, setTradeStatus, martingaleFactor, isStudying, accountType]);
 
     useEffect(() => {
         if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isStudying) return;
