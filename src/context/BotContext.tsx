@@ -118,10 +118,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     setVirtualLossStreak(0);
                     playWinSound();
                     addLog(`Vitória Virtual (Dígito ${lastDigit}). Resetando contador.`, "INFO");
+                    updateSignalResult(virtualTradePending.signalId, 'WIN', 0, 0, lastDigit);
                 } else {
                     const nextStreak = virtualLossStreak + 1;
                     setVirtualLossStreak(nextStreak);
                     addLog(`Loss Virtual: ${nextStreak}/${virtualTargetLosses} (Dígito ${lastDigit})`, "INFO");
+                    updateSignalResult(virtualTradePending.signalId, 'LOSS', 0, 0, lastDigit);
                 }
                 setVirtualTradePending(null);
             }
@@ -143,7 +145,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 return next;
             });
         }
-    }, [setLastDigits, setLastTickEpoch, updateNeuralPredictions, isStudying, setIsStudying, setStudyTicksCount, addLog, virtualTradePending, virtualLossStreak, virtualTargetLosses, setVirtualLossStreak, playWinSound]);
+    }, [setLastDigits, setLastTickEpoch, updateNeuralPredictions, isStudying, setIsStudying, setStudyTicksCount, addLog, virtualTradePending, virtualLossStreak, virtualTargetLosses, setVirtualLossStreak, playWinSound, updateSignalResult]);
 
     const stopBot = useCallback((reason: string) => {
         setIsBotRunning(false);
@@ -344,7 +346,13 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             // Lógica de Loss Virtual: Se ainda não atingiu o alvo, apenas marca como pendente para o próximo tick
             if (virtualTargetLosses > 0 && virtualLossStreak < virtualTargetLosses && martingaleLevel.current === 0) {
                 if (!virtualTradePending) {
-                    setVirtualTradePending(signal);
+                    const sId = addSignal({ 
+                        strategy: `VIRTUAL: ${signal.name}`, 
+                        signal: signal.type as any, 
+                        details: `Simulação ${virtualLossStreak + 1}/${virtualTargetLosses}`, 
+                        winRate: `${signal.confidence}%` 
+                    });
+                    setVirtualTradePending({ ...signal, signalId: sId });
                 }
                 return;
             }

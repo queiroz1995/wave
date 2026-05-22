@@ -39,12 +39,26 @@ export const AIOperatingScreen = () => {
         toggleBot();
     };
 
-    const getSignalLabel = (signal: string) => {
+    const getSignalLabel = (signal: string, strategy: string) => {
+        const isVirtual = strategy.includes('VIRTUAL');
+        let baseColor = '';
+        let text = '';
+
         switch (signal) {
-            case 'EVEN': return { text: 'PAR', color: 'bg-green-100/50 text-green-600 border-green-200/50' };
-            case 'ODD': return { text: 'ÍMPAR', color: 'bg-red-100/50 text-red-600 border-red-200/50' };
-            default: return { text: signal, color: 'bg-gray-100/50 text-gray-600 border-gray-200/50' };
+            case 'EVEN': 
+                text = 'PAR'; 
+                baseColor = isVirtual ? 'bg-blue-100/50 text-blue-600 border-blue-200/50' : 'bg-green-100/50 text-green-600 border-green-200/50';
+                break;
+            case 'ODD': 
+                text = 'ÍMPAR'; 
+                baseColor = isVirtual ? 'bg-blue-100/50 text-blue-600 border-blue-200/50' : 'bg-red-100/50 text-red-600 border-red-200/50';
+                break;
+            default: 
+                text = signal; 
+                baseColor = 'bg-gray-100/50 text-gray-600 border-gray-200/50';
         }
+
+        return { text: isVirtual ? `VIRTUAL: ${text}` : text, color: baseColor };
     };
 
     return (
@@ -223,7 +237,7 @@ export const AIOperatingScreen = () => {
                     <table className="w-full text-[9px] sm:text-[10px] font-bold">
                         <tbody className="divide-y divide-white/10">
                             {signals.length > 0 ? signals.map((s: any) => {
-                                const label = getSignalLabel(s.signal);
+                                const label = getSignalLabel(s.signal, s.strategy);
                                 const hasFinished = typeof s.profit === 'number';
                                 
                                 return (
@@ -239,7 +253,7 @@ export const AIOperatingScreen = () => {
                                             "py-3 text-right font-black text-xs", 
                                             !hasFinished ? "text-blue-500 animate-pulse" : (s.result === 'WIN' ? "text-green-600" : "text-red-500")
                                         )}>
-                                            {hasFinished ? `${s.profit > 0 ? '+' : ''}${s.profit.toFixed(2)}` : 'ANALISANDO...'}
+                                            {hasFinished ? (s.strategy.includes('VIRTUAL') ? 'OK' : `${s.profit > 0 ? '+' : ''}${s.profit.toFixed(2)}`) : 'ANALISANDO...'}
                                         </td>
                                     </tr>
                                 );
