@@ -196,7 +196,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
     const calculateTradeSignal = useCallback(() => {
-        if (lastDigits.length < 20 || isStudying || virtualTradePending) return null;
+        if (lastDigits.length < 25 || isStudying || virtualTradePending) return null;
 
         let baseSignal: any = null;
 
@@ -210,17 +210,17 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 const evenNeural = neuralPredictions.filter((p, i) => i % 2 === 0).reduce((a, b) => a + b, 0);
                 const oddNeural = neuralPredictions.filter((p, i) => i % 2 !== 0).reduce((a, b) => a + b, 0);
 
-                if (evens >= 7 && evenNeural > 58) {
+                if (evens >= 7 && evenNeural > 60) {
                     baseSignal = { type: 'EVEN', contract: 'DIGITEVEN', name: 'Neural Sweep', details: 'Vassourilha Par detectada.' };
                     break;
                 }
-                if (odds >= 7 && oddNeural > 58) {
+                if (odds >= 7 && oddNeural > 60) {
                     baseSignal = { type: 'ODD', contract: 'DIGITODD', name: 'Neural Sweep', details: 'Vassourilha Ímpar detectada.' };
                     break;
                 }
             }
 
-            // SNIPER 1+
+            // SNIPER 1+ e 2+ (Inalterados pois já são snipers de alta barreira)
             if (mode === '1+') {
                 const lastSeq = lastDigits.slice(0, 3);
                 const isUnder = lastSeq.every(d => d <= 1);
@@ -229,13 +229,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     baseSignal = { type: 'OVER', contract: 'DIGITOVER', barrier: 1, name: 'Sniper 1+', details: 'SUPER OPORTUNIDADE: Confiança 85%+', isSuperOp: true };
                     break;
                 }
-                if (isUnder && probHigh > 70) {
-                    baseSignal = { type: 'OVER', contract: 'DIGITOVER', barrier: 1, name: 'Sniper 1+', details: 'Oportunidade 1+ detectada.' };
-                    break;
-                }
             }
 
-            // SNIPER 2+
             if (mode === '2+') {
                 const lastSeq = lastDigits.slice(0, 3);
                 const isUnder = lastSeq.every(d => d <= 2);
@@ -244,39 +239,53 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     baseSignal = { type: 'OVER', contract: 'DIGITOVER', barrier: 2, name: 'Sniper 2+', details: 'SUPER OPORTUNIDADE: Confiança 80%+', isSuperOp: true };
                     break;
                 }
-                if (isUnder && probHigh > 60) {
-                    baseSignal = { type: 'OVER', contract: 'DIGITOVER', barrier: 2, name: 'Sniper 2+', details: 'Oportunidade 2+ detectada.' };
-                    break;
-                }
             }
 
+            // MODO TRADITIONAL: Aprimorado para ser o mestre do Par/Ímpar
             if (mode === 'traditional') {
-                const sample = lastDigits.slice(0, 15);
-                const evens = sample.filter(d => d % 2 === 0).length;
-                const odds = 15 - evens;
-                const evenNeural = neuralPredictions.filter((p, i) => i % 2 === 0).reduce((a, b) => a + b, 0);
-                const oddNeural = neuralPredictions.filter((p, i) => i % 2 !== 0).reduce((a, b) => a + b, 0);
+                const sample = lastDigits.slice(0, 25);
+                const evensCount = sample.filter(d => d % 2 === 0).length;
+                const oddsCount = 25 - evensCount;
+                
+                const evenPercentage = (evensCount / 25) * 100;
+                const oddPercentage = (oddsCount / 25) * 100;
 
-                if (evens >= 9 && evenNeural > 50) {
-                    baseSignal = { type: 'EVEN', contract: 'DIGITEVEN', name: 'WAVE Traditional', details: `Tendência Par.` };
+                // Consulta Rede Neural para os próximos ticks
+                const evenNeuralProb = neuralPredictions.filter((p, i) => i % 2 === 0).reduce((a, b) => a + b, 0);
+                const oddNeuralProb = neuralPredictions.filter((p, i) => i % 2 !== 0).reduce((a, b) => a + b, 0);
+
+                // Só entra se houver dominância clara (>60%) E a rede neural concordar (>55%)
+                if (evenPercentage >= 60 && evenNeuralProb > 55) {
+                    baseSignal = { 
+                        type: 'EVEN', 
+                        contract: 'DIGITEVEN', 
+                        name: 'Adaptive Parity', 
+                        details: `Dominância Par: ${evenPercentage.toFixed(0)}% | Neural: ${evenNeuralProb.toFixed(0)}%` 
+                    };
                     break;
                 }
-                if (odds >= 9 && oddNeural > 50) {
-                    baseSignal = { type: 'ODD', contract: 'DIGITODD', name: 'WAVE Traditional', details: `Tendência Ímpar.` };
+                if (oddPercentage >= 60 && oddNeuralProb > 55) {
+                    baseSignal = { 
+                        type: 'ODD', 
+                        contract: 'DIGITODD', 
+                        name: 'Adaptive Parity', 
+                        details: `Dominância Ímpar: ${oddPercentage.toFixed(0)}% | Neural: ${oddNeuralProb.toFixed(0)}%` 
+                    };
                     break;
                 }
             }
         }
 
+        // Mirror Inverse para recuperação após Loss
         if (baseSignal && consecutiveLosses > 0 && lastLossContractType.current) {
             if (baseSignal.contract === 'DIGITEVEN') {
                 baseSignal.contract = 'DIGITODD';
                 baseSignal.type = 'ODD';
-                baseSignal.details = "Mirror Inverse: Invertendo para Ímpar.";
+                baseSignal.details = "Mirror Inverse: Invertendo paridade para recuperação.";
             } else if (baseSignal.contract === 'DIGITODD') {
                 baseSignal.contract = 'DIGITEVEN';
                 baseSignal.type = 'EVEN';
-                baseSignal.details = "Mirror Inverse: Invertendo para Par.";
+                baseSignal.details = "Mirror Inverse: Invertendo paridade para recuperação.";
             }
         }
 
@@ -289,7 +298,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         let stakeToUse = 0;
         if (isSuperOp) {
             stakeToUse = 6.00;
-            addLog(`ALVO CONFIRMADO: Disparando Sniper ($6.00)`, "TRADE");
+            addLog(`GATILHO SNIPER: Alvo validado ($6.00)`, "TRADE");
         } else {
             const baseStake = parseFloat(initialStake) || 0.35;
             const mgFactor = parseFloat(martingaleFactor) || 1.8;
@@ -312,13 +321,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isTradeOpen.current = true;
         setTradeStatus('SENDING');
         
-        // Trava de segurança: se em 10s não houver resultado, destrava o bot
         if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current);
         safetyTimeoutRef.current = setTimeout(() => {
             if (isTradeOpen.current) {
                 isTradeOpen.current = false;
                 setTradeStatus('IDLE');
-                addLog("Tempo de espera excedido. Destravando motor neural.", "ERROR");
+                addLog("Neural Timeout: Reiniciando analisador.", "ERROR");
             }
         }, 10000);
 
@@ -366,7 +374,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             lastLossContractType.current = lastTradeDetails.current?.contractType || null;
             setIsStudying(true);
             setStudyTicksCount(0);
-            addLog("Loss detectado. Analisando mercado para recuperação.", "TRADE");
+            addLog("Loss registrado. Otimizando filtros neurais...", "TRADE");
         } else {
             setWins((prev: number) => prev + 1);
             setConsecutiveLosses(0);
@@ -404,7 +412,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setConsecutiveLosses(0); setIsPaused(false);
             setIsStudying(false);
             lastLossContractType.current = null;
-            addLog(`Ativado Modo WAVE AI: ${attackMode.join(' + ')}`, "INFO");
+            addLog(`Ativado Modo WAVE AI: Adaptativo Par/Ímpar`, "INFO");
         }
     }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog, attackMode, setIsStudying]);
 
