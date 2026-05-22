@@ -128,7 +128,7 @@ export const useBotState = () => {
         isBotRunning, setIsBotRunning, isManualMode, setIsManualMode,
         totalProfit, setTotalProfit, wins, setWins, losses, setLosses,
         consecutiveLosses, setConsecutiveLosses,
-        lastDigits, setLastDigits, lastTickEpoch, setLastTickEpoch, logs, setLogs, signals, accountBalance, setAccountBalance,
+        lastDigits, setLastDigits, lastTickEpoch, setLastTickEpoch, logs, setLogs, signals, setSignals, accountBalance, setAccountBalance,
         tradeStatus, setTradeStatus, addLog, addSignal, updateSignalResult,
         overUnderDirection, setOverUnderDirection,
         isStudying, setIsStudying, studyTicksCount, setStudyTicksCount,

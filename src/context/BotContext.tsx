@@ -49,7 +49,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         virtualTargetLosses, setVirtualTargetLosses,
         isSoundEnabled,
         consecutiveTarget, entryDirection,
-        isSmartModeActive
+        isSmartModeActive,
+        setSignals
     } = stateAndSetters;
 
     const [isConnected, setIsConnected] = useState(false);
@@ -160,6 +161,20 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsStudying(false);
         addLog(reason, 'INFO');
     }, [setIsBotRunning, addLog, setIsStudying, setVirtualLossStreak]);
+
+    const resetOperations = useCallback(() => {
+        totalProfitRef.current = 0;
+        setTotalProfit(0);
+        setWins(0);
+        setLosses(0);
+        winsRef.current = 0;
+        setConsecutiveLosses(0);
+        setSignals([]);
+        martingaleLevel.current = 0;
+        setVirtualLossStreak(0);
+        setVirtualTradePending(null);
+        addLog("Operações resetadas pelo usuário.", "INFO");
+    }, [setTotalProfit, setWins, setLosses, setConsecutiveLosses, setSignals, setVirtualLossStreak, addLog]);
 
     const toggleBot = useCallback(() => {
         if (!isConnected) return;
@@ -279,6 +294,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 contract, 
                 name: 'Recuperação Sniper', 
                 confidence: 100, 
+                confidence_score: 100,
                 details: `Gale Nível ${martingaleLevel.current}` 
             };
         }
@@ -316,6 +332,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 contract, 
                 name: isSmartModeActive ? 'SMART NEURAL' : 'WAVE Sniper', 
                 confidence: currentConfidence, 
+                confidence_score: currentConfidence,
                 details: isSmartModeActive ? `Auto-Otimizado (${targetDirection})` : `${targetDirection === 'AGAINST' ? 'Contra' : 'Favor'} ${targetConsecutive}x ${streakParity === 'EVEN' ? 'Par' : 'Ímpar'}` 
             };
         }
@@ -386,8 +403,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const contextValue = useMemo(() => ({
         ...stateAndSetters, isConnected, status, handleConnect, handleDisconnect: disconnect, 
-        toggleBot, appFlow, setAppFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence
-    }), [stateAndSetters, isConnected, status, handleConnect, disconnect, toggleBot, appFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence]);
+        toggleBot, resetOperations, appFlow, setAppFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence
+    }), [stateAndSetters, isConnected, status, handleConnect, disconnect, toggleBot, resetOperations, appFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence]);
 
     return <BotContext.Provider value={contextValue}>{children}</BotContext.Provider>;
 };

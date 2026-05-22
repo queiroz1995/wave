@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, Bot, Zap, Volume2, VolumeX, Globe, Cpu, DollarSign, FileSpreadsheet, Percent, ShieldAlert } from 'lucide-react';
+import { Power, RefreshCw, Bot, Zap, Volume2, VolumeX, Globe, Cpu, DollarSign, FileSpreadsheet, Percent, ShieldAlert, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
@@ -14,7 +14,7 @@ import { BackgroundMarketChart } from './BackgroundMarketChart';
 export const AIOperatingScreen = () => {
     const { 
         selectedAIInfo, totalProfit, accountBalance, 
-        isBotRunning, toggleBot, exitToSelection, 
+        isBotRunning, toggleBot, resetOperations, exitToSelection, 
         status, signals,
         handleConnect, accountType, realToken, demoToken,
         isPaused, isManipulationDetected,
@@ -154,17 +154,20 @@ export const AIOperatingScreen = () => {
                                 </div>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <Button variant="ghost" size="icon" className="h-12 w-12 rounded-2xl" onClick={() => setIsSoundEnabled(!isSoundEnabled)}>
-                                {isSoundEnabled ? <Volume2 className="h-6 w-6 text-primary" /> : <VolumeX className="h-6 w-6 text-muted-foreground" />}
+                        <div className="flex items-center gap-1 sm:gap-2">
+                            <Button variant="ghost" size="icon" className="h-10 w-10 sm:h-12 sm:w-12 rounded-2xl" onClick={() => setIsSoundEnabled(!isSoundEnabled)}>
+                                {isSoundEnabled ? <Volume2 className="h-5 w-5 sm:h-6 sm:w-6 text-primary" /> : <VolumeX className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />}
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-10 w-10 sm:h-12 sm:w-12 rounded-2xl hover:text-blue-500" onClick={resetOperations}>
+                                <RotateCcw className="h-5 w-5 sm:h-6 sm:w-6" />
                             </Button>
                             <SettingsSheet trigger={
-                                <Button variant="ghost" size="icon" className="h-12 w-12 rounded-2xl">
-                                    <FileSpreadsheet className="h-6 w-6" />
+                                <Button variant="ghost" size="icon" className="h-10 w-10 sm:h-12 sm:w-12 rounded-2xl">
+                                    <FileSpreadsheet className="h-5 w-5 sm:h-6 sm:w-6" />
                                 </Button>
                             } />
-                            <Button variant="ghost" size="icon" className="h-12 w-12 rounded-2xl hover:text-red-500" onClick={exitToSelection}>
-                                <Power className="h-6 w-6" />
+                            <Button variant="ghost" size="icon" className="h-10 w-10 sm:h-12 sm:w-12 rounded-2xl hover:text-red-500" onClick={exitToSelection}>
+                                <Power className="h-5 w-5 sm:h-6 sm:w-6" />
                             </Button>
                         </div>
                     </div>
