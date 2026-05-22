@@ -50,7 +50,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         virtualTargetLosses, setVirtualTargetLosses,
         isSoundEnabled,
         consecutiveTarget, entryDirection,
-        isHybridModeActive, hybridWinsRequired, wins
+        isHybridModeActive, hybridWinsRequired, wins,
+        isSmartModeActive
     } = stateAndSetters;
 
     const [isConnected, setIsConnected] = useState(false);
@@ -233,25 +234,17 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         pendingContracts.current.delete(contract.contract_id);
                         setTradeStatus('IDLE'); 
 
-                        // CORREÇÃO MODO HÍBRIDO: Usamos o valor local 'updatedWins' para evitar atraso de estado
                         if (isHybridModeActive && accountType === 'demo' && !isLoss) {
-                            // Se o bot acabou de ganhar e atingiu a meta de validação
                             if (updatedWins >= hybridWinsRequired) {
                                 addLog(`Mercado Validado (${updatedWins} Wins)! Trocando para Conta Real...`, "INFO");
                                 stopBot("Trocando de Conta...");
-                                
                                 if (!realToken) {
-                                    addLog("Erro: Token Real não configurado. Configure o token para usar o Modo Híbrido.", "ERROR");
+                                    addLog("Erro: Token Real não configurado.", "ERROR");
                                     return;
                                 }
-
                                 shouldAutoStartOnReal.current = true;
-                                
-                                // Pequeno delay para garantir que a UI atualize antes da troca
                                 setTimeout(() => {
                                     setAccountType('real');
-                                    // O hook useTradingWebSocketManager vai detectar a mudança de accountType e token se chamarmos o connect
-                                    // Mas aqui forçamos a re-autorização
                                     sendMessageRef.current({ authorize: realToken });
                                 }, 1000);
                                 return;
@@ -274,20 +267,57 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const contract = lastContractType.current || 'DIGITEVEN';
             return { type: contract === 'DIGITEVEN' ? 'EVEN' : 'ODD', contract, name: 'Gale Imediato', confidence: 100, details: `Recuperação Nível ${martingaleLevel.current}` };
         }
-        if (lastDigits.length < consecutiveTarget || isStudying || virtualTradePending || activeTrades.current.size > 0) return null;
-        const lastN = lastDigits.slice(0, consecutiveTarget);
+        
+        if (lastDigits.length < 10 || isStudying || virtualTradePending || activeTrades.current.size > 0) return null;
+
+        // LÓGICA SMART NEURAL
+        let targetConsecutive = consecutiveTarget;
+        let targetDirection = entryDirection;
+
+        if (isSmartModeActive) {
+            // Analisa os últimos 100 ticks para decidir a estratégia
+            const recent = lastDigits.slice(0, 100);
+            let streaks = 0;
+            let reversals = 0;
+            for(let i=0; i<recent.length-1; i++) {
+                const currentParity = recent[i] % 2 === 0;
+                const nextParity = recent[i+1] % 2 === 0;
+                if (currentParity === nextParity) streaks++;
+                else reversals++;
+            }
+
+            // Se o mercado está trocando muito de cor (reversão), entra a favor da tendência de troca
+            // Se o mercado está repetindo muito (tendência), entra a favor da repetição
+            if (reversals > streaks) {
+                targetDirection = 'AGAINST';
+                targetConsecutive = 2; // Mercado rápido, espera menos
+            } else {
+                targetDirection = 'FAVOR';
+                targetConsecutive = 3; // Mercado de tendência, espera confirmação
+            }
+        }
+
+        const lastN = lastDigits.slice(0, targetConsecutive);
         const allEven = lastN.every(d => d % 2 === 0);
         const allOdd = lastN.every(d => d % 2 !== 0);
+
         if (allEven || allOdd) {
             const streakParity = allEven ? 'EVEN' : 'ODD';
             let targetType: 'EVEN' | 'ODD';
-            if (entryDirection === 'AGAINST') targetType = streakParity === 'EVEN' ? 'ODD' : 'EVEN';
+            if (targetDirection === 'AGAINST') targetType = streakParity === 'EVEN' ? 'ODD' : 'EVEN';
             else targetType = streakParity === 'EVEN' ? 'EVEN' : 'ODD';
+            
             const contract = targetType === 'EVEN' ? 'DIGITEVEN' : 'DIGITODD';
-            return { type: targetType, contract, name: 'WAVE Sniper', confidence: currentConfidence, details: `${entryDirection === 'AGAINST' ? 'Contra' : 'Favor'} ${consecutiveTarget}x ${streakParity === 'EVEN' ? 'Par' : 'Ímpar'}` };
+            return { 
+                type: targetType, 
+                contract, 
+                name: isSmartModeActive ? 'SMART NEURAL' : 'WAVE Sniper', 
+                confidence: currentConfidence, 
+                details: isSmartModeActive ? `Auto-Otimizado (${targetDirection})` : `${targetDirection === 'AGAINST' ? 'Contra' : 'Favor'} ${targetConsecutive}x ${streakParity === 'EVEN' ? 'Par' : 'Ímpar'}` 
+            };
         }
         return null;
-    }, [lastDigits, consecutiveTarget, entryDirection, isStudying, virtualTradePending, currentConfidence]);
+    }, [lastDigits, consecutiveTarget, entryDirection, isStudying, virtualTradePending, currentConfidence, isSmartModeActive]);
 
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string, confidence: number) => {
         if (!isConnected || isStudying || activeTrades.current.size > 0) return;

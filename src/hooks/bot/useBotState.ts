@@ -34,6 +34,8 @@ const DEFAULTS = {
     bankManagementDailyStopPercent: '10.0',
     bankManagementCurrentDay: 1,
     bankManagementActualBankroll: '100.00',
+    // NOVO: MODO SMART
+    isSmartModeActive: true,
 };
 
 const getInitialState = () => {
@@ -89,8 +91,8 @@ export const useBotState = () => {
     const [virtualTargetLosses, setVirtualTargetLosses] = useState(0);
     const [isHybridModeActive, setIsHybridModeActive] = useState(initialState.isHybridModeActive);
     const [hybridWinsRequired, setHybridWinsRequired] = useState(initialState.hybridWinsRequired);
+    const [isSmartModeActive, setIsSmartModeActive] = useState(initialState.isSmartModeActive);
     
-    // Estados adicionais para persistência e contexto
     const [analyzerWindowSize, setAnalyzerWindowSize] = useState(initialState.analyzerWindowSize);
     const [learningData, setLearningData] = useState<any>(null);
     const [scoreThreshold, setScoreThreshold] = useState(initialState.scoreThreshold);
@@ -134,6 +136,7 @@ export const useBotState = () => {
         consecutiveTarget, setConsecutiveTarget, entryDirection, setEntryDirection,
         virtualLossStreak, setVirtualLossStreak, virtualTargetLosses, setVirtualTargetLosses,
         isHybridModeActive, setIsHybridModeActive, hybridWinsRequired, setHybridWinsRequired,
+        isSmartModeActive, setIsSmartModeActive,
         analyzerWindowSize, setAnalyzerWindowSize, learningData, setLearningData,
         scoreThreshold, setScoreThreshold, marketStabilityThreshold, setMarketStabilityThreshold,
         bankManagementInitialBankroll, setBankManagementInitialBankroll,

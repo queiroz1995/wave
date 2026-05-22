@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DollarSign, Target, Play, ShieldAlert, Zap, AlertTriangle, ListOrdered, ArrowRightLeft, TrendingUp } from 'lucide-react';
+import { DollarSign, Target, Play, ShieldAlert, Zap, AlertTriangle, ListOrdered, ArrowRightLeft, BrainCircuit, Sparkles } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
 import { cn } from '@/lib/utils';
 
@@ -32,7 +32,8 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
         consecutiveTarget, setConsecutiveTarget,
         entryDirection, setEntryDirection,
         isHybridModeActive, setIsHybridModeActive,
-        hybridWinsRequired, setHybridWinsRequired
+        hybridWinsRequired, setHybridWinsRequired,
+        isSmartModeActive, setIsSmartModeActive
     } = useBotContext();
     
     const [tempStake, setTempStake] = useState(initialStake);
@@ -42,10 +43,9 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
     const [tempVirtualLoss, setTempVirtualLoss] = useState(virtualTargetLosses || 1);
     const [tempConsecutive, setTempConsecutive] = useState(consecutiveTarget);
     const [tempDirection, setTempDirection] = useState(entryDirection);
-    
-    // Estados temporários para Modo Híbrido
     const [tempHybridActive, setTempHybridActive] = useState(isHybridModeActive);
     const [tempHybridWins, setTempHybridWins] = useState(hybridWinsRequired);
+    const [tempSmartActive, setTempSmartActive] = useState(isSmartModeActive);
 
     useEffect(() => {
         if (isOpen) {
@@ -58,8 +58,9 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
             setTempDirection(entryDirection);
             setTempHybridActive(isHybridModeActive);
             setTempHybridWins(hybridWinsRequired);
+            setTempSmartActive(isSmartModeActive);
         }
-    }, [isOpen, initialStake, takeProfit, stopLoss, virtualTargetLosses, consecutiveTarget, entryDirection, isHybridModeActive, hybridWinsRequired]);
+    }, [isOpen, initialStake, takeProfit, stopLoss, virtualTargetLosses, consecutiveTarget, entryDirection, isHybridModeActive, hybridWinsRequired, isSmartModeActive]);
 
     const handleConfirm = () => {
         setInitialStake(tempStake);
@@ -70,6 +71,7 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
         setEntryDirection(tempDirection);
         setIsHybridModeActive(tempHybridActive);
         setHybridWinsRequired(tempHybridWins);
+        setIsSmartModeActive(tempSmartActive);
         onConfirm();
     };
 
@@ -81,11 +83,74 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                         <Zap className="h-6 w-6 text-blue-600 fill-current" />
                     </div>
                     <DialogTitle className="text-2xl font-black uppercase tracking-tighter text-center">Protocolo de Partida</DialogTitle>
-                    <p className="text-center text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">Configure a estratégia de paridade</p>
+                    <p className="text-center text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">Configure a inteligência de operação</p>
                 </DialogHeader>
                 
                 <div className="space-y-6 py-6">
-                    {/* MODO HÍBRIDO - NOVA SEÇÃO */}
+                    {/* MODO SMART NEURAL - DESTAQUE */}
+                    <div className={cn(
+                        "p-5 rounded-3xl border-2 transition-all duration-500 space-y-4 relative overflow-hidden",
+                        tempSmartActive ? "bg-blue-600/10 border-blue-500/40 shadow-[0_0_20px_rgba(59,130,246,0.1)]" : "bg-gray-50 border-transparent"
+                    )}>
+                        {tempSmartActive && <div className="absolute top-0 right-0 p-2"><Sparkles className="h-4 w-4 text-blue-500 animate-pulse" /></div>}
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className={cn("p-2 rounded-xl", tempSmartActive ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-400")}>
+                                    <BrainCircuit className="h-5 w-5" />
+                                </div>
+                                <div className="space-y-0.5">
+                                    <Label className="text-[11px] font-black uppercase tracking-tight">Modo Smart Neural</Label>
+                                    <p className="text-[8px] font-bold text-muted-foreground uppercase">A I.A decide tudo sozinha</p>
+                                </div>
+                            </div>
+                            <Switch 
+                                checked={tempSmartActive} 
+                                onCheckedChange={setTempSmartActive} 
+                            />
+                        </div>
+                        {tempSmartActive && (
+                            <p className="text-[9px] font-bold text-blue-600/80 italic animate-in fade-in slide-in-from-top-1">
+                                * Otimização dinâmica de ciclos e direção ativada.
+                            </p>
+                        )}
+                    </div>
+
+                    {/* Configuração de Sequência - Esconde se Smart estiver ativo */}
+                    {!tempSmartActive && (
+                        <div className="p-5 rounded-3xl bg-primary/5 border border-primary/10 space-y-4 animate-in fade-in zoom-in-95">
+                            <div className="flex items-center gap-2 mb-2">
+                                <ListOrdered className="h-4 w-4 text-primary" />
+                                <span className="text-[10px] font-black uppercase tracking-widest text-primary">Configuração Manual</span>
+                            </div>
+                            
+                            <div className="space-y-2">
+                                <Label className="text-[9px] font-black uppercase tracking-widest ml-1 opacity-60">Esperar quantos seguidos?</Label>
+                                <Input 
+                                    type="number"
+                                    value={tempConsecutive}
+                                    onChange={(e) => setTempConsecutive(parseInt(e.target.value) || 1)}
+                                    min="1"
+                                    max="10"
+                                    className="h-11 rounded-xl font-black text-center bg-white border-none shadow-sm"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label className="text-[9px] font-black uppercase tracking-widest ml-1 opacity-60">Direção da Entrada</Label>
+                                <Select value={tempDirection} onValueChange={(v: any) => setTempDirection(v)}>
+                                    <SelectTrigger className="h-11 rounded-xl font-bold bg-white border-none shadow-sm">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="AGAINST">Contra a Sequência (Reversão)</SelectItem>
+                                        <SelectItem value="FAVOR">A Favor da Sequência (Tendência)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* MODO HÍBRIDO */}
                     <div className={cn(
                         "p-5 rounded-3xl border-2 transition-all duration-500 space-y-4",
                         tempHybridActive ? "bg-green-500/5 border-green-500/20" : "bg-gray-50 border-transparent"
@@ -117,39 +182,6 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                                 />
                             </div>
                         )}
-                    </div>
-
-                    {/* Configuração de Sequência */}
-                    <div className="p-5 rounded-3xl bg-primary/5 border border-primary/10 space-y-4">
-                        <div className="flex items-center gap-2 mb-2">
-                            <ListOrdered className="h-4 w-4 text-primary" />
-                            <span className="text-[10px] font-black uppercase tracking-widest text-primary">Configuração de Sequência</span>
-                        </div>
-                        
-                        <div className="space-y-2">
-                            <Label className="text-[9px] font-black uppercase tracking-widest ml-1 opacity-60">Esperar quantos seguidos?</Label>
-                            <Input 
-                                type="number"
-                                value={tempConsecutive}
-                                onChange={(e) => setTempConsecutive(parseInt(e.target.value) || 1)}
-                                min="1"
-                                max="10"
-                                className="h-11 rounded-xl font-black text-center bg-white border-none shadow-sm"
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label className="text-[9px] font-black uppercase tracking-widest ml-1 opacity-60">Direção da Entrada</Label>
-                            <Select value={tempDirection} onValueChange={(v: any) => setTempDirection(v)}>
-                                <SelectTrigger className="h-11 rounded-xl font-bold bg-white border-none shadow-sm">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="AGAINST">Contra a Sequência (Reversão)</SelectItem>
-                                    <SelectItem value="FAVOR">A Favor da Sequência (Tendência)</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
