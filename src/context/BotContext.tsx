@@ -29,7 +29,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const martingaleLevel = useRef(0);
     const lastContractType = useRef<ContractType | null>(null);
     
-    // Estado para controlar a transição de conta (Sincronização)
     const [isSwitchingAccount, setIsSwitchingAccount] = useState(false);
     
     const winsRef = useRef(0);
@@ -178,19 +177,24 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (data?.msg_type === 'authorize') {
                 setIsConnected(true); 
                 setStatus({ message: `Sniper Ativo`, color: 'bg-green-500' });
-                if (data.authorize.balance) setAccountBalance(data.authorize.balance);
+                
+                // Solicita saldo imediatamente após autorização
+                sendMessageRef.current({ balance: 1, subscribe: 1 });
                 
                 if (isSwitchingAccount) {
                     setIsSwitchingAccount(false);
-                    // Se mudou para Real, pula o estudo para entrar rápido
                     if (accountType === 'real') {
                         setIsStudying(false);
-                        addLog(`CONTA REAL PRONTA. AGUARDANDO GATILHO...`, "INFO");
+                        addLog(`CONTA REAL SINCRONIZADA.`, "INFO");
                     } else {
                         setIsStudying(true);
                         setStudyTicksCount(0);
-                        addLog(`Sincronização Completa. Retomando Estudo...`, "INFO");
+                        addLog(`CONTA DEMO SINCRONIZADA.`, "INFO");
                     }
+                }
+            } else if (data?.msg_type === 'balance') {
+                if (data.balance) {
+                    setAccountBalance(data.balance.balance);
                 }
             } else if (data?.msg_type === 'history') {
                 if (data.history?.prices) {
@@ -223,7 +227,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         const exitDigit = parseInt(String(exit_tick).slice(-1));
                         const profitValue = parseFloat(profit);
 
-                        setAccountBalance((prev: number) => prev !== null ? prev + profitValue : null);
                         totalProfitRef.current += profitValue;
                         setTotalProfit(totalProfitRef.current);
 
@@ -245,6 +248,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                 
                                 setIsSwitchingAccount(true);
                                 activeTrades.current.clear();
+                                setAccountBalance(null); // Limpa saldo visualmente durante a troca
                                 setTimeout(() => {
                                     setAccountType('demo');
                                     sendMessageRef.current({ authorize: demoToken });
@@ -258,6 +262,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                         setIsSwitchingAccount(true);
                                         activeTrades.current.clear();
                                         winsRef.current = 0;
+                                        setAccountBalance(null); // Limpa saldo visualmente durante a troca
                                         setTimeout(() => {
                                             setAccountType('real');
                                             sendMessageRef.current({ authorize: realToken });
@@ -306,7 +311,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
     const calculateTradeSignal = useCallback(() => {
-        // Se estiver trocando de conta, não gera sinal para evitar erros de autorização
         if (activeTrades.current.size > 0 || isStudying || virtualTradePending || isSwitchingAccount) return null;
 
         if (accountType === 'real' && martingaleLevel.current > 0) {
