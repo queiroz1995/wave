@@ -12,7 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { DollarSign, Target, Play, ShieldAlert, Zap, AlertTriangle } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DollarSign, Target, Play, ShieldAlert, Zap, AlertTriangle, ListOrdered, ArrowRightLeft } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
 import { cn } from '@/lib/utils';
 
@@ -27,7 +28,9 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
         initialStake, setInitialStake, 
         takeProfit, setTakeProfit,
         stopLoss, setStopLoss,
-        virtualTargetLosses, setVirtualTargetLosses
+        virtualTargetLosses, setVirtualTargetLosses,
+        consecutiveTarget, setConsecutiveTarget,
+        entryDirection, setEntryDirection
     } = useBotContext();
     
     const [tempStake, setTempStake] = useState(initialStake);
@@ -35,8 +38,11 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
     const [tempStop, setTempStop] = useState(stopLoss);
     const [virtualActive, setVirtualActive] = useState(virtualTargetLosses > 0);
     const [tempVirtualLoss, setTempVirtualLoss] = useState(virtualTargetLosses || 1);
+    
+    // Novos estados temporários
+    const [tempConsecutive, setTempConsecutive] = useState(consecutiveTarget);
+    const [tempDirection, setTempDirection] = useState(entryDirection);
 
-    // Sincroniza com o estado global quando o modal abre
     useEffect(() => {
         if (isOpen) {
             setTempStake(initialStake);
@@ -44,29 +50,66 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
             setTempStop(stopLoss);
             setVirtualActive(virtualTargetLosses > 0);
             setTempVirtualLoss(virtualTargetLosses || 1);
+            setTempConsecutive(consecutiveTarget);
+            setTempDirection(entryDirection);
         }
-    }, [isOpen, initialStake, takeProfit, stopLoss, virtualTargetLosses]);
+    }, [isOpen, initialStake, takeProfit, stopLoss, virtualTargetLosses, consecutiveTarget, entryDirection]);
 
     const handleConfirm = () => {
         setInitialStake(tempStake);
         setTakeProfit(tempMeta);
         setStopLoss(tempStop);
         setVirtualTargetLosses(virtualActive ? tempVirtualLoss : 0);
+        setConsecutiveTarget(tempConsecutive);
+        setEntryDirection(tempDirection);
         onConfirm();
     };
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[450px] rounded-[2.5rem] glass-panel border-none p-8 sm:p-10">
+            <DialogContent className="sm:max-w-[480px] rounded-[2.5rem] glass-panel border-none p-8 sm:p-10 max-h-[90vh] overflow-y-auto custom-scrollbar">
                 <DialogHeader className="space-y-3">
                     <div className="mx-auto bg-blue-500/10 p-3 rounded-2xl w-fit">
                         <Zap className="h-6 w-6 text-blue-600 fill-current" />
                     </div>
                     <DialogTitle className="text-2xl font-black uppercase tracking-tighter text-center">Protocolo de Partida</DialogTitle>
-                    <p className="text-center text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">Configure os parâmetros da I.A WAVE</p>
+                    <p className="text-center text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">Configure a estratégia de paridade</p>
                 </DialogHeader>
                 
-                <div className="space-y-5 py-6">
+                <div className="space-y-6 py-6">
+                    {/* Configuração de Sequência - NOVA SEÇÃO */}
+                    <div className="p-5 rounded-3xl bg-primary/5 border border-primary/10 space-y-4">
+                        <div className="flex items-center gap-2 mb-2">
+                            <ListOrdered className="h-4 w-4 text-primary" />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-primary">Configuração de Sequência</span>
+                        </div>
+                        
+                        <div className="space-y-2">
+                            <Label className="text-[9px] font-black uppercase tracking-widest ml-1 opacity-60">Esperar quantos seguidos?</Label>
+                            <Input 
+                                type="number"
+                                value={tempConsecutive}
+                                onChange={(e) => setTempConsecutive(parseInt(e.target.value) || 1)}
+                                min="1"
+                                max="10"
+                                className="h-11 rounded-xl font-black text-center bg-white border-none shadow-sm"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label className="text-[9px] font-black uppercase tracking-widest ml-1 opacity-60">Direção da Entrada</Label>
+                            <Select value={tempDirection} onValueChange={(v: any) => setTempDirection(v)}>
+                                <SelectTrigger className="h-11 rounded-xl font-bold bg-white border-none shadow-sm">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="AGAINST">Contra a Sequência (Reversão)</SelectItem>
+                                    <SelectItem value="FAVOR">A Favor da Sequência (Tendência)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label className="text-[9px] font-black uppercase tracking-widest ml-1 opacity-60">Entrada ($)</Label>
@@ -75,7 +118,7 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                                 <Input 
                                     value={tempStake}
                                     onChange={(e) => setTempStake(e.target.value.replace(',', '.'))}
-                                    className="pl-9 h-11 rounded-xl font-bold text-sm bg-gray-50/50 border-none focus-visible:ring-primary/20"
+                                    className="pl-9 h-11 rounded-xl font-bold text-sm bg-gray-50/50 border-none"
                                 />
                             </div>
                         </div>
@@ -87,20 +130,20 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                                 <Input 
                                     value={tempMeta}
                                     onChange={(e) => setTempMeta(e.target.value.replace(',', '.'))}
-                                    className="pl-9 h-11 rounded-xl font-bold text-sm bg-gray-50/50 border-none focus-visible:ring-primary/20"
+                                    className="pl-9 h-11 rounded-xl font-bold text-sm bg-gray-50/50 border-none"
                                 />
                             </div>
                         </div>
                     </div>
 
                     <div className="space-y-2">
-                        <Label className="text-[9px] font-black uppercase tracking-widest ml-1 opacity-60">Stop Loss (Máximo de Perda $)</Label>
+                        <Label className="text-[9px] font-black uppercase tracking-widest ml-1 opacity-60">Stop Loss ($)</Label>
                         <div className="relative">
                             <AlertTriangle className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-red-500" />
                             <Input 
                                 value={tempStop}
                                 onChange={(e) => setTempStop(e.target.value.replace(',', '.'))}
-                                className="pl-9 h-11 rounded-xl font-bold text-sm bg-gray-50/50 border-none focus-visible:ring-primary/20"
+                                className="pl-9 h-11 rounded-xl font-bold text-sm bg-gray-50/50 border-none"
                             />
                         </div>
                     </div>
@@ -125,7 +168,7 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
 
                         {virtualActive && (
                             <div className="flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
-                                <Label className="text-[10px] font-bold text-blue-600 whitespace-nowrap">Quanto Losses?</Label>
+                                <Label className="text-[10px] font-bold text-blue-600 whitespace-nowrap">Quantos Losses?</Label>
                                 <Input 
                                     type="number"
                                     value={tempVirtualLoss}

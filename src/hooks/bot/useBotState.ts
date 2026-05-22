@@ -10,9 +10,9 @@ const DEFAULTS = {
     asset: '1HZ100V',
     duration: 1,
     initialStake: '0.35',
-    digitTradeMode: 'overUnder' as 'evenOdd' | 'overUnder',
+    digitTradeMode: 'evenOdd' as 'evenOdd' | 'overUnder',
     attackMode: ['traditional'] as string[],
-    digitPrediction: 4, // Barreira padrão para Acima de 4
+    digitPrediction: 4,
     overUnderDirection: 'OVER' as 'OVER' | 'UNDER',
     isManualMode: true,
     isManualGaleActive: false,
@@ -57,6 +57,9 @@ const DEFAULTS = {
     scoreThreshold: 4,
     learningData: {} as Record<string, { wins: number, losses: number, total: number }>,
     isSoundEnabled: true,
+    // NOVOS ESTADOS PARA SEQUÊNCIA CUSTOMIZADA
+    consecutiveTarget: 3,
+    entryDirection: 'AGAINST' as 'AGAINST' | 'FAVOR',
 };
 
 const getInitialState = () => {
@@ -141,6 +144,10 @@ export const useBotState = () => {
     const [virtualTargetWins, setVirtualTargetWins] = useState(initialState.virtualTargetWins);
     const [isWaitingForVirtualResult, setIsWaitingForVirtualResult] = useState(initialState.isWaitingForVirtualResult);
 
+    // NOVOS SETTERS
+    const [consecutiveTarget, setConsecutiveTarget] = useState(initialState.consecutiveTarget);
+    const [entryDirection, setEntryDirection] = useState<'AGAINST' | 'FAVOR'>(initialState.entryDirection);
+
     const addLog = useCallback((message: string, type: LogType, details?: any) => {
         setLogs(prev => [{ timestamp: new Date().toLocaleTimeString('pt-BR', { hour12: false }), message, type, ...details }, ...prev].slice(0, 50));
     }, []);
@@ -180,6 +187,7 @@ export const useBotState = () => {
         virtualTargetLosses, setVirtualTargetLosses, virtualTargetWins, setVirtualTargetWins,
         isWaitingForVirtualResult, setIsWaitingForVirtualResult, lossRecoveryStrategy, setLossRecoveryStrategy,
         isStudying, setIsStudying, studyTicksCount, setStudyTicksCount,
-        isSoundEnabled, setIsSoundEnabled
+        isSoundEnabled, setIsSoundEnabled,
+        consecutiveTarget, setConsecutiveTarget, entryDirection, setEntryDirection
     };
 };

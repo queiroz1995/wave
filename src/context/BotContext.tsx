@@ -46,7 +46,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isStudying, setIsStudying, studyTicksCount, setStudyTicksCount,
         virtualLossStreak, setVirtualLossStreak,
         virtualTargetLosses, setVirtualTargetLosses,
-        isSoundEnabled
+        isSoundEnabled,
+        consecutiveTarget, entryDirection
     } = stateAndSetters;
 
     const [isConnected, setIsConnected] = useState(false);
@@ -121,7 +122,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (isStudying) {
             setStudyTicksCount((c: number) => {
                 const next = c + 1;
-                if (next >= 1) { // Reduzido para 1 tick (Sincronização instantânea)
+                if (next >= 1) {
                     setIsStudying(false);
                     return 0;
                 }
@@ -205,30 +206,40 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
     const calculateTradeSignal = useCallback(() => {
-        if (lastDigits.length < 10 || isStudying || virtualTradePending) return null;
+        if (lastDigits.length < consecutiveTarget || isStudying || virtualTradePending) return null;
 
-        // Análise de Desequilíbrio com Threshold Agressivo (55% confiança)
-        const last10 = lastDigits.slice(0, 10);
-        const evens = last10.filter(d => d % 2 === 0).length;
-        const odds = 10 - evens;
+        // Lógica de Sequência Customizada
+        const lastN = lastDigits.slice(0, consecutiveTarget);
+        const allEven = lastN.every(d => d % 2 === 0);
+        const allOdd = lastN.every(d => d % 2 !== 0);
 
-        const probEven = neuralPredictions.filter((p, i) => i % 2 === 0).reduce((a, b) => a + b, 0);
-        const probOdd = neuralPredictions.filter((p, i) => i % 2 !== 0).reduce((a, b) => a + b, 0);
+        if (allEven || allOdd) {
+            const streakParity = allEven ? 'EVEN' : 'ODD';
+            let targetType: 'EVEN' | 'ODD';
 
-        // Lógica Sniper Agresiva
-        if (evens <= 4 && probEven > 55) {
-            const confidence = Math.round(probEven);
+            if (entryDirection === 'AGAINST') {
+                // Contra a sequência (Reversão)
+                targetType = streakParity === 'EVEN' ? 'ODD' : 'EVEN';
+            } else {
+                // A favor da sequência (Tendência)
+                targetType = streakParity === 'EVEN' ? 'EVEN' : 'ODD';
+            }
+
+            const contract = targetType === 'EVEN' ? 'DIGITEVEN' : 'DIGITODD';
+            const confidence = 90; // Confiança baseada na quebra/seguimento de padrão
             setCurrentConfidence(confidence);
-            return { type: 'EVEN', contract: 'DIGITEVEN', name: 'WAVE Fast', confidence, details: `Sniper Par (${confidence}%)` };
-        }
-        if (odds <= 4 && probOdd > 55) {
-            const confidence = Math.round(probOdd);
-            setCurrentConfidence(confidence);
-            return { type: 'ODD', contract: 'DIGITODD', name: 'WAVE Fast', confidence, details: `Sniper Ímpar (${confidence}%)` };
+
+            return { 
+                type: targetType, 
+                contract, 
+                name: 'WAVE Sequence', 
+                confidence, 
+                details: `${entryDirection === 'AGAINST' ? 'Contra' : 'Favor'} ${consecutiveTarget}x ${streakParity === 'EVEN' ? 'Par' : 'Ímpar'}` 
+            };
         }
 
         return null;
-    }, [lastDigits, neuralPredictions, isStudying, virtualTradePending]);
+    }, [lastDigits, consecutiveTarget, entryDirection, isStudying, virtualTradePending]);
 
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string, confidence: number) => {
         if (!isConnected || isPaused || isStudying) return;
@@ -242,7 +253,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             basis: 'stake', 
             contract_type: contractType, 
             currency: 'USD', 
-            duration: 1, // Duração mínima (1 Tick)
+            duration: 1, 
             duration_unit: 't', 
             symbol: asset
         };
@@ -300,9 +311,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setIsStudying(false);
             activeTrades.current.clear();
             pendingContracts.current.clear();
-            addLog(`Modo Sniper Ultra-Veloz: 1 Tick / Gatilhos Agressivos.`, "INFO");
+            addLog(`Iniciando Sequência: Esperando ${consecutiveTarget}x para entrar ${entryDirection === 'AGAINST' ? 'Contra' : 'Favor'}.`, "INFO");
         }
-    }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog, setIsStudying]);
+    }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog, setIsStudying, consecutiveTarget, entryDirection]);
 
     const selectAI = useCallback((ia: any) => { 
         setSelectedAIInfo(ia); 
