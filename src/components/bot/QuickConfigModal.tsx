@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DollarSign, Target, Play, ShieldAlert, Zap, AlertTriangle, ListOrdered, ArrowRightLeft } from 'lucide-react';
+import { DollarSign, Target, Play, ShieldAlert, Zap, AlertTriangle, ListOrdered, ArrowRightLeft, TrendingUp } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
 import { cn } from '@/lib/utils';
 
@@ -30,7 +30,9 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
         stopLoss, setStopLoss,
         virtualTargetLosses, setVirtualTargetLosses,
         consecutiveTarget, setConsecutiveTarget,
-        entryDirection, setEntryDirection
+        entryDirection, setEntryDirection,
+        isHybridModeActive, setIsHybridModeActive,
+        hybridWinsRequired, setHybridWinsRequired
     } = useBotContext();
     
     const [tempStake, setTempStake] = useState(initialStake);
@@ -38,10 +40,12 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
     const [tempStop, setTempStop] = useState(stopLoss);
     const [virtualActive, setVirtualActive] = useState(virtualTargetLosses > 0);
     const [tempVirtualLoss, setTempVirtualLoss] = useState(virtualTargetLosses || 1);
-    
-    // Novos estados temporários
     const [tempConsecutive, setTempConsecutive] = useState(consecutiveTarget);
     const [tempDirection, setTempDirection] = useState(entryDirection);
+    
+    // Estados temporários para Modo Híbrido
+    const [tempHybridActive, setTempHybridActive] = useState(isHybridModeActive);
+    const [tempHybridWins, setTempHybridWins] = useState(hybridWinsRequired);
 
     useEffect(() => {
         if (isOpen) {
@@ -52,8 +56,10 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
             setTempVirtualLoss(virtualTargetLosses || 1);
             setTempConsecutive(consecutiveTarget);
             setTempDirection(entryDirection);
+            setTempHybridActive(isHybridModeActive);
+            setTempHybridWins(hybridWinsRequired);
         }
-    }, [isOpen, initialStake, takeProfit, stopLoss, virtualTargetLosses, consecutiveTarget, entryDirection]);
+    }, [isOpen, initialStake, takeProfit, stopLoss, virtualTargetLosses, consecutiveTarget, entryDirection, isHybridModeActive, hybridWinsRequired]);
 
     const handleConfirm = () => {
         setInitialStake(tempStake);
@@ -62,6 +68,8 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
         setVirtualTargetLosses(virtualActive ? tempVirtualLoss : 0);
         setConsecutiveTarget(tempConsecutive);
         setEntryDirection(tempDirection);
+        setIsHybridModeActive(tempHybridActive);
+        setHybridWinsRequired(tempHybridWins);
         onConfirm();
     };
 
@@ -77,7 +85,41 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                 </DialogHeader>
                 
                 <div className="space-y-6 py-6">
-                    {/* Configuração de Sequência - NOVA SEÇÃO */}
+                    {/* MODO HÍBRIDO - NOVA SEÇÃO */}
+                    <div className={cn(
+                        "p-5 rounded-3xl border-2 transition-all duration-500 space-y-4",
+                        tempHybridActive ? "bg-green-500/5 border-green-500/20" : "bg-gray-50 border-transparent"
+                    )}>
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <ArrowRightLeft className={cn("h-4 w-4", tempHybridActive ? "text-green-600" : "text-gray-400")} />
+                                <div className="space-y-0.5">
+                                    <Label className="text-[10px] font-black uppercase tracking-tight">Modo Híbrido (Demo → Real)</Label>
+                                    <p className="text-[8px] font-bold text-muted-foreground uppercase">Troca automática ao validar mercado</p>
+                                </div>
+                            </div>
+                            <Switch 
+                                checked={tempHybridActive} 
+                                onCheckedChange={setTempHybridActive} 
+                            />
+                        </div>
+
+                        {tempHybridActive && (
+                            <div className="flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                                <Label className="text-[10px] font-bold text-green-600 whitespace-nowrap">Wins na Demo para trocar?</Label>
+                                <Input 
+                                    type="number"
+                                    value={tempHybridWins}
+                                    onChange={(e) => setTempHybridWins(parseInt(e.target.value) || 1)}
+                                    min="1"
+                                    max="10"
+                                    className="h-9 rounded-xl font-black text-center border-green-200 bg-white"
+                                />
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Configuração de Sequência */}
                     <div className="p-5 rounded-3xl bg-primary/5 border border-primary/10 space-y-4">
                         <div className="flex items-center gap-2 mb-2">
                             <ListOrdered className="h-4 w-4 text-primary" />

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from 'react';
-import { LogEntry, LogType, TradeType, SignalEntry, ContractType } from '@/types/bot';
+import { LogEntry, LogType, SignalEntry } from '@/types/bot';
 
 const DEFAULTS = {
     realToken: '',
@@ -21,55 +21,29 @@ const DEFAULTS = {
     takeProfit: '10.00',
     stopLoss: '50.00',
     lossRecoveryStrategy: 'martingale' as 'martingale',
-    targetProfitPerTrade: '0.35',
-    activeStrategy: 'trendSurfer' as 'trendSurfer',
-    minWinRate: 55,
-    marketStabilityThreshold: '10',
-    colorPatternProfiles: {},
-    overUnderPatternProfiles: {},
-    analyzerWindowSize: 500,
-    patternLengthForAnalysis: 3,
-    catalogerPatternLength: 3,
-    catalogerMinWinRate: 75,
-    bankManagementInitialBankroll: '100',
-    bankManagementDailyGoalPercent: '5',
-    bankManagementDailyStopPercent: '10',
-    bankManagementCurrentDay: 1,
-    bankManagementActualBankroll: '100',
-    catalogerMartingaleLevels: 0,
-    catalogerMinOccurrences: 5,
-    martingaleMode: 'IMMEDIATE' as 'IMMEDIATE',
     isMartingaleActive: true,
-    isUserDisconnected: false,
-    isDoubleOneTriggerActive: false,
-    doubleOneTriggerCount: 2, 
-    maxTrades: 0,
-    isSorosActive: false,
-    sorosLevels: 0,
-    sorosProfitPercentage: 0,
-    virtualLossStreak: 0,
-    virtualWinStreak: 0,
-    isWaitingForVirtualResult: false,
-    virtualTargetLosses: 0,
-    virtualTargetWins: 0,
-    isStreakFilterActive: true,
-    maxStreakAllowed: 4,
-    scoreThreshold: 4,
-    learningData: {} as Record<string, { wins: number, losses: number, total: number }>,
-    isSoundEnabled: true,
-    // NOVOS ESTADOS PARA SEQUÊNCIA CUSTOMIZADA
+    analyzerWindowSize: 500,
     consecutiveTarget: 3,
     entryDirection: 'AGAINST' as 'AGAINST' | 'FAVOR',
+    isHybridModeActive: false,
+    hybridWinsRequired: 2,
+    scoreThreshold: 55,
+    marketStabilityThreshold: '60',
+    bankManagementInitialBankroll: '100.00',
+    bankManagementDailyGoalPercent: '5.0',
+    bankManagementDailyStopPercent: '10.0',
+    bankManagementCurrentDay: 1,
+    bankManagementActualBankroll: '100.00',
 };
 
 const getInitialState = () => {
     const savedStateJSON = localStorage.getItem('derivBotState');
-    if (!savedStateJSON) return { ...DEFAULTS, bankManagementActualBankroll: DEFAULTS.bankManagementInitialBankroll };
+    if (!savedStateJSON) return { ...DEFAULTS };
     try {
         const savedState = JSON.parse(savedStateJSON);
         return { ...DEFAULTS, ...savedState };
     } catch (e) {
-        return { ...DEFAULTS, bankManagementActualBankroll: DEFAULTS.bankManagementInitialBankroll };
+        return { ...DEFAULTS };
     }
 };
 
@@ -82,7 +56,6 @@ export const useBotState = () => {
     const [realToken, setRealToken] = useState(initialState.realToken);
     const [demoToken, setDemoToken] = useState(initialState.demoToken);
     const [accountType, setAccountType] = useState<'real' | 'demo'>(initialState.accountType);
-    const [isUserDisconnected, setIsUserDisconnected] = useState(initialState.isUserDisconnected);
     const [asset, setAsset] = useState(initialState.asset);
     const [duration, setDuration] = useState(initialState.duration);
     const [initialStake, setInitialStake] = useState(initialState.initialStake);
@@ -91,62 +64,44 @@ export const useBotState = () => {
     const [digitPrediction, setDigitPrediction] = useState<number>(initialState.digitPrediction);
     const [overUnderDirection, setOverUnderDirection] = useState<'OVER' | 'UNDER'>(initialState.overUnderDirection);
     const [isManualMode, setIsManualMode] = useState(initialState.isManualMode);
-    const [isManualGaleActive, setIsManualGaleActive] = useState(initialState.isManualGaleActive);
     const [martingaleFactor, setMartingaleFactor] = useState(initialState.martingaleFactor);
     const [maxLevels, setMaxLevels] = useState(initialState.maxLevels);
     const [takeProfit, setTakeProfit] = useState(initialState.takeProfit);
     const [stopLoss, setStopLoss] = useState(initialState.stopLoss);
-    const [lossRecoveryStrategy, setLossRecoveryStrategy] = useState<'martingale'>(initialState.lossRecoveryStrategy);
     const [isMartingaleActive, setIsMartingaleActive] = useState(initialState.isMartingaleActive);
-    const [martingaleMode, setMartingaleMode] = useState<'IMMEDIATE'>(initialState.martingaleMode);
-    const [activeStrategy, setActiveStrategy] = useState<'trendSurfer'>(initialState.activeStrategy);
-    const [marketStabilityThreshold, setMarketStabilityThreshold] = useState<number | string>(initialState.marketStabilityThreshold);
-    const [analyzerWindowSize, setAnalyzerWindowSize] = useState(initialState.analyzerWindowSize);
     const [isBotRunning, setIsBotRunning] = useState(false);
     const [totalProfit, setTotalProfit] = useState(0.00);
     const [wins, setWins] = useState(0);
     const [losses, setLosses] = useState(0);
     const [consecutiveLosses, setConsecutiveLosses] = useState(0);
-    const [isPaused, setIsPaused] = useState(false);
-    const [pauseTimeRemaining, setPauseTimeRemaining] = useState(0);
     const [lastDigits, setLastDigits] = useState<number[]>([]);
     const [lastTickEpoch, setLastTickEpoch] = useState<number | null>(null);
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [signals, setSignals] = useState<SignalEntry[]>([]);
     const [accountBalance, setAccountBalance] = useState<number | null>(null);
     const [tradeStatus, setTradeStatus] = useState<'IDLE' | 'SENDING' | 'ACTIVE'>('IDLE');
-    const [probabilities, setProbabilities] = useState({ even: 50, odd: 50 });
-    const [learningData, setLearningData] = useState(initialState.learningData);
-    const [scoreThreshold, setScoreThreshold] = useState(initialState.scoreThreshold);
-    const [isManipulationDetected, setIsManipulationDetected] = useState(false);
-    const [neuralPredictions, setNeuralPredictions] = useState<number[]>(new Array(10).fill(10));
-    const [isSoundEnabled, setIsSoundEnabled] = useState(initialState.isSoundEnabled);
-
     const [isStudying, setIsStudying] = useState(false);
     const [studyTicksCount, setStudyTicksCount] = useState(0);
-
+    const [isSoundEnabled, setIsSoundEnabled] = useState(true);
+    const [consecutiveTarget, setConsecutiveTarget] = useState(initialState.consecutiveTarget);
+    const [entryDirection, setEntryDirection] = useState<'AGAINST' | 'FAVOR'>(initialState.entryDirection);
+    const [virtualLossStreak, setVirtualLossStreak] = useState(0);
+    const [virtualTargetLosses, setVirtualTargetLosses] = useState(0);
+    const [isHybridModeActive, setIsHybridModeActive] = useState(initialState.isHybridModeActive);
+    const [hybridWinsRequired, setHybridWinsRequired] = useState(initialState.hybridWinsRequired);
+    
+    // Estados adicionais para persistência e contexto
+    const [analyzerWindowSize, setAnalyzerWindowSize] = useState(initialState.analyzerWindowSize);
+    const [learningData, setLearningData] = useState<any>(null);
+    const [scoreThreshold, setScoreThreshold] = useState(initialState.scoreThreshold);
+    const [marketStabilityThreshold, setMarketStabilityThreshold] = useState(initialState.marketStabilityThreshold);
     const [bankManagementInitialBankroll, setBankManagementInitialBankroll] = useState(initialState.bankManagementInitialBankroll);
     const [bankManagementDailyGoalPercent, setBankManagementDailyGoalPercent] = useState(initialState.bankManagementDailyGoalPercent);
     const [bankManagementDailyStopPercent, setBankManagementDailyStopPercent] = useState(initialState.bankManagementDailyStopPercent);
     const [bankManagementCurrentDay, setBankManagementCurrentDay] = useState(initialState.bankManagementCurrentDay);
     const [bankManagementActualBankroll, setBankManagementActualBankroll] = useState(initialState.bankManagementActualBankroll);
-
-    const [maxTrades, setMaxTrades] = useState(initialState.maxTrades);
-    const [isSorosActive, setIsSorosActive] = useState(initialState.isSorosActive);
-    const [sorosLevels, setSorosLevels] = useState(initialState.sorosLevels);
-    const [sorosProfitPercentage, setSorosProfitPercentage] = useState(initialState.sorosProfitPercentage);
-    const [isStreakFilterActive, setIsStreakFilterActive] = useState(initialState.isStreakFilterActive);
-    const [maxStreakAllowed, setMaxStreakAllowed] = useState(initialState.maxStreakAllowed);
-    
-    const [virtualLossStreak, setVirtualLossStreak] = useState(initialState.virtualLossStreak);
-    const [virtualWinStreak, setVirtualWinStreak] = useState(initialState.virtualWinStreak);
-    const [virtualTargetLosses, setVirtualTargetLosses] = useState(initialState.virtualTargetLosses);
-    const [virtualTargetWins, setVirtualTargetWins] = useState(initialState.virtualTargetWins);
-    const [isWaitingForVirtualResult, setIsWaitingForVirtualResult] = useState(initialState.isWaitingForVirtualResult);
-
-    // NOVOS SETTERS
-    const [consecutiveTarget, setConsecutiveTarget] = useState(initialState.consecutiveTarget);
-    const [entryDirection, setEntryDirection] = useState<'AGAINST' | 'FAVOR'>(initialState.entryDirection);
+    const [activeStrategy, setActiveStrategy] = useState<string | null>(null);
+    const [neuralPredictions, setNeuralPredictions] = useState<number[]>([]);
 
     const addLog = useCallback((message: string, type: LogType, details?: any) => {
         setLogs(prev => [{ timestamp: new Date().toLocaleTimeString('pt-BR', { hour12: false }), message, type, ...details }, ...prev].slice(0, 50));
@@ -167,27 +122,25 @@ export const useBotState = () => {
         duration, setDuration, initialStake, setInitialStake,
         digitTradeMode, setDigitTradeMode, attackMode, setAttackMode, digitPrediction, setDigitPrediction,
         isMartingaleActive, setIsMartingaleActive, martingaleFactor, setMartingaleFactor, maxLevels, setMaxLevels,
-        takeProfit, setTakeProfit, stopLoss, setStopLoss, martingaleMode, setMartingaleMode,
-        isBotRunning, setIsBotRunning, isManualMode, setIsManualMode, isManualGaleActive, setIsManualGaleActive,
+        takeProfit, setTakeProfit, stopLoss, setStopLoss,
+        isBotRunning, setIsBotRunning, isManualMode, setIsManualMode,
         totalProfit, setTotalProfit, wins, setWins, losses, setLosses,
-        consecutiveLosses, setConsecutiveLosses, isPaused, setIsPaused, pauseTimeRemaining, setPauseTimeRemaining,
+        consecutiveLosses, setConsecutiveLosses,
         lastDigits, setLastDigits, lastTickEpoch, setLastTickEpoch, logs, setLogs, signals, accountBalance, setAccountBalance,
-        tradeStatus, setTradeStatus, probabilities, setProbabilities, learningData, setLearningData, scoreThreshold,
-        addLog, addSignal, updateSignalResult, activeStrategy, setActiveStrategy, analyzerWindowSize, setAnalyzerWindowSize,
-        overUnderDirection, setOverUnderDirection, marketStabilityThreshold, setMarketStabilityThreshold,
-        isManipulationDetected, setIsManipulationDetected, neuralPredictions, setNeuralPredictions,
+        tradeStatus, setTradeStatus, addLog, addSignal, updateSignalResult,
+        overUnderDirection, setOverUnderDirection,
+        isStudying, setIsStudying, studyTicksCount, setStudyTicksCount,
+        isSoundEnabled, setIsSoundEnabled,
+        consecutiveTarget, setConsecutiveTarget, entryDirection, setEntryDirection,
+        virtualLossStreak, setVirtualLossStreak, virtualTargetLosses, setVirtualTargetLosses,
+        isHybridModeActive, setIsHybridModeActive, hybridWinsRequired, setHybridWinsRequired,
+        analyzerWindowSize, setAnalyzerWindowSize, learningData, setLearningData,
+        scoreThreshold, setScoreThreshold, marketStabilityThreshold, setMarketStabilityThreshold,
         bankManagementInitialBankroll, setBankManagementInitialBankroll,
         bankManagementDailyGoalPercent, setBankManagementDailyGoalPercent,
         bankManagementDailyStopPercent, setBankManagementDailyStopPercent,
         bankManagementCurrentDay, setBankManagementCurrentDay,
         bankManagementActualBankroll, setBankManagementActualBankroll,
-        maxTrades, setMaxTrades, isSorosActive, setIsSorosActive, sorosLevels, setSorosLevels, sorosProfitPercentage, setSorosProfitPercentage,
-        isStreakFilterActive, setIsStreakFilterActive, maxStreakAllowed, setMaxStreakAllowed,
-        virtualLossStreak, setVirtualLossStreak, virtualWinStreak, setVirtualWinStreak, 
-        virtualTargetLosses, setVirtualTargetLosses, virtualTargetWins, setVirtualTargetWins,
-        isWaitingForVirtualResult, setIsWaitingForVirtualResult, lossRecoveryStrategy, setLossRecoveryStrategy,
-        isStudying, setIsStudying, studyTicksCount, setStudyTicksCount,
-        isSoundEnabled, setIsSoundEnabled,
-        consecutiveTarget, setConsecutiveTarget, entryDirection, setEntryDirection
+        activeStrategy, setActiveStrategy, neuralPredictions, setNeuralPredictions
     };
 };
