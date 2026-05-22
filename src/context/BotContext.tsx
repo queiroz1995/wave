@@ -183,9 +183,15 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 // Se estávamos trocando de conta, finaliza a troca e retoma o estudo
                 if (isSwitchingAccount.current) {
                     isSwitchingAccount.current = false;
-                    setIsStudying(true);
-                    setStudyTicksCount(0);
-                    addLog(`Sincronização Completa. Retomando Operações...`, "INFO");
+                    // Se mudou para Real, pula o estudo para entrar rápido
+                    if (accountType === 'real') {
+                        setIsStudying(false);
+                        addLog(`Conta Real Sincronizada. Aguardando Próximo Sinal...`, "INFO");
+                    } else {
+                        setIsStudying(true);
+                        setStudyTicksCount(0);
+                        addLog(`Sincronização Completa. Retomando Estudo...`, "INFO");
+                    }
                 }
             } else if (data?.msg_type === 'history') {
                 if (data.history?.prices) {
@@ -254,6 +260,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                         addLog(`Vitória Virtual! Migrando para Real...`, "INFO");
                                         isSwitchingAccount.current = true;
                                         activeTrades.current.clear();
+                                        winsRef.current = 0; // Reseta contador para o próximo ciclo
                                         setTimeout(() => {
                                             setAccountType('real');
                                             sendMessageRef.current({ authorize: realToken });
@@ -383,7 +390,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         processedTickEpoch.current = lastTickEpoch;
         const signal = calculateTradeSignal();
         if (signal) {
-            if (virtualTargetLosses > 0 && virtualLossStreak < virtualTargetLosses && martingaleLevel.current === 0) {
+            // Na conta Real, ignoramos o filtro de Loss Virtual para garantir a entrada do gatilho Híbrido
+            if (accountType === 'demo' && virtualTargetLosses > 0 && virtualLossStreak < virtualTargetLosses && martingaleLevel.current === 0) {
                 setVirtualTradePending(signal);
                 return;
             }
@@ -392,7 +400,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 executeBuy(signal.contract as ContractType, signal.name, sId, signal.confidence);
             }
         }
-    }, [isBotRunning, lastTickEpoch, calculateTradeSignal, addSignal, executeBuy, isStudying, virtualTargetLosses, virtualLossStreak]);
+    }, [isBotRunning, lastTickEpoch, calculateTradeSignal, addSignal, executeBuy, isStudying, virtualTargetLosses, virtualLossStreak, accountType]);
 
     const selectAI = useCallback((ia: any) => { setSelectedAIInfo(ia); setActiveStrategy(ia.id); setAppFlow('operating'); }, [setActiveStrategy]);
     const exitToSelection = useCallback(() => { stopBot("Sessão Finalizada"); setAppFlow('selection'); }, [stopBot]);
