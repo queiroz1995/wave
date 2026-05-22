@@ -178,19 +178,17 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setIsConnected(true); 
                 setStatus({ message: `Sniper Ativo`, color: 'bg-green-500' });
                 
-                // ATUALIZAÇÃO CRÍTICA: Pega o saldo diretamente da autorização
                 if (data.authorize?.balance !== undefined) {
                     setAccountBalance(parseFloat(data.authorize.balance));
                 }
                 
-                // Solicita saldo e se inscreve para atualizações futuras
                 sendMessageRef.current({ balance: 1, subscribe: 1 });
                 
                 if (isSwitchingAccount) {
                     setIsSwitchingAccount(false);
                     if (accountType === 'real') {
                         setIsStudying(false);
-                        addLog(`CONTA REAL SINCRONIZADA. SALDO ATUALIZADO.`, "INFO");
+                        addLog(`CONTA REAL SINCRONIZADA.`, "INFO");
                     } else {
                         setIsStudying(true);
                         setStudyTicksCount(0);
@@ -232,6 +230,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         const exitDigit = parseInt(String(exit_tick).slice(-1));
                         const profitValue = parseFloat(profit);
 
+                        // ATUALIZAÇÃO MANUAL IMEDIATA DO SALDO
+                        setAccountBalance((prev: number | null) => prev !== null ? prev + profitValue : null);
+                        
                         totalProfitRef.current += profitValue;
                         setTotalProfit(totalProfitRef.current);
 
@@ -253,7 +254,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                 
                                 setIsSwitchingAccount(true);
                                 activeTrades.current.clear();
-                                setAccountBalance(null); // Indica carregamento
                                 setTimeout(() => {
                                     setAccountType('demo');
                                     sendMessageRef.current({ authorize: demoToken });
@@ -267,7 +267,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                         setIsSwitchingAccount(true);
                                         activeTrades.current.clear();
                                         winsRef.current = 0;
-                                        setAccountBalance(null); // Indica carregamento
                                         setTimeout(() => {
                                             setAccountType('real');
                                             sendMessageRef.current({ authorize: realToken });
@@ -296,6 +295,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         activeTrades.current.delete(savedData.signalId);
                         pendingContracts.current.delete(contract.contract_id);
                         setTradeStatus('IDLE'); 
+
+                        // Força sincronização de saldo com o servidor
+                        sendMessageRef.current({ balance: 1 });
 
                         const tp = parseFloat(takeProfit);
                         const sl = Math.abs(parseFloat(stopLoss));
