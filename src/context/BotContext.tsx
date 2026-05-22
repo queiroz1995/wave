@@ -23,6 +23,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [appFlow, setAppFlow] = useState<'selection' | 'operating'>('selection');
     const [selectedAIInfo, setSelectedAIInfo] = useState<any>(null);
 
+    // Gerenciamento de ordem única
     const activeTrades = useRef<Set<string>>(new Set());
     const processedTickEpoch = useRef<number | null>(null);
     const totalProfitRef = useRef(0.00);
@@ -182,6 +183,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             setLosses((prev: number) => prev + 1);
                             setConsecutiveLosses((p: number) => p + 1);
                             martingaleLevel.current += 1;
+                            addLog(`Gale Nível ${martingaleLevel.current} Preparado.`, "INFO");
                         } else {
                             setWins((prev: number) => prev + 1);
                             setConsecutiveLosses(0);
@@ -193,7 +195,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         activeTrades.current.delete(savedData.signalId);
                         pendingContracts.current.delete(contract.contract_id);
                         
-                        setTradeStatus(activeTrades.current.size > 0 ? 'ACTIVE' : 'IDLE');
+                        setTradeStatus('IDLE'); // Força IDLE para permitir nova entrada
                         if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Sucesso: Meta Alcançada!");
                     }
                 }
@@ -206,9 +208,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
     const calculateTradeSignal = useCallback(() => {
-        if (lastDigits.length < consecutiveTarget || isStudying || virtualTradePending) return null;
+        // Bloqueio de múltiplas entradas: Só calcula se não houver trade ativo
+        if (lastDigits.length < consecutiveTarget || isStudying || virtualTradePending || activeTrades.current.size > 0) return null;
 
-        // Lógica de Sequência Customizada
         const lastN = lastDigits.slice(0, consecutiveTarget);
         const allEven = lastN.every(d => d % 2 === 0);
         const allOdd = lastN.every(d => d % 2 !== 0);
@@ -218,21 +220,19 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             let targetType: 'EVEN' | 'ODD';
 
             if (entryDirection === 'AGAINST') {
-                // Contra a sequência (Reversão)
                 targetType = streakParity === 'EVEN' ? 'ODD' : 'EVEN';
             } else {
-                // A favor da sequência (Tendência)
                 targetType = streakParity === 'EVEN' ? 'EVEN' : 'ODD';
             }
 
             const contract = targetType === 'EVEN' ? 'DIGITEVEN' : 'DIGITODD';
-            const confidence = 90; // Confiança baseada na quebra/seguimento de padrão
+            const confidence = 95; 
             setCurrentConfidence(confidence);
 
             return { 
                 type: targetType, 
                 contract, 
-                name: 'WAVE Sequence', 
+                name: 'WAVE Sniper', 
                 confidence, 
                 details: `${entryDirection === 'AGAINST' ? 'Contra' : 'Favor'} ${consecutiveTarget}x ${streakParity === 'EVEN' ? 'Par' : 'Ímpar'}` 
             };
@@ -242,7 +242,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, [lastDigits, consecutiveTarget, entryDirection, isStudying, virtualTradePending]);
 
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string, confidence: number) => {
-        if (!isConnected || isPaused || isStudying) return;
+        if (!isConnected || isPaused || isStudying || activeTrades.current.size > 0) return;
         
         const baseStake = parseFloat(initialStake) || 0.35;
         const mgFactor = parseFloat(martingaleFactor) || 2.1; 
@@ -280,7 +280,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 return;
             }
 
-            if (activeTrades.current.size < 3) {
+            // Garantia de entrada única
+            if (activeTrades.current.size === 0) {
                 const sId = addSignal({ 
                     strategy: signal.name, 
                     signal: signal.type as any, 
@@ -311,9 +312,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setIsStudying(false);
             activeTrades.current.clear();
             pendingContracts.current.clear();
-            addLog(`Iniciando Sequência: Esperando ${consecutiveTarget}x para entrar ${entryDirection === 'AGAINST' ? 'Contra' : 'Favor'}.`, "INFO");
+            addLog(`Iniciando Sniper: Entrada Única e Gale Imediato Ativos.`, "INFO");
         }
-    }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog, setIsStudying, consecutiveTarget, entryDirection]);
+    }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog, setIsStudying]);
 
     const selectAI = useCallback((ia: any) => { 
         setSelectedAIInfo(ia); 
