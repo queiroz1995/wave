@@ -23,11 +23,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [appFlow, setAppFlow] = useState<'selection' | 'operating'>('selection');
     const [selectedAIInfo, setSelectedAIInfo] = useState<any>(null);
 
-    // Gerenciamento de ordem única
     const activeTrades = useRef<Set<string>>(new Set());
     const processedTickEpoch = useRef<number | null>(null);
     const totalProfitRef = useRef(0.00);
     const martingaleLevel = useRef(0);
+    const lastContractType = useRef<ContractType | null>(null);
     
     const pendingContracts = useRef<Map<string, any>>(new Map());
 
@@ -183,7 +183,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             setLosses((prev: number) => prev + 1);
                             setConsecutiveLosses((p: number) => p + 1);
                             martingaleLevel.current += 1;
-                            addLog(`Gale Nível ${martingaleLevel.current} Preparado.`, "INFO");
+                            addLog(`Gale Imediato: Nível ${martingaleLevel.current} ativado.`, "INFO");
                         } else {
                             setWins((prev: number) => prev + 1);
                             setConsecutiveLosses(0);
@@ -195,7 +195,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         activeTrades.current.delete(savedData.signalId);
                         pendingContracts.current.delete(contract.contract_id);
                         
-                        setTradeStatus('IDLE'); // Força IDLE para permitir nova entrada
+                        setTradeStatus('IDLE'); 
                         if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Sucesso: Meta Alcançada!");
                     }
                 }
@@ -208,7 +208,19 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
     const calculateTradeSignal = useCallback(() => {
-        // Bloqueio de múltiplas entradas: Só calcula se não houver trade ativo
+        // Se estiver em Gale, retorna sinal imediato baseado na última direção
+        if (martingaleLevel.current > 0 && activeTrades.current.size === 0) {
+            const contract = lastContractType.current || 'DIGITEVEN';
+            return { 
+                type: contract === 'DIGITEVEN' ? 'EVEN' : 'ODD', 
+                contract, 
+                name: 'Gale Imediato', 
+                confidence: 100, 
+                details: `Recuperação Nível ${martingaleLevel.current}` 
+            };
+        }
+
+        // Bloqueio normal de múltiplas entradas
         if (lastDigits.length < consecutiveTarget || isStudying || virtualTradePending || activeTrades.current.size > 0) return null;
 
         const lastN = lastDigits.slice(0, consecutiveTarget);
@@ -258,6 +270,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             symbol: asset
         };
 
+        lastContractType.current = contractType;
         activeTrades.current.add(signalId);
         setTradeStatus('SENDING');
         
@@ -275,12 +288,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         
         const signal = calculateTradeSignal();
         if (signal) {
-            if (virtualTargetLosses > 0 && virtualLossStreak < virtualTargetLosses) {
+            if (virtualTargetLosses > 0 && virtualLossStreak < virtualTargetLosses && martingaleLevel.current === 0) {
                 setVirtualTradePending(signal);
                 return;
             }
 
-            // Garantia de entrada única
             if (activeTrades.current.size === 0) {
                 const sId = addSignal({ 
                     strategy: signal.name, 
@@ -312,7 +324,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setIsStudying(false);
             activeTrades.current.clear();
             pendingContracts.current.clear();
-            addLog(`Iniciando Sniper: Entrada Única e Gale Imediato Ativos.`, "INFO");
+            martingaleLevel.current = 0;
+            addLog(`Iniciando Sniper: Gale Imediato Ativado.`, "INFO");
         }
     }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog, setIsStudying]);
 
