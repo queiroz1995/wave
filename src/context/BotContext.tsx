@@ -23,13 +23,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [appFlow, setAppFlow] = useState<'selection' | 'operating'>('selection');
     const [selectedAIInfo, setSelectedAIInfo] = useState<any>(null);
 
-    // Gerenciamento de múltiplas ordens simultâneas
     const activeTrades = useRef<Set<string>>(new Set());
     const processedTickEpoch = useRef<number | null>(null);
     const totalProfitRef = useRef(0.00);
     const martingaleLevel = useRef(0);
     
-    // Mapeamento para associar resultados a sinais específicos
     const pendingContracts = useRef<Map<string, any>>(new Map());
 
     const reconnectAttemptsRef = useRef(0);
@@ -103,7 +101,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             
             if (virtualTradePending) {
                 const win = virtualTradePending.type === 'EVEN' ? lastDigit % 2 === 0 : lastDigit % 2 !== 0;
-                
                 if (win) {
                     setVirtualLossStreak(0);
                     addLog(`Proteção Virtual: Vitória simulada (Dígito ${lastDigit})`, "INFO");
@@ -124,9 +121,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (isStudying) {
             setStudyTicksCount((c: number) => {
                 const next = c + 1;
-                if (next >= 2) { 
+                if (next >= 1) { // Reduzido para 1 tick (Sincronização instantânea)
                     setIsStudying(false);
-                    addLog("Frequência Sincronizada.", "INFO");
                     return 0;
                 }
                 return next;
@@ -209,41 +205,26 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
     const calculateTradeSignal = useCallback(() => {
-        if (lastDigits.length < 15 || isStudying || virtualTradePending) return null;
+        if (lastDigits.length < 10 || isStudying || virtualTradePending) return null;
 
-        // Analisador de Faltantes (Desequilíbrio)
-        const last12 = lastDigits.slice(0, 12);
-        const evens = last12.filter(d => d % 2 === 0).length;
-        const odds = 12 - evens;
+        // Análise de Desequilíbrio com Threshold Agressivo (55% confiança)
+        const last10 = lastDigits.slice(0, 10);
+        const evens = last10.filter(d => d % 2 === 0).length;
+        const odds = 10 - evens;
 
-        // Análise Neural de Probabilidade Exata
         const probEven = neuralPredictions.filter((p, i) => i % 2 === 0).reduce((a, b) => a + b, 0);
         const probOdd = neuralPredictions.filter((p, i) => i % 2 !== 0).reduce((a, b) => a + b, 0);
 
-        // 1. Lógica de Reversão por Desequilíbrio (Faltando)
-        if (evens <= 3 && probEven > 60) {
+        // Lógica Sniper Agresiva
+        if (evens <= 4 && probEven > 55) {
             const confidence = Math.round(probEven);
             setCurrentConfidence(confidence);
-            return { type: 'EVEN', contract: 'DIGITEVEN', name: 'WAVE Imbalance', confidence, details: `Par Faltante (${confidence}%)` };
+            return { type: 'EVEN', contract: 'DIGITEVEN', name: 'WAVE Fast', confidence, details: `Sniper Par (${confidence}%)` };
         }
-        if (odds <= 3 && probOdd > 60) {
+        if (odds <= 4 && probOdd > 55) {
             const confidence = Math.round(probOdd);
             setCurrentConfidence(confidence);
-            return { type: 'ODD', contract: 'DIGITODD', name: 'WAVE Imbalance', confidence, details: `Ímpar Faltante (${confidence}%)` };
-        }
-
-        // 2. Lógica de Seguimento de Fluxo (Pega Todos)
-        const last4 = lastDigits.slice(0, 4);
-        const allEven = last4.every(d => d % 2 === 0);
-        const allOdd = last4.every(d => d % 2 !== 0);
-
-        if (allEven && probEven > 65) {
-            setCurrentConfidence(Math.round(probEven));
-            return { type: 'EVEN', contract: 'DIGITEVEN', name: 'WAVE Flow', confidence: Math.round(probEven), details: `Capturando Fluxo Par` };
-        }
-        if (allOdd && probOdd > 65) {
-            setCurrentConfidence(Math.round(probOdd));
-            return { type: 'ODD', contract: 'DIGITODD', name: 'WAVE Flow', confidence: Math.round(probOdd), details: `Capturando Fluxo Ímpar` };
+            return { type: 'ODD', contract: 'DIGITODD', name: 'WAVE Fast', confidence, details: `Sniper Ímpar (${confidence}%)` };
         }
 
         return null;
@@ -261,7 +242,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             basis: 'stake', 
             contract_type: contractType, 
             currency: 'USD', 
-            duration: 1, 
+            duration: 1, // Duração mínima (1 Tick)
             duration_unit: 't', 
             symbol: asset
         };
@@ -311,7 +292,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const toggleBot = useCallback(() => {
         if (!isConnected) return;
-        if (isBotRunning) stopBot("Sessão Encerrada");
+        if (isBotRunning) stopBot("Sniper Parado");
         else { 
             setIsBotRunning(true); 
             totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0);
@@ -319,7 +300,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setIsStudying(false);
             activeTrades.current.clear();
             pendingContracts.current.clear();
-            addLog(`Iniciando Núcleo Neural: Analisando Desequilíbrio e Fluxo.`, "INFO");
+            addLog(`Modo Sniper Ultra-Veloz: 1 Tick / Gatilhos Agressivos.`, "INFO");
         }
     }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog, setIsStudying]);
 
