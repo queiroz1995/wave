@@ -174,7 +174,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setStatus({ message: `Sniper Ativo`, color: 'bg-green-500' });
                 if (data.authorize.balance) setAccountBalance(data.authorize.balance);
                 
-                // Se trocou de conta automaticamente, inicia o bot na Real
                 if (shouldAutoStartOnReal.current) {
                     shouldAutoStartOnReal.current = false;
                     setTimeout(() => toggleBot(), 1000);
@@ -214,15 +213,15 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         totalProfitRef.current += profitValue;
                         setTotalProfit(totalProfitRef.current);
 
-                        let currentWins = 0;
+                        let updatedWins = 0;
                         if (isLoss) {
                             setLosses((prev: number) => prev + 1);
                             setConsecutiveLosses((p: number) => p + 1);
                             martingaleLevel.current += 1;
                         } else {
                             setWins((prev: number) => {
-                                currentWins = prev + 1;
-                                return currentWins;
+                                updatedWins = prev + 1;
+                                return updatedWins;
                             });
                             setConsecutiveLosses(0);
                             martingaleLevel.current = 0;
@@ -234,24 +233,27 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         pendingContracts.current.delete(contract.contract_id);
                         setTradeStatus('IDLE'); 
 
-                        // LÓGICA DE MODO HÍBRIDO: Troca Demo -> Real
+                        // CORREÇÃO MODO HÍBRIDO: Usamos o valor local 'updatedWins' para evitar atraso de estado
                         if (isHybridModeActive && accountType === 'demo' && !isLoss) {
-                            // Usamos o valor atualizado de wins
-                            if (currentWins >= hybridWinsRequired) {
-                                addLog(`Mercado Validado! Trocando para Conta Real...`, "INFO");
+                            // Se o bot acabou de ganhar e atingiu a meta de validação
+                            if (updatedWins >= hybridWinsRequired) {
+                                addLog(`Mercado Validado (${updatedWins} Wins)! Trocando para Conta Real...`, "INFO");
                                 stopBot("Trocando de Conta...");
+                                
+                                if (!realToken) {
+                                    addLog("Erro: Token Real não configurado. Configure o token para usar o Modo Híbrido.", "ERROR");
+                                    return;
+                                }
+
                                 shouldAutoStartOnReal.current = true;
                                 
-                                // Disconecta da Demo e Conecta na Real
+                                // Pequeno delay para garantir que a UI atualize antes da troca
                                 setTimeout(() => {
                                     setAccountType('real');
-                                    if (realToken) {
-                                        sendMessageRef.current({ authorize: realToken });
-                                    } else {
-                                        addLog("Erro: Token Real não configurado.", "ERROR");
-                                        shouldAutoStartOnReal.current = false;
-                                    }
-                                }, 1500);
+                                    // O hook useTradingWebSocketManager vai detectar a mudança de accountType e token se chamarmos o connect
+                                    // Mas aqui forçamos a re-autorização
+                                    sendMessageRef.current({ authorize: realToken });
+                                }, 1000);
                                 return;
                             }
                         }
@@ -261,7 +263,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             }
         }
-    }, [asset, processTickData, setAccountBalance, setTradeStatus, addLog, setLastDigits, setTotalProfit, setWins, setLosses, setConsecutiveLosses, updateSignalResult, playWinSound, takeProfit, isHybridModeActive, accountType, hybridWinsRequired, realToken, setAccountType, toggleBot]);
+    }, [asset, processTickData, setAccountBalance, setTradeStatus, addLog, setLastDigits, setTotalProfit, setWins, setLosses, setConsecutiveLosses, updateSignalResult, playWinSound, takeProfit, isHybridModeActive, accountType, hybridWinsRequired, realToken, setAccountType, toggleBot, stopBot]);
 
     const ws = useTradingWebSocketManager({ isConnected, status, setIsConnected, setStatus, setAccountBalance, onMessage: handleWebSocketMessage, reconnectAttemptsRef });
     const { sendMessage, connect, disconnect } = ws;
