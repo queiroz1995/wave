@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, Bot, Zap, Volume2, VolumeX, Globe, Cpu, DollarSign, FileSpreadsheet } from 'lucide-react';
+import { Power, RefreshCw, Bot, Zap, Volume2, VolumeX, Globe, Cpu, DollarSign, FileSpreadsheet, Percent } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
@@ -20,7 +20,8 @@ export const AIOperatingScreen = () => {
         handleConnect, accountType, realToken, demoToken,
         isPaused, isManipulationDetected,
         isStudying, studyTicksCount,
-        isSoundEnabled, setIsSoundEnabled
+        isSoundEnabled, setIsSoundEnabled,
+        currentConfidence
     } = useBotContext();
 
     const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
@@ -63,14 +64,21 @@ export const AIOperatingScreen = () => {
                         </div>
                         <div>
                             <p className={cn("text-[10px] font-black uppercase tracking-widest", isStudying ? "text-blue-600" : "text-green-600")}>
-                                {isStudying ? "Estudo de Fluxo" : "WAVE Future Core"}
+                                {isStudying ? "Sincronizando Fluxo" : "Núcleo de I.A Ativo"}
                             </p>
                             <p className="text-[10px] sm:text-xs font-bold opacity-80 italic">
-                                {isStudying ? `Sincronizando... (${studyTicksCount}/5)` : "Alta Frequência: Ativa"}
+                                {isStudying ? `Aguardando Dados... (${studyTicksCount}/5)` : "Operação de Alta Frequência"}
                             </p>
                         </div>
                     </div>
-                    {!isStudying && <Zap className="h-4 w-4 text-green-500 fill-current animate-bounce" />}
+                    {!isStudying && (
+                        <div className="flex flex-col items-end">
+                            <div className="flex items-center gap-1 text-green-600 font-black text-xs">
+                                <Percent className="h-3 w-3" />
+                                <span>{currentConfidence}% Confiança</span>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -107,7 +115,7 @@ export const AIOperatingScreen = () => {
                             </div>
                             <div>
                                 <h2 className="text-xl sm:text-3xl font-black uppercase tracking-tighter italic flex items-center gap-2">
-                                    FUTURE CORE
+                                    NÚCLEO I.A
                                     <Zap className="h-5 w-5 text-blue-500 fill-current animate-pulse" />
                                 </h2>
                                 <div className="flex items-center gap-2">
@@ -142,14 +150,14 @@ export const AIOperatingScreen = () => {
                                     : "bg-blue-600 hover:bg-blue-700 shadow-blue-500/40 animate-pulse-bright"
                             )}
                         >
-                            {isBotRunning ? "Stop Core" : "Ignite WAVE"}
+                            {isBotRunning ? "PARAR ROBÔ" : "INICIAR I.A"}
                         </Button>
                         {!isBotRunning && <div className="absolute -inset-2 bg-blue-500/10 blur-xl rounded-[3rem] animate-pulse -z-10" />}
                     </div>
 
                     <div className="text-center space-y-2 relative py-4">
                         <div className="inline-block bg-white/20 backdrop-blur-md px-4 py-1 rounded-full border border-white/40 mb-2">
-                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.4em] opacity-80">NET_PROFIT_LIVE</p>
+                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.4em] opacity-80">LUCRO_TOTAL_AO_VIVO</p>
                         </div>
                         <div className={cn(
                             "text-6xl sm:text-8xl font-black tracking-tighter leading-none transition-all duration-500",
@@ -166,7 +174,7 @@ export const AIOperatingScreen = () => {
                                 <DollarSign className="h-6 w-6 sm:h-7 sm:w-7 text-primary" />
                             </div>
                             <div>
-                                <p className="text-[9px] sm:text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Neural Balance</p>
+                                <p className="text-[9px] sm:text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Saldo em Conta</p>
                                 <div className="flex items-baseline gap-2">
                                     <p className="text-2xl sm:text-3xl font-black tracking-tight">{accountBalance?.toFixed(2) || '0.00'}</p>
                                     <span className="text-[10px] font-black text-primary uppercase">USD</span>
@@ -196,17 +204,17 @@ export const AIOperatingScreen = () => {
                                                 {label.text}
                                             </span>
                                         </td>
-                                        <td className="py-3 text-center text-muted-foreground opacity-60 uppercase text-[8px] tracking-tight">{s.details.replace('Mirror Mode: ', 'M: ')}</td>
+                                        <td className="py-3 text-center text-muted-foreground opacity-60 uppercase text-[8px] tracking-tight">{s.details}</td>
                                         <td className={cn(
                                             "py-3 text-right font-black text-xs", 
                                             !hasFinished ? "text-blue-500 animate-pulse" : (s.result === 'WIN' ? "text-green-600" : "text-red-500")
                                         )}>
-                                            {hasFinished ? `${s.profit > 0 ? '+' : ''}${s.profit.toFixed(2)}` : 'SCANNING...'}
+                                            {hasFinished ? `${s.profit > 0 ? '+' : ''}${s.profit.toFixed(2)}` : 'ANALISANDO...'}
                                         </td>
                                     </tr>
                                 );
                             }) : (
-                                <tr><td colSpan={4} className="py-16 text-center text-[10px] font-black text-muted-foreground/30 uppercase tracking-[0.4em] italic">Terminal_Sync_Active</td></tr>
+                                <tr><td colSpan={4} className="py-16 text-center text-[10px] font-black text-muted-foreground/30 uppercase tracking-[0.4em] italic">Sincronizando Terminal...</td></tr>
                             )}
                         </tbody>
                     </table>
