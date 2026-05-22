@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, Bot, Zap, Volume2, VolumeX, Globe, Cpu, DollarSign, FileSpreadsheet, Percent } from 'lucide-react';
+import { Power, RefreshCw, Bot, Zap, Volume2, VolumeX, Globe, Cpu, DollarSign, FileSpreadsheet, Percent, ShieldAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
@@ -20,7 +20,9 @@ export const AIOperatingScreen = () => {
         isPaused, isManipulationDetected,
         isStudying, studyTicksCount,
         isSoundEnabled, setIsSoundEnabled,
-        currentConfidence
+        currentConfidence,
+        virtualLossStreak, virtualTargetLosses,
+        isSwitchingAccount
     } = useBotContext();
 
     const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
@@ -52,24 +54,31 @@ export const AIOperatingScreen = () => {
             {isBotRunning && (
                 <div className={cn(
                     "rounded-2xl p-3 sm:p-4 flex items-center justify-between border-2 transition-all duration-500",
-                    isStudying 
-                        ? "bg-blue-500/5 border-blue-500/20 animate-pulse" 
-                        : "bg-green-500/5 border-green-500/20 shadow-[0_0_20px_rgba(34,197,94,0.05)]"
+                    isSwitchingAccount ? "bg-orange-500/10 border-orange-500/40 animate-pulse" :
+                    isStudying ? "bg-blue-500/5 border-blue-500/20 animate-pulse" : 
+                    "bg-green-500/5 border-green-500/20 shadow-[0_0_20px_rgba(34,197,94,0.05)]"
                 )}>
                     <div className="flex items-center gap-3">
                         <div className="relative">
-                            <Cpu className={cn("h-6 w-6", isStudying ? "text-blue-500" : "text-green-500 animate-[spin_3s_linear_infinite]")} />
+                            {isSwitchingAccount ? <RefreshCw className="h-6 w-6 text-orange-500 animate-spin" /> :
+                             isStudying ? <Cpu className="h-6 w-6 text-blue-500" /> :
+                             <Bot className="h-6 w-6 text-green-500 animate-bounce" />}
                         </div>
                         <div>
-                            <p className={cn("text-[10px] font-black uppercase tracking-widest", isStudying ? "text-blue-600" : "text-green-600")}>
-                                {isStudying ? "Sincronizando Fluxo" : "Núcleo de I.A Ativo"}
+                            <p className={cn("text-[10px] font-black uppercase tracking-widest", 
+                                isSwitchingAccount ? "text-orange-600" :
+                                isStudying ? "text-blue-600" : "text-green-600")}>
+                                {isSwitchingAccount ? "Trocando Token..." :
+                                 isStudying ? "Sincronizando Fluxo" : "Núcleo de I.A Ativo"}
                             </p>
                             <p className="text-[10px] sm:text-xs font-bold opacity-80 italic">
-                                {isStudying ? `Mapeando Padrões... (${studyTicksCount}/5)` : "Operação de Alta Frequência"}
+                                {isSwitchingAccount ? "Aguardando Autorização" :
+                                 isStudying ? `Mapeando Padrões... (${studyTicksCount}/5)` : 
+                                 `Operando em Conta ${accountType.toUpperCase()}`}
                             </p>
                         </div>
                     </div>
-                    {!isStudying && (
+                    {!isStudying && !isSwitchingAccount && (
                         <div className="flex flex-col items-end">
                             <div className="flex items-center gap-1 text-green-600 font-black text-xs">
                                 <Percent className="h-3 w-3" />
@@ -77,6 +86,26 @@ export const AIOperatingScreen = () => {
                             </div>
                         </div>
                     )}
+                </div>
+            )}
+
+            {isBotRunning && accountType === 'demo' && virtualTargetLosses > 0 && (
+                <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <ShieldAlert className="h-4 w-4 text-orange-600" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-orange-700">Monitor de Loss Virtual</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="flex gap-1">
+                            {[...Array(virtualTargetLosses)].map((_, i) => (
+                                <div key={i} className={cn(
+                                    "h-2 w-4 rounded-full transition-all duration-500",
+                                    i < virtualLossStreak ? "bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.5)]" : "bg-gray-200"
+                                )} />
+                            ))}
+                        </div>
+                        <span className="text-[10px] font-black text-orange-700 ml-2">{virtualLossStreak}/{virtualTargetLosses}</span>
+                    </div>
                 </div>
             )}
 
@@ -137,7 +166,7 @@ export const AIOperatingScreen = () => {
                     <div className="relative">
                         <Button 
                             onClick={handleStartClick}
-                            disabled={status.message.includes('Desconectado') || isPaused || isManipulationDetected}
+                            disabled={status.message.includes('Desconectado') || isPaused || isManipulationDetected || isSwitchingAccount}
                             className={cn(
                                 "w-full h-20 sm:h-24 rounded-[2rem] sm:rounded-[2.5rem] text-xl sm:text-2xl font-black uppercase tracking-[0.3em] transition-all duration-700 shadow-2xl relative z-10",
                                 isBotRunning 

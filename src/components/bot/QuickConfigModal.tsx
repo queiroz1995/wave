@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DollarSign, Target, Play, Zap, ListOrdered, BrainCircuit, Sparkles } from 'lucide-react';
+import { DollarSign, Target, Play, Zap, ListOrdered, BrainCircuit, Sparkles, ShieldAlert } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
 import { cn } from '@/lib/utils';
 
@@ -30,7 +30,8 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
         stopLoss, setStopLoss,
         consecutiveTarget, setConsecutiveTarget,
         entryDirection, setEntryDirection,
-        isSmartModeActive, setIsSmartModeActive
+        isSmartModeActive, setIsSmartModeActive,
+        virtualTargetLosses, setVirtualTargetLosses
     } = useBotContext();
     
     const [tempStake, setTempStake] = useState(initialStake);
@@ -39,6 +40,7 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
     const [tempConsecutive, setTempConsecutive] = useState(consecutiveTarget);
     const [tempDirection, setTempDirection] = useState(entryDirection);
     const [tempSmartActive, setTempSmartActive] = useState(isSmartModeActive);
+    const [tempVirtualLoss, setTempVirtualLoss] = useState(virtualTargetLosses);
 
     useEffect(() => {
         if (isOpen) {
@@ -48,8 +50,9 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
             setTempConsecutive(consecutiveTarget);
             setTempDirection(entryDirection);
             setTempSmartActive(isSmartModeActive);
+            setTempVirtualLoss(virtualTargetLosses);
         }
-    }, [isOpen, initialStake, takeProfit, stopLoss, consecutiveTarget, entryDirection, isSmartModeActive]);
+    }, [isOpen, initialStake, takeProfit, stopLoss, consecutiveTarget, entryDirection, isSmartModeActive, virtualTargetLosses]);
 
     const handleConfirm = () => {
         setInitialStake(tempStake);
@@ -58,6 +61,7 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
         setConsecutiveTarget(tempConsecutive);
         setEntryDirection(tempDirection);
         setIsSmartModeActive(tempSmartActive);
+        setVirtualTargetLosses(tempVirtualLoss);
         onConfirm();
     };
 
@@ -92,6 +96,25 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                                 checked={tempSmartActive} 
                                 onCheckedChange={setTempSmartActive} 
                             />
+                        </div>
+                    </div>
+
+                    <div className="p-5 rounded-3xl bg-orange-500/5 border border-orange-500/20 space-y-4">
+                        <div className="flex items-center gap-2 mb-2">
+                            <ShieldAlert className="h-4 w-4 text-orange-500" />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-orange-600">Filtro de Loss Virtual</span>
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-[9px] font-black uppercase tracking-widest ml-1 opacity-60">Esperar quantos Loss na Demo?</Label>
+                            <Input 
+                                type="number"
+                                value={tempVirtualLoss}
+                                onChange={(e) => setTempVirtualLoss(parseInt(e.target.value) || 0)}
+                                min="0"
+                                max="10"
+                                className="h-11 rounded-xl font-black text-center bg-white border-none shadow-sm"
+                            />
+                            <p className="text-[8px] text-muted-foreground text-center uppercase font-bold">Defina 0 para operar direto na Real</p>
                         </div>
                     </div>
 
