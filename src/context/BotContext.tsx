@@ -70,6 +70,14 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const updateNeuralPredictions = useCallback(() => {
         if (lastDigits.length < 50) return;
+        
+        // Cálculo de Confiança Neural (Simulado baseado em distribuição)
+        const evens = lastDigits.slice(0, 50).filter(d => d % 2 === 0).length;
+        const odds = 50 - evens;
+        const bias = Math.abs(evens - odds) / 50;
+        const confidence = Math.floor(75 + (bias * 25));
+        setCurrentConfidence(confidence);
+
         const matrix = Array.from({ length: 10 }, () => new Array(10).fill(0));
         const reversed = [...lastDigits].reverse();
         for (let i = 0; i < reversed.length - 1; i++) matrix[reversed[i]][reversed[i+1]]++;
@@ -123,8 +131,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (isStudying) {
             setStudyTicksCount((c: number) => {
                 const next = c + 1;
-                if (next >= 1) {
+                if (next >= 5) { // Estuda por 5 ticks
                     setIsStudying(false);
+                    addLog("Estudo Concluído: Padrões Mapeados.", "INFO");
                     return 0;
                 }
                 return next;
@@ -238,8 +247,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
 
             const contract = targetType === 'EVEN' ? 'DIGITEVEN' : 'DIGITODD';
-            const confidence = 95; 
-            setCurrentConfidence(confidence);
+            const confidence = currentConfidence; 
 
             return { 
                 type: targetType, 
@@ -251,7 +259,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         return null;
-    }, [lastDigits, consecutiveTarget, entryDirection, isStudying, virtualTradePending]);
+    }, [lastDigits, consecutiveTarget, entryDirection, isStudying, virtualTradePending, currentConfidence]);
 
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string, confidence: number) => {
         if (!isConnected || isPaused || isStudying || activeTrades.current.size > 0) return;
@@ -321,13 +329,14 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setIsBotRunning(true); 
             totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0);
             setConsecutiveLosses(0); setIsPaused(false);
-            setIsStudying(false);
+            setIsStudying(true); // Inicia fase de estudo
+            setStudyTicksCount(0);
             activeTrades.current.clear();
             pendingContracts.current.clear();
             martingaleLevel.current = 0;
-            addLog(`Iniciando Sniper: Gale Imediato Ativado.`, "INFO");
+            addLog(`Iniciando Sniper: Fase de Estudo Neural Ativada.`, "INFO");
         }
-    }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog, setIsStudying]);
+    }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog, setIsStudying, setStudyTicksCount]);
 
     const selectAI = useCallback((ia: any) => { 
         setSelectedAIInfo(ia); 
