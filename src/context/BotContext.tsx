@@ -187,12 +187,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 if (isSwitchingAccount) {
                     setIsSwitchingAccount(false);
                     if (accountType === 'real') {
-                        setIsStudying(false);
-                        addLog(`CONTA REAL SINCRONIZADA.`, "INFO");
+                        setIsStudying(false); // Garante que não estude na Real
+                        addLog(`CONTA REAL SINCRONIZADA. PRONTO PARA OPERAR.`, "INFO");
                     } else {
                         setIsStudying(true);
                         setStudyTicksCount(0);
-                        addLog(`CONTA DEMO SINCRONIZADA.`, "INFO");
+                        addLog(`CONTA DEMO SINCRONIZADA. REINICIANDO ESTUDO.`, "INFO");
                     }
                 }
             } else if (data?.msg_type === 'balance') {
@@ -230,8 +230,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         const exitDigit = parseInt(String(exit_tick).slice(-1));
                         const profitValue = parseFloat(profit);
 
-                        // ATUALIZAÇÃO MANUAL IMEDIATA DO SALDO
-                        setAccountBalance((prev: number | null) => prev !== null ? prev + profitValue : null);
+                        // ATUALIZAÇÃO GARANTIDA DO SALDO (SOMA)
+                        setAccountBalance((prev: number | null) => {
+                            if (prev === null) return null;
+                            return Number((prev + profitValue).toFixed(2));
+                        });
                         
                         totalProfitRef.current += profitValue;
                         setTotalProfit(totalProfitRef.current);
@@ -256,7 +259,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                 activeTrades.current.clear();
                                 setTimeout(() => {
                                     setAccountType('demo');
-                                    // Força reconexão para trocar de conta
                                     sendMessageRef.current({ authorize: demoToken });
                                 }, 500);
 
@@ -270,7 +272,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                         winsRef.current = 0;
                                         setTimeout(() => {
                                             setAccountType('real');
-                                            // Força reconexão para trocar de conta
                                             sendMessageRef.current({ authorize: realToken });
                                         }, 500);
                                     }
@@ -298,7 +299,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         pendingContracts.current.delete(contract.contract_id);
                         setTradeStatus('IDLE'); 
 
-                        // Força sincronização de saldo com o servidor
+                        // Sincroniza saldo final com o servidor
                         sendMessageRef.current({ balance: 1 });
 
                         const tp = parseFloat(takeProfit);
@@ -320,7 +321,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
     const calculateTradeSignal = useCallback(() => {
-        if (activeTrades.current.size > 0 || isStudying || virtualTradePending || isSwitchingAccount) return null;
+        // Se estiver trocando de conta ou estudando, não gera sinal
+        if (activeTrades.current.size > 0 || isSwitchingAccount) return null;
+        
+        // Na conta Real, ignoramos o isStudying para não perder tempo
+        if (accountType === 'demo' && isStudying) return null;
 
         if (accountType === 'real' && martingaleLevel.current > 0) {
             const contract = lastContractType.current || 'DIGITEVEN';
@@ -370,10 +375,14 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             };
         }
         return null;
-    }, [lastDigits, consecutiveTarget, entryDirection, isStudying, virtualTradePending, currentConfidence, isSmartModeActive, accountType, isSwitchingAccount]);
+    }, [lastDigits, consecutiveTarget, entryDirection, isStudying, currentConfidence, isSmartModeActive, accountType, isSwitchingAccount]);
 
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string, confidence: number) => {
-        if (!isConnected || isStudying || activeTrades.current.size > 0 || isSwitchingAccount) return;
+        if (!isConnected || activeTrades.current.size > 0 || isSwitchingAccount) return;
+        
+        // Na demo, respeita o estudo. Na real, entra direto.
+        if (accountType === 'demo' && isStudying) return;
+
         const baseStake = parseFloat(initialStake) || 0.35;
         const mgFactor = parseFloat(martingaleFactor) || 2.1; 
         
@@ -386,15 +395,15 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeTrades.current.add(signalId);
         setTradeStatus('SENDING');
         
-        // Log de auditoria para confirmar a conta
-        addLog(`Executando entrada em CONTA ${accountType.toUpperCase()}...`, "INFO");
+        addLog(`EXECUTANDO EM CONTA ${accountType.toUpperCase()} ($${stakeToUse.toFixed(2)})`, "INFO");
         
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params, passthrough: { signalId, strategyName } });
     }, [isConnected, initialStake, asset, sendMessage, setTradeStatus, martingaleFactor, isStudying, accountType, isSwitchingAccount, addLog]);
 
     useEffect(() => {
-        if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isStudying || isSwitchingAccount) return;
+        if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isSwitchingAccount) return;
         processedTickEpoch.current = lastTickEpoch;
+        
         const signal = calculateTradeSignal();
         if (signal) {
             if (accountType === 'demo' && virtualTargetLosses > 0 && virtualLossStreak < virtualTargetLosses && martingaleLevel.current === 0) {
@@ -406,7 +415,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 executeBuy(signal.contract as ContractType, signal.name, sId, signal.confidence);
             }
         }
-    }, [isBotRunning, lastTickEpoch, calculateTradeSignal, addSignal, executeBuy, isStudying, virtualTargetLosses, virtualLossStreak, accountType, isSwitchingAccount]);
+    }, [isBotRunning, lastTickEpoch, calculateTradeSignal, addSignal, executeBuy, virtualTargetLosses, virtualLossStreak, accountType, isSwitchingAccount]);
 
     const selectAI = useCallback((ia: any) => { setSelectedAIInfo(ia); setActiveStrategy(ia.id); setAppFlow('operating'); }, [setActiveStrategy]);
     const exitToSelection = useCallback(() => { stopBot("Sessão Finalizada"); setAppFlow('selection'); }, [stopBot]);
@@ -416,7 +425,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const token = targetToken || (type === 'real' ? realToken : demoToken);
         
         if (token) {
-            // FORÇA DESCONEXÃO ANTES DE CONECTAR EM NOVA CONTA
             if (isConnected) {
                 disconnect();
                 setTimeout(() => connect(token, type), 1000);
