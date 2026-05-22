@@ -240,8 +240,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
                         if (isHybridModeActive && accountType === 'demo' && !isLoss) {
                             if (winsRef.current >= hybridWinsRequired) {
-                                addLog(`MERCADO VALIDADO: ${winsRef.current} Wins na Demo!`, "INFO");
-                                addLog("Trocando para Conta Real agora...", "INFO");
+                                addLog(`VITÓRIA VIRTUAL ATINGIDA: ${winsRef.current} Wins!`, "INFO");
+                                addLog("Migrando para Conta Real agora...", "INFO");
                                 
                                 setIsBotRunning(false);
                                 activeTrades.current.clear();

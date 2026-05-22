@@ -150,7 +150,7 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                         </div>
                     )}
 
-                    {/* MODO HÍBRIDO */}
+                    {/* VITÓRIA VIRTUAL (ANTIGO MODO HÍBRIDO) */}
                     <div className={cn(
                         "p-5 rounded-3xl border-2 transition-all duration-500 space-y-4",
                         tempHybridActive ? "bg-green-500/5 border-green-500/20" : "bg-gray-50 border-transparent"
@@ -159,8 +159,8 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                             <div className="flex items-center gap-2">
                                 <ArrowRightLeft className={cn("h-4 w-4", tempHybridActive ? "text-green-600" : "text-gray-400")} />
                                 <div className="space-y-0.5">
-                                    <Label className="text-[10px] font-black uppercase tracking-tight">Modo Híbrido (Demo → Real)</Label>
-                                    <p className="text-[8px] font-bold text-muted-foreground uppercase">Troca automática ao validar mercado</p>
+                                    <Label className="text-[10px] font-black uppercase tracking-tight">Vitória Virtual (Demo → Real)</Label>
+                                    <p className="text-[8px] font-bold text-muted-foreground uppercase">Aguardar vitórias simuladas antes da Real</p>
                                 </div>
                             </div>
                             <Switch 
@@ -171,7 +171,7 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
 
                         {tempHybridActive && (
                             <div className="flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
-                                <Label className="text-[10px] font-bold text-green-600 whitespace-nowrap">Wins na Demo para trocar?</Label>
+                                <Label className="text-[10px] font-bold text-green-600 whitespace-nowrap">Quantas vitórias esperar?</Label>
                                 <Input 
                                     type="number"
                                     value={tempHybridWins}
