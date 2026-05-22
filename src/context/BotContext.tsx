@@ -30,6 +30,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const lastContractType = useRef<ContractType | null>(null);
     const shouldAutoStartOnReal = useRef(false);
     
+    const winsRef = useRef(0);
+    
     const pendingContracts = useRef<Map<string, any>>(new Map());
 
     const reconnectAttemptsRef = useRef(0);
@@ -50,7 +52,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         virtualTargetLosses, setVirtualTargetLosses,
         isSoundEnabled,
         consecutiveTarget, entryDirection,
-        isHybridModeActive, hybridWinsRequired, wins,
+        isHybridModeActive, hybridWinsRequired,
         isSmartModeActive
     } = stateAndSetters;
 
@@ -157,6 +159,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         else { 
             setIsBotRunning(true); 
             totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0);
+            winsRef.current = 0;
             setConsecutiveLosses(0);
             setIsStudying(true);
             setStudyTicksCount(0);
@@ -177,7 +180,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 
                 if (shouldAutoStartOnReal.current) {
                     shouldAutoStartOnReal.current = false;
-                    setTimeout(() => toggleBot(), 1000);
+                    setTimeout(() => {
+                        setIsBotRunning(true);
+                        setIsStudying(true);
+                        addLog("Iniciando Operações em Conta Real!", "INFO");
+                    }, 1500);
                 }
             } else if (data?.msg_type === 'history') {
                 if (data.history?.prices) {
@@ -214,16 +221,13 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         totalProfitRef.current += profitValue;
                         setTotalProfit(totalProfitRef.current);
 
-                        let updatedWins = 0;
                         if (isLoss) {
                             setLosses((prev: number) => prev + 1);
                             setConsecutiveLosses((p: number) => p + 1);
                             martingaleLevel.current += 1;
                         } else {
-                            setWins((prev: number) => {
-                                updatedWins = prev + 1;
-                                return updatedWins;
-                            });
+                            winsRef.current += 1;
+                            setWins(winsRef.current);
                             setConsecutiveLosses(0);
                             martingaleLevel.current = 0;
                             playWinSound();
@@ -235,14 +239,20 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         setTradeStatus('IDLE'); 
 
                         if (isHybridModeActive && accountType === 'demo' && !isLoss) {
-                            if (updatedWins >= hybridWinsRequired) {
-                                addLog(`Mercado Validado (${updatedWins} Wins)! Trocando para Conta Real...`, "INFO");
-                                stopBot("Trocando de Conta...");
+                            if (winsRef.current >= hybridWinsRequired) {
+                                addLog(`MERCADO VALIDADO: ${winsRef.current} Wins na Demo!`, "INFO");
+                                addLog("Trocando para Conta Real agora...", "INFO");
+                                
+                                setIsBotRunning(false);
+                                activeTrades.current.clear();
+                                
                                 if (!realToken) {
-                                    addLog("Erro: Token Real não configurado.", "ERROR");
+                                    addLog("Erro: Token Real não encontrado.", "ERROR");
                                     return;
                                 }
+
                                 shouldAutoStartOnReal.current = true;
+                                
                                 setTimeout(() => {
                                     setAccountType('real');
                                     sendMessageRef.current({ authorize: realToken });
@@ -256,7 +266,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             }
         }
-    }, [asset, processTickData, setAccountBalance, setTradeStatus, addLog, setLastDigits, setTotalProfit, setWins, setLosses, setConsecutiveLosses, updateSignalResult, playWinSound, takeProfit, isHybridModeActive, accountType, hybridWinsRequired, realToken, setAccountType, toggleBot, stopBot]);
+    }, [asset, processTickData, setAccountBalance, setTradeStatus, addLog, setLastDigits, setTotalProfit, setWins, setLosses, setConsecutiveLosses, updateSignalResult, playWinSound, takeProfit, isHybridModeActive, accountType, hybridWinsRequired, realToken, setAccountType, stopBot, setIsBotRunning, setIsStudying]);
 
     const ws = useTradingWebSocketManager({ isConnected, status, setIsConnected, setStatus, setAccountBalance, onMessage: handleWebSocketMessage, reconnectAttemptsRef });
     const { sendMessage, connect, disconnect } = ws;
@@ -270,30 +280,24 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         
         if (lastDigits.length < 10 || isStudying || virtualTradePending || activeTrades.current.size > 0) return null;
 
-        // LÓGICA SMART NEURAL
         let targetConsecutive = consecutiveTarget;
         let targetDirection = entryDirection;
 
         if (isSmartModeActive) {
-            // Analisa os últimos 100 ticks para decidir a estratégia
-            const recent = lastDigits.slice(0, 100);
+            const recent = lastDigits.slice(0, 50);
             let streaks = 0;
             let reversals = 0;
             for(let i=0; i<recent.length-1; i++) {
-                const currentParity = recent[i] % 2 === 0;
-                const nextParity = recent[i+1] % 2 === 0;
-                if (currentParity === nextParity) streaks++;
+                if ((recent[i] % 2 === 0) === (recent[i+1] % 2 === 0)) streaks++;
                 else reversals++;
             }
 
-            // Se o mercado está trocando muito de cor (reversão), entra a favor da tendência de troca
-            // Se o mercado está repetindo muito (tendência), entra a favor da repetição
             if (reversals > streaks) {
                 targetDirection = 'AGAINST';
-                targetConsecutive = 2; // Mercado rápido, espera menos
+                targetConsecutive = 2;
             } else {
                 targetDirection = 'FAVOR';
-                targetConsecutive = 3; // Mercado de tendência, espera confirmação
+                targetConsecutive = 3;
             }
         }
 
