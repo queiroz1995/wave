@@ -28,12 +28,13 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const totalProfitRef = useRef(0.00);
     const martingaleLevel = useRef(0);
     const lastContractType = useRef<ContractType | null>(null);
+    
+    // Flags de automação para troca de conta
     const shouldAutoStartOnReal = useRef(false);
+    const shouldAutoStartOnDemo = useRef(false);
     
     const winsRef = useRef(0);
-    
     const pendingContracts = useRef<Map<string, any>>(new Map());
-
     const reconnectAttemptsRef = useRef(0);
     const sendMessageRef = useRef<(payload: any) => void>(() => {});
 
@@ -178,12 +179,16 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setStatus({ message: `Sniper Ativo`, color: 'bg-green-500' });
                 if (data.authorize.balance) setAccountBalance(data.authorize.balance);
                 
-                if (shouldAutoStartOnReal.current) {
+                // Reinício Automático após troca de conta
+                if (shouldAutoStartOnReal.current || shouldAutoStartOnDemo.current) {
+                    const isReal = shouldAutoStartOnReal.current;
                     shouldAutoStartOnReal.current = false;
+                    shouldAutoStartOnDemo.current = false;
+                    
                     setTimeout(() => {
                         setIsBotRunning(true);
                         setIsStudying(true);
-                        addLog("Iniciando Operações em Conta Real!", "INFO");
+                        addLog(isReal ? "Iniciando Operações em Conta Real!" : "Retornando para Busca na Conta Demo...", "INFO");
                     }, 1500);
                 }
             } else if (data?.msg_type === 'history') {
@@ -238,8 +243,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                     addLog("Win na Real! Resetando para Demo.", "INFO");
                                 }
                                 
+                                // Volta para Demo AUTOMATICAMENTE
                                 setIsBotRunning(false);
                                 activeTrades.current.clear();
+                                shouldAutoStartOnDemo.current = true; // Ativa o restart automático na Demo
+                                
                                 setTimeout(() => {
                                     setAccountType('demo');
                                     sendMessageRef.current({ authorize: demoToken });
@@ -252,7 +260,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                         addLog(`Vitória Virtual! Migrando para Real para ${martingaleLevel.current > 0 ? 'Recuperação' : 'Entrada'}...`, "INFO");
                                         setIsBotRunning(false);
                                         activeTrades.current.clear();
-                                        shouldAutoStartOnReal.current = true;
+                                        shouldAutoStartOnReal.current = true; // Ativa o restart automático na Real
+                                        
                                         setTimeout(() => {
                                             setAccountType('real');
                                             sendMessageRef.current({ authorize: realToken });
@@ -282,7 +291,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         pendingContracts.current.delete(contract.contract_id);
                         setTradeStatus('IDLE'); 
 
-                        // VERIFICAÇÃO DE LIMITES (STOP LOSS / TAKE PROFIT)
+                        // VERIFICAÇÃO DE LIMITES
                         const tp = parseFloat(takeProfit);
                         const sl = Math.abs(parseFloat(stopLoss));
 
