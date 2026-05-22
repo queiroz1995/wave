@@ -29,7 +29,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const martingaleLevel = useRef(0);
     const lastContractType = useRef<ContractType | null>(null);
     
-    // Estado para controlar a transição de conta
+    // Estado para controlar a transição de conta (Sincronização)
     const [isSwitchingAccount, setIsSwitchingAccount] = useState(false);
     
     const winsRef = useRef(0);
@@ -306,6 +306,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
     const calculateTradeSignal = useCallback(() => {
+        // Se estiver trocando de conta, não gera sinal para evitar erros de autorização
         if (activeTrades.current.size > 0 || isStudying || virtualTradePending || isSwitchingAccount) return null;
 
         if (accountType === 'real' && martingaleLevel.current > 0) {
