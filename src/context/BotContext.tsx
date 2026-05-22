@@ -113,17 +113,20 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (virtualTradePending) {
                 const isEven = lastDigit % 2 === 0;
                 const win = virtualTradePending.type === 'EVEN' ? isEven : !isEven;
+                const baseStake = parseFloat(initialStake) || 0.35;
                 
                 if (win) {
                     setVirtualLossStreak(0);
                     playWinSound();
                     addLog(`Vitória Virtual (Dígito ${lastDigit}). Resetando contador.`, "INFO");
-                    updateSignalResult(virtualTradePending.signalId, 'WIN', 0, 0, lastDigit);
+                    // Simula lucro de ~95% para o histórico
+                    updateSignalResult(virtualTradePending.signalId, 'WIN', baseStake * 0.95, baseStake, lastDigit);
                 } else {
                     const nextStreak = virtualLossStreak + 1;
                     setVirtualLossStreak(nextStreak);
                     addLog(`Loss Virtual: ${nextStreak}/${virtualTargetLosses} (Dígito ${lastDigit})`, "INFO");
-                    updateSignalResult(virtualTradePending.signalId, 'LOSS', 0, 0, lastDigit);
+                    // Simula perda da stake para o histórico
+                    updateSignalResult(virtualTradePending.signalId, 'LOSS', -baseStake, baseStake, lastDigit);
                 }
                 setVirtualTradePending(null);
             }
@@ -145,7 +148,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 return next;
             });
         }
-    }, [setLastDigits, setLastTickEpoch, updateNeuralPredictions, isStudying, setIsStudying, setStudyTicksCount, addLog, virtualTradePending, virtualLossStreak, virtualTargetLosses, setVirtualLossStreak, playWinSound, updateSignalResult]);
+    }, [setLastDigits, setLastTickEpoch, updateNeuralPredictions, isStudying, setIsStudying, setStudyTicksCount, addLog, virtualTradePending, virtualLossStreak, virtualTargetLosses, setVirtualLossStreak, playWinSound, updateSignalResult, initialStake]);
 
     const stopBot = useCallback((reason: string) => {
         setIsBotRunning(false);

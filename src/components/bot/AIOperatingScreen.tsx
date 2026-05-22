@@ -253,7 +253,7 @@ export const AIOperatingScreen = () => {
                                             "py-3 text-right font-black text-xs", 
                                             !hasFinished ? "text-blue-500 animate-pulse" : (s.result === 'WIN' ? "text-green-600" : "text-red-500")
                                         )}>
-                                            {hasFinished ? (s.strategy.includes('VIRTUAL') ? 'OK' : `${s.profit > 0 ? '+' : ''}${s.profit.toFixed(2)}`) : 'ANALISANDO...'}
+                                            {hasFinished ? `${s.profit > 0 ? '+' : ''}${s.profit.toFixed(2)}` : 'ANALISANDO...'}
                                         </td>
                                     </tr>
                                 );
