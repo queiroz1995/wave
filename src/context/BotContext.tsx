@@ -29,8 +29,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const martingaleLevel = useRef(0);
     const lastContractType = useRef<ContractType | null>(null);
     
-    const [isSwitchingAccount, setIsSwitchingAccount] = useState(false);
-    
     const winsRef = useRef(0);
     const pendingContracts = useRef<Map<string, any>>(new Map());
     const reconnectAttemptsRef = useRef(0);
@@ -101,11 +99,36 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     }, [asset, isConnected, fetchDerivHistory]);
 
+    // Estado para controlar a entrada virtual pendente
+    const [virtualTradePending, setVirtualTradePending] = useState<any>(null);
+
     const processTickData = useCallback((tick: { quote: string, epoch: number }) => {
         const lastDigit = parseInt(String(tick.quote).replace(/[^\d.]/g, '').slice(-1));
         if (isNaN(lastDigit)) return;
         
-        setLastDigits((prev: number[]) => [lastDigit, ...prev].slice(0, 500));
+        setLastDigits((prev: number[]) => {
+            const newList = [lastDigit, ...prev].slice(0, 500);
+            
+            // Lógica de resolução do Loss Virtual baseada no próximo tick
+            if (virtualTradePending) {
+                const isEven = lastDigit % 2 === 0;
+                const win = virtualTradePending.type === 'EVEN' ? isEven : !isEven;
+                
+                if (win) {
+                    setVirtualLossStreak(0);
+                    playWinSound();
+                    addLog(`Vitória Virtual (Dígito ${lastDigit}). Resetando contador.`, "INFO");
+                } else {
+                    const nextStreak = virtualLossStreak + 1;
+                    setVirtualLossStreak(nextStreak);
+                    addLog(`Loss Virtual: ${nextStreak}/${virtualTargetLosses} (Dígito ${lastDigit})`, "INFO");
+                }
+                setVirtualTradePending(null);
+            }
+
+            return newList;
+        });
+
         setLastTickEpoch(tick.epoch);
         updateNeuralPredictions();
 
@@ -120,15 +143,15 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 return next;
             });
         }
-    }, [setLastDigits, setLastTickEpoch, updateNeuralPredictions, isStudying, setIsStudying, setStudyTicksCount, addLog]);
+    }, [setLastDigits, setLastTickEpoch, updateNeuralPredictions, isStudying, setIsStudying, setStudyTicksCount, addLog, virtualTradePending, virtualLossStreak, virtualTargetLosses, setVirtualLossStreak, playWinSound]);
 
     const stopBot = useCallback((reason: string) => {
         setIsBotRunning(false);
-        setIsSwitchingAccount(false);
         activeTrades.current.clear();
         pendingContracts.current.clear();
         martingaleLevel.current = 0;
         setVirtualLossStreak(0);
+        setVirtualTradePending(null);
         setIsStudying(false);
         addLog(reason, 'INFO');
     }, [setIsBotRunning, addLog, setIsStudying, setVirtualLossStreak]);
@@ -138,11 +161,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (isBotRunning) stopBot("Sniper Parado");
         else { 
             setIsBotRunning(true); 
-            setIsSwitchingAccount(false);
             totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0);
             winsRef.current = 0;
             setConsecutiveLosses(0);
             setVirtualLossStreak(0);
+            setVirtualTradePending(null);
             setIsStudying(true);
             setStudyTicksCount(0);
             activeTrades.current.clear();
@@ -162,11 +185,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     setAccountBalance(parseFloat(data.authorize.balance));
                 }
                 sendMessageRef.current({ balance: 1, subscribe: 1 });
-                
-                if (isSwitchingAccount) {
-                    setIsSwitchingAccount(false);
-                    addLog(`CONTA ${accountType.toUpperCase()} SINCRONIZADA.`, "INFO");
-                }
             } else if (data?.msg_type === 'balance') {
                 if (data.balance?.balance !== undefined) {
                     setAccountBalance(parseFloat(data.balance.balance));
@@ -203,64 +221,23 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         const profitValue = parseFloat(profit);
 
                         setAccountBalance((prev: number | null) => prev !== null ? Number((prev + profitValue).toFixed(2)) : null);
-                        
-                        // Só soma lucro global se for na Real
-                        if (accountType === 'real') {
-                            totalProfitRef.current += profitValue;
-                            setTotalProfit(totalProfitRef.current);
-                        }
+                        totalProfitRef.current += profitValue;
+                        setTotalProfit(totalProfitRef.current);
 
                         if (isLoss) {
-                            if (accountType === 'demo') {
-                                setVirtualLossStreak((prev: number) => {
-                                    const next = prev + 1;
-                                    addLog(`Loss Virtual: ${next}/${virtualTargetLosses}`, "INFO");
-                                    if (next >= virtualTargetLosses) {
-                                        addLog("Meta de Loss Virtual atingida! Migrando para REAL...", "INFO");
-                                        setIsSwitchingAccount(true);
-                                        setTimeout(() => {
-                                            setAccountType('real');
-                                            sendMessageRef.current({ authorize: realToken });
-                                        }, 500);
-                                    }
-                                    return next;
-                                });
-                            } else {
-                                setLosses((prev: number) => prev + 1);
-                                setConsecutiveLosses((p: number) => p + 1);
-                                martingaleLevel.current += 1;
-                                
-                                // Após loss na real, volta para demo
-                                addLog("Loss na Real. Voltando para Demo...", "INFO");
-                                setIsSwitchingAccount(true);
-                                setVirtualLossStreak(0);
-                                setTimeout(() => {
-                                    setAccountType('demo');
-                                    sendMessageRef.current({ authorize: demoToken });
-                                }, 500);
-                            }
+                            setLosses((prev: number) => prev + 1);
+                            setConsecutiveLosses((p: number) => p + 1);
+                            martingaleLevel.current += 1;
                         } else {
-                            playWinSound(); // Toca som em qualquer vitória (Demo ou Real)
-                            
-                            if (accountType === 'demo') {
-                                setVirtualLossStreak(0);
-                                addLog("Vitória na Demo. Resetando contador de Loss Virtual.", "INFO");
-                            } else {
-                                winsRef.current += 1;
-                                setWins(winsRef.current);
-                                setConsecutiveLosses(0);
-                                martingaleLevel.current = 0;
-                                
-                                // Após win na real, volta para demo
-                                addLog("Vitória na Real! Voltando para Demo.", "INFO");
-                                setIsSwitchingAccount(true);
-                                setVirtualLossStreak(0);
-                                setTimeout(() => {
-                                    setAccountType('demo');
-                                    sendMessageRef.current({ authorize: demoToken });
-                                }, 500);
-                            }
+                            winsRef.current += 1;
+                            setWins(winsRef.current);
+                            setConsecutiveLosses(0);
+                            martingaleLevel.current = 0;
+                            playWinSound();
                         }
+
+                        // Após uma operação REAL (Win ou Loss), resetamos o Loss Virtual para começar a busca novamente
+                        setVirtualLossStreak(0);
 
                         updateSignalResult(savedData.signalId, isLoss ? 'LOSS' : 'WIN', profitValue, savedData.stake, exitDigit);
                         activeTrades.current.delete(savedData.signalId);
@@ -281,16 +258,16 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             }
         }
-    }, [asset, processTickData, setAccountBalance, setTradeStatus, addLog, setLastDigits, setTotalProfit, setWins, setLosses, setConsecutiveLosses, updateSignalResult, playWinSound, takeProfit, stopLoss, stopBot, accountType, virtualTargetLosses, setVirtualLossStreak, realToken, demoToken, setAccountType, isSwitchingAccount]);
+    }, [asset, processTickData, setAccountBalance, setTradeStatus, addLog, setLastDigits, setTotalProfit, setWins, setLosses, setConsecutiveLosses, updateSignalResult, playWinSound, takeProfit, stopLoss, stopBot, setVirtualLossStreak]);
 
     const ws = useTradingWebSocketManager({ isConnected, status, setIsConnected, setStatus, setAccountBalance, onMessage: handleWebSocketMessage, reconnectAttemptsRef });
     const { sendMessage, connect, disconnect } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
     const calculateTradeSignal = useCallback(() => {
-        if (activeTrades.current.size > 0 || isStudying || isSwitchingAccount) return null;
+        if (activeTrades.current.size > 0 || isStudying) return null;
 
-        if (accountType === 'real' && martingaleLevel.current > 0) {
+        if (martingaleLevel.current > 0) {
             const contract = lastContractType.current || 'DIGITEVEN';
             return { 
                 type: contract === 'DIGITEVEN' ? 'EVEN' : 'ODD', 
@@ -338,14 +315,14 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             };
         }
         return null;
-    }, [lastDigits, consecutiveTarget, entryDirection, isStudying, currentConfidence, isSmartModeActive, accountType, isSwitchingAccount]);
+    }, [lastDigits, consecutiveTarget, entryDirection, isStudying, currentConfidence, isSmartModeActive]);
 
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string, confidence: number) => {
-        if (!isConnected || isStudying || activeTrades.current.size > 0 || isSwitchingAccount) return;
+        if (!isConnected || isStudying || activeTrades.current.size > 0) return;
         const baseStake = parseFloat(initialStake) || 0.35;
         const mgFactor = parseFloat(martingaleFactor) || 2.1; 
         
-        const stakeToUse = (accountType === 'real' && martingaleLevel.current > 0) 
+        const stakeToUse = martingaleLevel.current > 0 
             ? baseStake * Math.pow(mgFactor, martingaleLevel.current) 
             : baseStake;
 
@@ -354,19 +331,31 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeTrades.current.add(signalId);
         setTradeStatus('SENDING');
         
-        addLog(`Executando entrada em CONTA ${accountType.toUpperCase()} ($${stakeToUse.toFixed(2)})`, "INFO");
+        addLog(`Executando entrada REAL em CONTA ${accountType.toUpperCase()} ($${stakeToUse.toFixed(2)})`, "INFO");
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params, passthrough: { signalId, strategyName } });
-    }, [isConnected, initialStake, asset, sendMessage, setTradeStatus, martingaleFactor, isStudying, accountType, addLog, isSwitchingAccount]);
+    }, [isConnected, initialStake, asset, sendMessage, setTradeStatus, martingaleFactor, isStudying, accountType, addLog]);
 
     useEffect(() => {
-        if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isStudying || isSwitchingAccount) return;
+        if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isStudying) return;
         processedTickEpoch.current = lastTickEpoch;
+        
         const signal = calculateTradeSignal();
-        if (signal && activeTrades.current.size === 0) {
-            const sId = addSignal({ strategy: signal.name, signal: signal.type as any, details: signal.details, winRate: `${signal.confidence}%` });
-            executeBuy(signal.contract as ContractType, signal.name, sId, signal.confidence);
+        if (signal) {
+            // Lógica de Loss Virtual: Se ainda não atingiu o alvo, apenas marca como pendente para o próximo tick
+            if (virtualTargetLosses > 0 && virtualLossStreak < virtualTargetLosses && martingaleLevel.current === 0) {
+                if (!virtualTradePending) {
+                    setVirtualTradePending(signal);
+                }
+                return;
+            }
+
+            // Se atingiu o alvo ou não tem alvo, executa a compra real
+            if (activeTrades.current.size === 0) {
+                const sId = addSignal({ strategy: signal.name, signal: signal.type as any, details: signal.details, winRate: `${signal.confidence}%` });
+                executeBuy(signal.contract as ContractType, signal.name, sId, signal.confidence);
+            }
         }
-    }, [isBotRunning, lastTickEpoch, calculateTradeSignal, addSignal, executeBuy, isStudying, isSwitchingAccount]);
+    }, [isBotRunning, lastTickEpoch, calculateTradeSignal, addSignal, executeBuy, isStudying, virtualTargetLosses, virtualLossStreak, virtualTradePending]);
 
     const selectAI = useCallback((ia: any) => { setSelectedAIInfo(ia); setActiveStrategy(ia.id); setAppFlow('operating'); }, [setActiveStrategy]);
     const exitToSelection = useCallback(() => { stopBot("Sessão Finalizada"); setAppFlow('selection'); }, [stopBot]);
@@ -386,8 +375,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const contextValue = useMemo(() => ({
         ...stateAndSetters, isConnected, status, handleConnect, handleDisconnect: disconnect, 
-        toggleBot, appFlow, setAppFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, isSwitchingAccount
-    }), [stateAndSetters, isConnected, status, handleConnect, disconnect, toggleBot, appFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, isSwitchingAccount]);
+        toggleBot, appFlow, setAppFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence
+    }), [stateAndSetters, isConnected, status, handleConnect, disconnect, toggleBot, appFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence]);
 
     return <BotContext.Provider value={contextValue}>{children}</BotContext.Provider>;
 };

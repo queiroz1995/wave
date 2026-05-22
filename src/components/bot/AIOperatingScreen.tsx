@@ -21,8 +21,7 @@ export const AIOperatingScreen = () => {
         isStudying, studyTicksCount,
         isSoundEnabled, setIsSoundEnabled,
         currentConfidence,
-        virtualLossStreak, virtualTargetLosses,
-        isSwitchingAccount
+        virtualLossStreak, virtualTargetLosses
     } = useBotContext();
 
     const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
@@ -54,31 +53,24 @@ export const AIOperatingScreen = () => {
             {isBotRunning && (
                 <div className={cn(
                     "rounded-2xl p-3 sm:p-4 flex items-center justify-between border-2 transition-all duration-500",
-                    isSwitchingAccount ? "bg-orange-500/10 border-orange-500/40 animate-pulse" :
-                    isStudying ? "bg-blue-500/5 border-blue-500/20 animate-pulse" : 
-                    "bg-green-500/5 border-green-500/20 shadow-[0_0_20px_rgba(34,197,94,0.05)]"
+                    isStudying 
+                        ? "bg-blue-500/5 border-blue-500/20 animate-pulse" 
+                        : "bg-green-500/5 border-green-500/20 shadow-[0_0_20px_rgba(34,197,94,0.05)]"
                 )}>
                     <div className="flex items-center gap-3">
                         <div className="relative">
-                            {isSwitchingAccount ? <RefreshCw className="h-6 w-6 text-orange-500 animate-spin" /> :
-                             isStudying ? <Cpu className="h-6 w-6 text-blue-500" /> :
-                             <Bot className="h-6 w-6 text-green-500 animate-bounce" />}
+                            <Cpu className={cn("h-6 w-6", isStudying ? "text-blue-500" : "text-green-500 animate-[spin_3s_linear_infinite]")} />
                         </div>
                         <div>
-                            <p className={cn("text-[10px] font-black uppercase tracking-widest", 
-                                isSwitchingAccount ? "text-orange-600" :
-                                isStudying ? "text-blue-600" : "text-green-600")}>
-                                {isSwitchingAccount ? "Trocando Token..." :
-                                 isStudying ? "Sincronizando Fluxo" : "Núcleo de I.A Ativo"}
+                            <p className={cn("text-[10px] font-black uppercase tracking-widest", isStudying ? "text-blue-600" : "text-green-600")}>
+                                {isStudying ? "Sincronizando Fluxo" : "Núcleo de I.A Ativo"}
                             </p>
                             <p className="text-[10px] sm:text-xs font-bold opacity-80 italic">
-                                {isSwitchingAccount ? "Aguardando Autorização" :
-                                 isStudying ? `Mapeando Padrões... (${studyTicksCount}/5)` : 
-                                 `Operando em Conta ${accountType.toUpperCase()}`}
+                                {isStudying ? `Mapeando Padrões... (${studyTicksCount}/5)` : `Operando em Conta ${accountType.toUpperCase()}`}
                             </p>
                         </div>
                     </div>
-                    {!isStudying && !isSwitchingAccount && (
+                    {!isStudying && (
                         <div className="flex flex-col items-end">
                             <div className="flex items-center gap-1 text-green-600 font-black text-xs">
                                 <Percent className="h-3 w-3" />
@@ -89,7 +81,7 @@ export const AIOperatingScreen = () => {
                 </div>
             )}
 
-            {isBotRunning && accountType === 'demo' && virtualTargetLosses > 0 && (
+            {isBotRunning && virtualTargetLosses > 0 && (
                 <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-3 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <ShieldAlert className="h-4 w-4 text-orange-600" />
@@ -166,7 +158,7 @@ export const AIOperatingScreen = () => {
                     <div className="relative">
                         <Button 
                             onClick={handleStartClick}
-                            disabled={status.message.includes('Desconectado') || isPaused || isManipulationDetected || isSwitchingAccount}
+                            disabled={status.message.includes('Desconectado') || isPaused || isManipulationDetected}
                             className={cn(
                                 "w-full h-20 sm:h-24 rounded-[2rem] sm:rounded-[2.5rem] text-xl sm:text-2xl font-black uppercase tracking-[0.3em] transition-all duration-700 shadow-2xl relative z-10",
                                 isBotRunning 
