@@ -170,11 +170,25 @@ export const AIOperatingScreen = () => {
 
                     <div className="bg-white/20 backdrop-blur-md border border-white/40 rounded-[2rem] p-6 sm:p-8 flex items-center justify-between shadow-sm">
                         <div className="flex items-center gap-4">
-                            <div className="bg-primary/5 p-3 sm:p-4 rounded-2xl">
-                                <DollarSign className="h-6 w-6 sm:h-7 sm:w-7 text-primary" />
+                            <div className={cn(
+                                "p-3 sm:p-4 rounded-2xl transition-colors duration-500",
+                                accountType === 'real' ? "bg-green-500/10" : "bg-primary/5"
+                            )}>
+                                <DollarSign className={cn(
+                                    "h-6 w-6 sm:h-7 sm:w-7",
+                                    accountType === 'real' ? "text-green-600" : "text-primary"
+                                )} />
                             </div>
                             <div>
-                                <p className="text-[9px] sm:text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Saldo em Conta</p>
+                                <div className="flex items-center gap-2 mb-0.5">
+                                    <p className="text-[9px] sm:text-[10px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Saldo em Conta</p>
+                                    <span className={cn(
+                                        "px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-tighter",
+                                        accountType === 'real' ? "bg-green-500 text-white" : "bg-orange-500 text-white"
+                                    )}>
+                                        {accountType === 'real' ? 'REAL' : 'DEMO'}
+                                    </span>
+                                </div>
                                 <div className="flex items-baseline gap-2">
                                     <p className="text-2xl sm:text-3xl font-black tracking-tight">{accountBalance?.toFixed(2) || '0.00'}</p>
                                     <span className="text-[10px] font-black text-primary uppercase">USD</span>
