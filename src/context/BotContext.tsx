@@ -178,14 +178,19 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setIsConnected(true); 
                 setStatus({ message: `Sniper Ativo`, color: 'bg-green-500' });
                 
-                // Solicita saldo imediatamente após autorização
+                // ATUALIZAÇÃO CRÍTICA: Pega o saldo diretamente da autorização
+                if (data.authorize?.balance !== undefined) {
+                    setAccountBalance(parseFloat(data.authorize.balance));
+                }
+                
+                // Solicita saldo e se inscreve para atualizações futuras
                 sendMessageRef.current({ balance: 1, subscribe: 1 });
                 
                 if (isSwitchingAccount) {
                     setIsSwitchingAccount(false);
                     if (accountType === 'real') {
                         setIsStudying(false);
-                        addLog(`CONTA REAL SINCRONIZADA.`, "INFO");
+                        addLog(`CONTA REAL SINCRONIZADA. SALDO ATUALIZADO.`, "INFO");
                     } else {
                         setIsStudying(true);
                         setStudyTicksCount(0);
@@ -193,8 +198,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     }
                 }
             } else if (data?.msg_type === 'balance') {
-                if (data.balance) {
-                    setAccountBalance(data.balance.balance);
+                if (data.balance?.balance !== undefined) {
+                    setAccountBalance(parseFloat(data.balance.balance));
                 }
             } else if (data?.msg_type === 'history') {
                 if (data.history?.prices) {
@@ -248,7 +253,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                 
                                 setIsSwitchingAccount(true);
                                 activeTrades.current.clear();
-                                setAccountBalance(null); // Limpa saldo visualmente durante a troca
+                                setAccountBalance(null); // Indica carregamento
                                 setTimeout(() => {
                                     setAccountType('demo');
                                     sendMessageRef.current({ authorize: demoToken });
@@ -262,7 +267,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                         setIsSwitchingAccount(true);
                                         activeTrades.current.clear();
                                         winsRef.current = 0;
-                                        setAccountBalance(null); // Limpa saldo visualmente durante a troca
+                                        setAccountBalance(null); // Indica carregamento
                                         setTimeout(() => {
                                             setAccountType('real');
                                             sendMessageRef.current({ authorize: realToken });
