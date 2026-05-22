@@ -9,15 +9,15 @@ const DEFAULTS = {
     accountType: 'demo' as 'real' | 'demo',
     asset: '1HZ100V',
     duration: 1,
-    initialStake: '1.00',
-    digitTradeMode: 'evenOdd' as 'evenOdd' | 'overUnder',
-    attackMode: ['traditional'] as string[], // Agora é um array
-    digitPrediction: 5,
+    initialStake: '0.35',
+    digitTradeMode: 'overUnder' as 'evenOdd' | 'overUnder',
+    attackMode: ['traditional'] as string[],
+    digitPrediction: 4, // Barreira padrão para Acima de 4
     overUnderDirection: 'OVER' as 'OVER' | 'UNDER',
     isManualMode: true,
     isManualGaleActive: false,
-    martingaleFactor: '1.8', 
-    maxLevels: 3,
+    martingaleFactor: '2.1', 
+    maxLevels: 4,
     takeProfit: '10.00',
     stopLoss: '50.00',
     lossRecoveryStrategy: 'martingale' as 'martingale',
@@ -84,7 +84,7 @@ export const useBotState = () => {
     const [duration, setDuration] = useState(initialState.duration);
     const [initialStake, setInitialStake] = useState(initialState.initialStake);
     const [digitTradeMode, setDigitTradeMode] = useState<'evenOdd' | 'overUnder'>(initialState.digitTradeMode);
-    const [attackMode, setAttackMode] = useState<string[]>(initialState.attackMode); // Array de strings
+    const [attackMode, setAttackMode] = useState<string[]>(initialState.attackMode);
     const [digitPrediction, setDigitPrediction] = useState<number>(initialState.digitPrediction);
     const [overUnderDirection, setOverUnderDirection] = useState<'OVER' | 'UNDER'>(initialState.overUnderDirection);
     const [isManualMode, setIsManualMode] = useState(initialState.isManualMode);
@@ -119,11 +119,9 @@ export const useBotState = () => {
     const [neuralPredictions, setNeuralPredictions] = useState<number[]>(new Array(10).fill(10));
     const [isSoundEnabled, setIsSoundEnabled] = useState(initialState.isSoundEnabled);
 
-    // Estados de inteligência pós-red
     const [isStudying, setIsStudying] = useState(false);
     const [studyTicksCount, setStudyTicksCount] = useState(0);
 
-    // Estados da Planilha de Gestão
     const [bankManagementInitialBankroll, setBankManagementInitialBankroll] = useState(initialState.bankManagementInitialBankroll);
     const [bankManagementDailyGoalPercent, setBankManagementDailyGoalPercent] = useState(initialState.bankManagementDailyGoalPercent);
     const [bankManagementDailyStopPercent, setBankManagementDailyStopPercent] = useState(initialState.bankManagementDailyStopPercent);

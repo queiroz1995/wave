@@ -41,8 +41,8 @@ export const AIOperatingScreen = () => {
 
     const getSignalLabel = (signal: string) => {
         switch (signal) {
-            case 'EVEN': return { text: 'PAR', color: 'bg-green-100/50 text-green-600 border-green-200/50' };
-            case 'ODD': return { text: 'ÍMPAR', color: 'bg-red-100/50 text-red-600 border-red-200/50' };
+            case 'OVER': return { text: 'ACIMA', color: 'bg-green-100/50 text-green-600 border-green-200/50' };
+            case 'UNDER': return { text: 'ABAIXO', color: 'bg-red-100/50 text-red-600 border-red-200/50' };
             default: return { text: signal, color: 'bg-gray-100/50 text-gray-600 border-gray-200/50' };
         }
     };
@@ -67,7 +67,7 @@ export const AIOperatingScreen = () => {
                                 {isStudying ? "Sincronizando Fluxo" : "Núcleo de I.A Ativo"}
                             </p>
                             <p className="text-[10px] sm:text-xs font-bold opacity-80 italic">
-                                {isStudying ? `Aguardando Dados... (${studyTicksCount}/5)` : "Operação de Alta Frequência"}
+                                {isStudying ? `Aguardando Dados... (${studyTicksCount}/4)` : "Operação de Alta Frequência"}
                             </p>
                         </div>
                     </div>
@@ -120,7 +120,7 @@ export const AIOperatingScreen = () => {
                                 </h2>
                                 <div className="flex items-center gap-2">
                                     <div className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-ping" />
-                                    <span className="text-[9px] font-black uppercase tracking-[0.3em] text-blue-600">Paridade Adaptativa</span>
+                                    <span className="text-[9px] font-black uppercase tracking-[0.3em] text-blue-600">Acima / Abaixo</span>
                                 </div>
                             </div>
                         </div>
