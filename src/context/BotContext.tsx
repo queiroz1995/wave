@@ -102,14 +102,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const newList = [lastDigit, ...prev].slice(0, 500);
             
             if (virtualTradePending) {
-                const barrier = virtualTradePending.barrier;
-                let win = false;
-                if (virtualTradePending.contract === 'DIGITOVER') win = lastDigit > barrier;
-                else if (virtualTradePending.contract === 'DIGITUNDER') win = lastDigit < barrier;
+                const win = virtualTradePending.type === 'EVEN' ? lastDigit % 2 === 0 : lastDigit % 2 !== 0;
                 
                 if (win) {
                     setVirtualLossStreak(0);
-                    addLog(`Proteção Virtual: Win simulado (Dígito ${lastDigit})`, "INFO");
+                    addLog(`Proteção Virtual: Vitória simulada (Dígito ${lastDigit})`, "INFO");
                 } else {
                     const newStreak = virtualLossStreak + 1;
                     setVirtualLossStreak(newStreak);
@@ -127,9 +124,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (isStudying) {
             setStudyTicksCount((c: number) => {
                 const next = c + 1;
-                if (next >= 2) { // Ultra rápido
+                if (next >= 2) { 
                     setIsStudying(false);
-                    addLog("Conexão Neural Restaurada.", "INFO");
+                    addLog("Frequência Sincronizada.", "INFO");
                     return 0;
                 }
                 return next;
@@ -153,7 +150,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 if (data.tick?.symbol === asset) processTickData(data.tick);
             } else if (data?.msg_type === 'buy') {
                 if (data.buy) { 
-                    // Vinculamos o contract_id ao sinal que disparou a compra
                     const signalId = data.echo_req.passthrough?.signalId;
                     if (signalId) {
                         pendingContracts.current.set(data.buy.contract_id, {
@@ -189,7 +185,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             setLosses((prev: number) => prev + 1);
                             setConsecutiveLosses((p: number) => p + 1);
                             martingaleLevel.current += 1;
-                            addLog("Simultânea: Loss detectado. Ajustando Martingale.", "TRADE");
                         } else {
                             setWins((prev: number) => prev + 1);
                             setConsecutiveLosses(0);
@@ -202,7 +197,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         pendingContracts.current.delete(contract.contract_id);
                         
                         setTradeStatus(activeTrades.current.size > 0 ? 'ACTIVE' : 'IDLE');
-                        if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Sucesso: Meta Batida!");
+                        if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Sucesso: Meta Alcançada!");
                     }
                 }
             }
@@ -214,32 +209,51 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
     const calculateTradeSignal = useCallback(() => {
-        if (lastDigits.length < 20 || isStudying || virtualTradePending) return null;
+        if (lastDigits.length < 15 || isStudying || virtualTradePending) return null;
 
-        // Sniper WAVE de Alta Frequência
-        const lastDigit = lastDigits[0];
-        
-        // Entradas baseadas em desvios rápidos de dígitos (Sniper 2/8)
-        if (lastDigit <= 2) {
-            const confidence = Math.min(99, Math.round(75 + Math.random() * 15));
+        // Analisador de Faltantes (Desequilíbrio)
+        const last12 = lastDigits.slice(0, 12);
+        const evens = last12.filter(d => d % 2 === 0).length;
+        const odds = 12 - evens;
+
+        // Análise Neural de Probabilidade Exata
+        const probEven = neuralPredictions.filter((p, i) => i % 2 === 0).reduce((a, b) => a + b, 0);
+        const probOdd = neuralPredictions.filter((p, i) => i % 2 !== 0).reduce((a, b) => a + b, 0);
+
+        // 1. Lógica de Reversão por Desequilíbrio (Faltando)
+        if (evens <= 3 && probEven > 60) {
+            const confidence = Math.round(probEven);
             setCurrentConfidence(confidence);
-            return { type: 'OVER', contract: 'DIGITOVER', name: 'WAVE Turbo', confidence, details: `Sniper Acima 2 (${confidence}%)`, barrier: 2 };
+            return { type: 'EVEN', contract: 'DIGITEVEN', name: 'WAVE Imbalance', confidence, details: `Par Faltante (${confidence}%)` };
         }
-        
-        if (lastDigit >= 8) {
-            const confidence = Math.min(99, Math.round(75 + Math.random() * 15));
+        if (odds <= 3 && probOdd > 60) {
+            const confidence = Math.round(probOdd);
             setCurrentConfidence(confidence);
-            return { type: 'UNDER', contract: 'DIGITUNDER', name: 'WAVE Turbo', confidence, details: `Sniper Abaixo 8 (${confidence}%)`, barrier: 8 };
+            return { type: 'ODD', contract: 'DIGITODD', name: 'WAVE Imbalance', confidence, details: `Ímpar Faltante (${confidence}%)` };
+        }
+
+        // 2. Lógica de Seguimento de Fluxo (Pega Todos)
+        const last4 = lastDigits.slice(0, 4);
+        const allEven = last4.every(d => d % 2 === 0);
+        const allOdd = last4.every(d => d % 2 !== 0);
+
+        if (allEven && probEven > 65) {
+            setCurrentConfidence(Math.round(probEven));
+            return { type: 'EVEN', contract: 'DIGITEVEN', name: 'WAVE Flow', confidence: Math.round(probEven), details: `Capturando Fluxo Par` };
+        }
+        if (allOdd && probOdd > 65) {
+            setCurrentConfidence(Math.round(probOdd));
+            return { type: 'ODD', contract: 'DIGITODD', name: 'WAVE Flow', confidence: Math.round(probOdd), details: `Capturando Fluxo Ímpar` };
         }
 
         return null;
-    }, [lastDigits, isStudying, virtualTradePending]);
+    }, [lastDigits, neuralPredictions, isStudying, virtualTradePending]);
 
-    const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string, confidence: number, barrier: number) => {
+    const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string, confidence: number) => {
         if (!isConnected || isPaused || isStudying) return;
         
         const baseStake = parseFloat(initialStake) || 0.35;
-        const mgFactor = parseFloat(martingaleFactor) || 4.5; 
+        const mgFactor = parseFloat(martingaleFactor) || 2.1; 
         const stakeToUse = martingaleLevel.current > 0 ? baseStake * Math.pow(mgFactor, martingaleLevel.current) : baseStake;
         
         const params: any = { 
@@ -249,14 +263,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             currency: 'USD', 
             duration: 1, 
             duration_unit: 't', 
-            symbol: asset,
-            barrier: barrier
+            symbol: asset
         };
 
         activeTrades.current.add(signalId);
         setTradeStatus('SENDING');
         
-        // Passthrough para rastrear qual sinal disparou a compra quando a resposta voltar
         sendMessage({ 
             buy: 1, 
             price: parseFloat(stakeToUse.toFixed(2)), 
@@ -276,8 +288,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 return;
             }
 
-            // No modo simultâneo, podemos abrir mais de um se os sinais forem diferentes ou se o sistema permitir
-            // Limitamos a no máximo 3 simultâneas para segurança de banca
             if (activeTrades.current.size < 3) {
                 const sId = addSignal({ 
                     strategy: signal.name, 
@@ -285,7 +295,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     details: signal.details,
                     winRate: `${signal.confidence}%` 
                 });
-                executeBuy(signal.contract as ContractType, signal.name, sId, signal.confidence, signal.barrier);
+                executeBuy(signal.contract as ContractType, signal.name, sId, signal.confidence);
             }
         }
     }, [isBotRunning, lastTickEpoch, calculateTradeSignal, addSignal, executeBuy, isPaused, isStudying, virtualTargetLosses, virtualLossStreak]);
@@ -301,7 +311,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const toggleBot = useCallback(() => {
         if (!isConnected) return;
-        if (isBotRunning) stopBot("Turbo Desligado");
+        if (isBotRunning) stopBot("Sessão Encerrada");
         else { 
             setIsBotRunning(true); 
             totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0);
@@ -309,7 +319,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setIsStudying(false);
             activeTrades.current.clear();
             pendingContracts.current.clear();
-            addLog(`Modo TURBO WAVE Ativado: Entradas Simultâneas ligadas.`, "INFO");
+            addLog(`Iniciando Núcleo Neural: Analisando Desequilíbrio e Fluxo.`, "INFO");
         }
     }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog, setIsStudying]);
 
