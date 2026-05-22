@@ -52,7 +52,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         lastDigits, setLastTickEpoch, lastTickEpoch,
         setTradeStatus, isBotRunning, setActiveStrategy,
         accountType, realToken, demoToken,
-        takeProfit, martingaleFactor, digitPrediction, setDigitPrediction,
+        takeProfit, martingaleFactor,
         consecutiveLosses, setConsecutiveLosses, isPaused, setIsPaused,
         neuralPredictions, setNeuralPredictions,
         isStudying, setIsStudying, studyTicksCount, setStudyTicksCount,
@@ -137,9 +137,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (isStudying) {
             setStudyTicksCount((c: number) => {
                 const next = c + 1;
-                if (next >= 4) { // Menos ticks para ser mais rápido
+                if (next >= 3) { // Reduzido para ser ainda mais rápido
                     setIsStudying(false);
-                    addLog("Fluxo Validado. Retomando operações rápidas.", "INFO");
+                    addLog("Fluxo Validado. Retomando Sniper.", "INFO");
                     return 0;
                 }
                 return next;
@@ -184,28 +184,28 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
     const calculateTradeSignal = useCallback(() => {
-        if (lastDigits.length < 25 || isStudying || virtualTradePending) return null;
+        if (lastDigits.length < 20 || isStudying || virtualTradePending) return null;
 
-        // Análise de Fluxo (Over/Under)
-        const last5 = lastDigits.slice(0, 5);
-        const lowDigitsCount = last5.filter(d => d <= 4).length;
-        const highDigitsCount = 5 - lowDigitsCount;
+        // Análise Ultra-Rápida de Fluxo
+        const last3 = lastDigits.slice(0, 3);
+        const veryLowDigits = last3.filter(d => d <= 2).length;
+        const veryHighDigits = last3.filter(d => d >= 8).length;
 
-        const overNeural = neuralPredictions.filter((p, i) => i > 4).reduce((a, b) => a + b, 0);
-        const underNeural = neuralPredictions.filter((p, i) => i < 5).reduce((a, b) => a + b, 0);
+        const overNeural = neuralPredictions.filter((p, i) => i > 2).reduce((a, b) => a + b, 0);
+        const underNeural = neuralPredictions.filter((p, i) => i < 8).reduce((a, b) => a + b, 0);
 
-        // Se houver muitos dígitos baixos e a rede neural concorda com subida
-        if (lowDigitsCount >= 4 && overNeural > 55) {
+        // Sinal Acima de 2: Se vimos dígitos 0, 1 ou 2 recentemente, a probabilidade de subir é alta
+        if (veryLowDigits >= 2 && overNeural > 60) {
             const confidence = Math.min(99, Math.round(overNeural));
             setCurrentConfidence(confidence);
-            return { type: 'OVER', contract: 'DIGITOVER', name: 'WAVE Acima', confidence, details: `Sinal: Acima de 4 (${confidence}%)`, barrier: 4 };
+            return { type: 'OVER', contract: 'DIGITOVER', name: 'WAVE Acima 2', confidence, details: `Acima de 2 (${confidence}%)`, barrier: 2 };
         }
         
-        // Se houver muitos dígitos altos e a rede neural concorda com descida
-        if (highDigitsCount >= 4 && underNeural > 55) {
+        // Sinal Abaixo de 8: Se vimos dígitos 8 ou 9 recentemente, a probabilidade de cair é alta
+        if (veryHighDigits >= 2 && underNeural > 60) {
             const confidence = Math.min(99, Math.round(underNeural));
             setCurrentConfidence(confidence);
-            return { type: 'UNDER', contract: 'DIGITUNDER', name: 'WAVE Abaixo', confidence, details: `Sinal: Abaixo de 5 (${confidence}%)`, barrier: 5 };
+            return { type: 'UNDER', contract: 'DIGITUNDER', name: 'WAVE Abaixo 8', confidence, details: `Abaixo de 8 (${confidence}%)`, barrier: 8 };
         }
 
         return null;
@@ -215,7 +215,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!isConnected || isTradeOpen.current || isPaused || isStudying) return;
         
         const baseStake = parseFloat(initialStake) || 0.35;
-        const mgFactor = parseFloat(martingaleFactor) || 2.1;
+        // Fator de Martingale ajustado para payout de barreira segura (payout ~25-30%)
+        const mgFactor = parseFloat(martingaleFactor) || 4.5; 
         const stakeToUse = martingaleLevel.current > 0 ? baseStake * Math.pow(mgFactor, martingaleLevel.current) : baseStake;
         
         const params: any = { 
@@ -238,9 +239,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (isTradeOpen.current) {
                 isTradeOpen.current = false;
                 setTradeStatus('IDLE');
-                addLog("Recuperação de Fluxo Ativada.", "ERROR");
+                addLog("Neural Sync Ativado.", "ERROR");
             }
-        }, 8000);
+        }, 5000);
 
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params });
     }, [isConnected, initialStake, asset, sendMessage, setTradeStatus, martingaleFactor, isPaused, isStudying, addLog]);
@@ -286,7 +287,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             lastLossContractType.current = lastTradeDetails.current?.contractType || null;
             setIsStudying(true);
             setStudyTicksCount(0);
-            addLog("Resultado: Perda. Iniciando motor de recuperação rápida.", "TRADE");
+            addLog("Loss no Sniper. Ativando recuperação ultra-rápida.", "TRADE");
         } else {
             setWins((prev: number) => prev + 1);
             setConsecutiveLosses(0);
@@ -302,7 +303,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isTradeOpen.current = false;
         setTradeStatus('IDLE');
         setLastCompletedContract(null);
-        if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Sucesso: Meta Alcançada!");
+        if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Sucesso: Meta Batida!");
     }, [lastCompletedContract, takeProfit, setTotalProfit, setWins, setLosses, setAccountBalance, setTradeStatus, updateSignalResult, addLog, setIsStudying, setStudyTicksCount, playWinSound]);
 
     const stopBot = useCallback((reason: string) => {
@@ -317,23 +318,22 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const toggleBot = useCallback(() => {
         if (!isConnected) return;
-        if (isBotRunning) stopBot("Robô Pausado");
+        if (isBotRunning) stopBot("Sessão Sniper Encerrada");
         else { 
             setIsBotRunning(true); 
             totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0);
             setConsecutiveLosses(0); setIsPaused(false);
             setIsStudying(false);
             lastLossContractType.current = null;
-            addLog(`Ativando I.A Acima/Abaixo: Recuperação Inteligente ligada.`, "INFO");
+            addLog(`Iniciando Sniper WAVE: Acima 2 / Abaixo 8.`, "INFO");
         }
     }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog, setIsStudying]);
 
     const selectAI = useCallback((ia: any) => { 
         setSelectedAIInfo(ia); 
         setActiveStrategy(ia.id); 
-        setInitialStake('0.35');
         setAppFlow('operating'); 
-    }, [setActiveStrategy, setInitialStake]);
+    }, [setActiveStrategy]);
 
     const exitToSelection = useCallback(() => { stopBot("Sessão Finalizada"); setAppFlow('selection'); }, [stopBot]);
     const handleConnect = useCallback((targetType?: 'real' | 'demo', targetToken?: string) => {
