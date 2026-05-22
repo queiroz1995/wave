@@ -256,6 +256,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                 activeTrades.current.clear();
                                 setTimeout(() => {
                                     setAccountType('demo');
+                                    // Força reconexão para trocar de conta
                                     sendMessageRef.current({ authorize: demoToken });
                                 }, 500);
 
@@ -269,6 +270,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                         winsRef.current = 0;
                                         setTimeout(() => {
                                             setAccountType('real');
+                                            // Força reconexão para trocar de conta
                                             sendMessageRef.current({ authorize: realToken });
                                         }, 500);
                                     }
@@ -383,8 +385,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         lastContractType.current = contractType;
         activeTrades.current.add(signalId);
         setTradeStatus('SENDING');
+        
+        // Log de auditoria para confirmar a conta
+        addLog(`Executando entrada em CONTA ${accountType.toUpperCase()}...`, "INFO");
+        
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params, passthrough: { signalId, strategyName } });
-    }, [isConnected, initialStake, asset, sendMessage, setTradeStatus, martingaleFactor, isStudying, accountType, isSwitchingAccount]);
+    }, [isConnected, initialStake, asset, sendMessage, setTradeStatus, martingaleFactor, isStudying, accountType, isSwitchingAccount, addLog]);
 
     useEffect(() => {
         if (!isBotRunning || !lastTickEpoch || lastTickEpoch === processedTickEpoch.current || isStudying || isSwitchingAccount) return;
@@ -404,11 +410,21 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const selectAI = useCallback((ia: any) => { setSelectedAIInfo(ia); setActiveStrategy(ia.id); setAppFlow('operating'); }, [setActiveStrategy]);
     const exitToSelection = useCallback(() => { stopBot("Sessão Finalizada"); setAppFlow('selection'); }, [stopBot]);
+    
     const handleConnect = useCallback((targetType?: 'real' | 'demo', targetToken?: string) => {
         const type = targetType || accountType;
         const token = targetToken || (type === 'real' ? realToken : demoToken);
-        if (token) connect(token, type);
-    }, [accountType, realToken, demoToken, connect]);
+        
+        if (token) {
+            // FORÇA DESCONEXÃO ANTES DE CONECTAR EM NOVA CONTA
+            if (isConnected) {
+                disconnect();
+                setTimeout(() => connect(token, type), 1000);
+            } else {
+                connect(token, type);
+            }
+        }
+    }, [accountType, realToken, demoToken, connect, disconnect, isConnected]);
 
     const contextValue = useMemo(() => ({
         ...stateAndSetters, isConnected, status, handleConnect, handleDisconnect: disconnect, 
