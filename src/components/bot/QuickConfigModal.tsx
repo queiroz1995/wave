@@ -102,10 +102,10 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                     <div className="p-5 rounded-3xl bg-orange-500/5 border border-orange-500/20 space-y-4">
                         <div className="flex items-center gap-2 mb-2">
                             <ShieldAlert className="h-4 w-4 text-orange-500" />
-                            <span className="text-[10px] font-black uppercase tracking-widest text-orange-600">Filtro de Loss Virtual</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-orange-600">Filtro de Perda Virtual</span>
                         </div>
                         <div className="space-y-2">
-                            <Label className="text-[9px] font-black uppercase tracking-widest ml-1 opacity-60">Esperar quantos Loss na Demo?</Label>
+                            <Label className="text-[9px] font-black uppercase tracking-widest ml-1 opacity-60">Esperar quantos Loss (Perdas)?</Label>
                             <Input 
                                 type="number"
                                 value={tempVirtualLoss}
@@ -114,7 +114,7 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                                 max="10"
                                 className="h-11 rounded-xl font-black text-center bg-white border-none shadow-sm"
                             />
-                            <p className="text-[8px] text-muted-foreground text-center uppercase font-bold">Defina 0 para operar direto na Real</p>
+                            <p className="text-[8px] text-muted-foreground text-center uppercase font-bold">O robô aguarda perdas simuladas antes de entrar real</p>
                         </div>
                     </div>
 

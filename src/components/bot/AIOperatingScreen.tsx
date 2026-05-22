@@ -85,7 +85,7 @@ export const AIOperatingScreen = () => {
                 <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-3 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <ShieldAlert className="h-4 w-4 text-orange-600" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-orange-700">Monitor de Loss Virtual</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-orange-700">Monitor de Perda Virtual</span>
                     </div>
                     <div className="flex items-center gap-2">
                         <div className="flex gap-1">
