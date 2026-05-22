@@ -118,11 +118,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 
                 if (win) {
                     setVirtualLossStreak(0);
-                    addLog(`Proteção Virtual: Vitória simulada (Dígito ${lastDigit})`, "INFO");
+                    addLog(`Proteção Virtual: Win simulado (Dígito ${lastDigit})`, "INFO");
                 } else {
                     const newStreak = virtualLossStreak + 1;
                     setVirtualLossStreak(newStreak);
-                    addLog(`Aguardando Perda Virtual: ${newStreak}/${virtualTargetLosses}`, "INFO");
+                    addLog(`Loss Virtual: ${newStreak}/${virtualTargetLosses}`, "INFO");
                 }
                 setVirtualTradePending(null);
             }
@@ -138,7 +138,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 const next = c + 1;
                 if (next >= 5) {
                     setIsStudying(false);
-                    addLog("Análise Concluída. Retomando motor de paridade.", "INFO");
+                    addLog("Fluxo de Repetição Validado. Iniciando.", "INFO");
                     return 0;
                 }
                 return next;
@@ -151,7 +151,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (event.type === 'message') {
             if (data?.msg_type === 'authorize') {
                 setIsConnected(true); 
-                setStatus({ message: `Sistema Online`, color: 'bg-green-500' });
+                setStatus({ message: `Sniper Ativo`, color: 'bg-green-500' });
                 if (data.authorize.balance) setAccountBalance(data.authorize.balance);
             } else if (data?.msg_type === 'history') {
                 if (data.history?.prices) {
@@ -167,7 +167,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 } else if (data.error) {
                     isTradeOpen.current = false;
                     setTradeStatus('IDLE');
-                    addLog(`Erro na Operação: ${data.error.message}`, "ERROR");
+                    addLog(`Erro: ${data.error.message}`, "ERROR");
                     if (safetyTimeoutRef.current) clearTimeout(safetyTimeoutRef.current);
                 }
             } else if (data?.msg_type === 'proposal_open_contract') {
@@ -185,27 +185,45 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const calculateTradeSignal = useCallback(() => {
         if (lastDigits.length < 25 || isStudying || virtualTradePending) return null;
 
-        const sample = lastDigits.slice(0, 20);
-        const evens = sample.filter(d => d % 2 === 0).length;
-        const odds = 20 - evens;
+        // Lógica de Seguimento de Padrão (WAVE Trend)
+        const last3 = lastDigits.slice(0, 3);
+        const isRepeatingEven = last3.every(d => d % 2 === 0);
+        const isRepeatingOdd = last3.every(d => d % 2 !== 0);
+
+        const evenNeuralProb = neuralPredictions.filter((p, i) => i % 2 === 0).reduce((a, b) => a + b, 0);
+        const oddNeuralProb = neuralPredictions.filter((p, i) => i % 2 !== 0).reduce((a, b) => a + b, 0);
+
+        // Se houver uma repetição de 3 dígitos iguais, seguimos o fluxo se a rede neural concordar
+        if (isRepeatingEven && evenNeuralProb >= 50) {
+            const confidence = Math.min(99, Math.round(70 + (evenNeuralProb / 10)));
+            setCurrentConfidence(confidence);
+            return { type: 'EVEN', contract: 'DIGITEVEN', name: 'Fluxo WAVE', confidence, details: `Seguindo Repetição Par (${confidence}%)` };
+        }
         
-        const evenNeural = neuralPredictions.filter((p, i) => i % 2 === 0).reduce((a, b) => a + b, 0);
-        const oddNeural = neuralPredictions.filter((p, i) => i % 2 !== 0).reduce((a, b) => a + b, 0);
-
-        // Cálculo de Confiança Híbrido (Tendência + Neural)
-        const evenConfidence = Math.min(99, Math.round((evens / 20) * 50 + (evenNeural / 100) * 50));
-        const oddConfidence = Math.min(99, Math.round((odds / 20) * 50 + (oddNeural / 100) * 50));
-
-        if (evenConfidence >= 65) {
-            setCurrentConfidence(evenConfidence);
-            return { type: 'EVEN', contract: 'DIGITEVEN', name: 'I.A Paridade', confidence: evenConfidence, details: `Confiança Par: ${evenConfidence}%` };
-        } 
-        if (oddConfidence >= 65) {
-            setCurrentConfidence(oddConfidence);
-            return { type: 'ODD', contract: 'DIGITODD', name: 'I.A Paridade', confidence: oddConfidence, details: `Confiança Ímpar: ${oddConfidence}%` };
+        if (isRepeatingOdd && oddNeuralProb >= 50) {
+            const confidence = Math.min(99, Math.round(70 + (oddNeuralProb / 10)));
+            setCurrentConfidence(confidence);
+            return { type: 'ODD', contract: 'DIGITODD', name: 'Fluxo WAVE', confidence, details: `Seguindo Repetição Ímpar (${confidence}%)` };
         }
 
-        setCurrentConfidence(Math.max(evenConfidence, oddConfidence));
+        // Caso não haja repetição clara, busca dominância maior
+        const sample = lastDigits.slice(0, 15);
+        const evens = sample.filter(d => d % 2 === 0).length;
+        const odds = 15 - evens;
+        
+        const evenConf = Math.round((evens / 15) * 50 + (evenNeuralProb / 100) * 50);
+        const oddConf = Math.round((odds / 15) * 50 + (oddNeuralProb / 100) * 50);
+
+        if (evenConf >= 68) {
+            setCurrentConfidence(evenConf);
+            return { type: 'EVEN', contract: 'DIGITEVEN', name: 'Analista WAVE', confidence: evenConf, details: `Dominância Par: ${evenConf}%` };
+        }
+        if (oddConf >= 68) {
+            setCurrentConfidence(oddConf);
+            return { type: 'ODD', contract: 'DIGITODD', name: 'Analista WAVE', confidence: oddConf, details: `Dominância Ímpar: ${oddConf}%` };
+        }
+
+        setCurrentConfidence(Math.max(evenConf, oddConf));
         return null;
     }, [lastDigits, neuralPredictions, isStudying, virtualTradePending]);
 
@@ -235,7 +253,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (isTradeOpen.current) {
                 isTradeOpen.current = false;
                 setTradeStatus('IDLE');
-                addLog("Tempo esgotado. Destravando motor I.A.", "ERROR");
+                addLog("Neural Timeout: Reiniciando analisador.", "ERROR");
             }
         }, 10000);
 
@@ -283,7 +301,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             lastLossContractType.current = lastTradeDetails.current?.contractType || null;
             setIsStudying(true);
             setStudyTicksCount(0);
-            addLog("Resultado: Perda. Analisando nova janela de entrada.", "TRADE");
+            addLog("Loss registrado. Otimizando filtros de repetição...", "TRADE");
         } else {
             setWins((prev: number) => prev + 1);
             setConsecutiveLosses(0);
@@ -299,7 +317,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isTradeOpen.current = false;
         setTradeStatus('IDLE');
         setLastCompletedContract(null);
-        if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Sessão Finalizada: Meta de Lucro Atingida!");
+        if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot("Sucesso: Meta de Lucro Atingida!");
     }, [lastCompletedContract, takeProfit, setTotalProfit, setWins, setLosses, setAccountBalance, setTradeStatus, updateSignalResult, addLog, setIsStudying, setStudyTicksCount, playWinSound]);
 
     const stopBot = useCallback((reason: string) => {
@@ -314,14 +332,14 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const toggleBot = useCallback(() => {
         if (!isConnected) return;
-        if (isBotRunning) stopBot("Robô Parado");
+        if (isBotRunning) stopBot("Sistema de Fluxo Desativado");
         else { 
             setIsBotRunning(true); 
             totalProfitRef.current = 0; setTotalProfit(0); setWins(0); setLosses(0);
             setConsecutiveLosses(0); setIsPaused(false);
             setIsStudying(false);
             lastLossContractType.current = null;
-            addLog(`Iniciando Núcleo I.A: Analisando Paridade...`, "INFO");
+            addLog(`Iniciando WAVE AI: Seguimento de Padrão Ativado`, "INFO");
         }
     }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, setIsPaused, addLog, setIsStudying]);
 
@@ -331,7 +349,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setAppFlow('operating'); 
     }, [setActiveStrategy]);
 
-    const exitToSelection = useCallback(() => { stopBot("Sessão Encerrada"); setAppFlow('selection'); }, [stopBot]);
+    const exitToSelection = useCallback(() => { stopBot("Sessão Finalizada"); setAppFlow('selection'); }, [stopBot]);
     const handleConnect = useCallback((targetType?: 'real' | 'demo', targetToken?: string) => {
         const type = targetType || accountType;
         const token = targetToken || (type === 'real' ? realToken : demoToken);
