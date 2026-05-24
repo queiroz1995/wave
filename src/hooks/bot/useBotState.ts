@@ -18,8 +18,8 @@ const DEFAULTS = {
     isManualGaleActive: false,
     martingaleFactor: '2.1', 
     maxLevels: 4,
-    takeProfit: '10.00',
-    stopLoss: '50.00',
+    takeProfit: '2.00',
+    stopLoss: '10.00',
     lossRecoveryStrategy: 'martingale' as 'martingale',
     isMartingaleActive: true,
     analyzerWindowSize: 500,
@@ -29,11 +29,11 @@ const DEFAULTS = {
     hybridWinsRequired: 2,
     scoreThreshold: 55,
     marketStabilityThreshold: '60',
-    bankManagementInitialBankroll: '100.00',
-    bankManagementDailyGoalPercent: '5.0',
-    bankManagementDailyStopPercent: '10.0',
+    bankManagementInitialBankroll: '20.00',
+    bankManagementDailyGoalPercent: '10.0',
+    bankManagementDailyStopPercent: '50.0',
     bankManagementCurrentDay: 1,
-    bankManagementActualBankroll: '100.00',
+    bankManagementActualBankroll: '20.00',
     isSmartModeActive: true,
 };
 
@@ -76,7 +76,6 @@ export const useBotState = () => {
     const [losses, setLosses] = useState(0);
     const [consecutiveLosses, setConsecutiveLosses] = useState(0);
     const [lastDigits, setLastDigits] = useState<number[]>([]);
-    // Novo: Histórico para múltiplos ativos
     const [multiAssetDigits, setMultiAssetDigits] = useState<Record<string, number[]>>({});
     
     const [lastTickEpoch, setLastTickEpoch] = useState<number | null>(null);
@@ -90,7 +89,7 @@ export const useBotState = () => {
     const [consecutiveTarget, setConsecutiveTarget] = useState(initialState.consecutiveTarget);
     const [entryDirection, setEntryDirection] = useState<'AGAINST' | 'FAVOR'>(initialState.entryDirection);
     const [virtualLossStreak, setVirtualLossStreak] = useState(0);
-    const [virtualTargetLosses, setVirtualTargetLosses] = useState(0);
+    const [virtualTargetLosses, setVirtualTargetLosses] = useState(1); // Padrão seguro: 1 Loss Virtual
     const [isHybridModeActive, setIsHybridModeActive] = useState(initialState.isHybridModeActive);
     const [hybridWinsRequired, setHybridWinsRequired] = useState(initialState.hybridWinsRequired);
     const [isSmartModeActive, setIsSmartModeActive] = useState(initialState.isSmartModeActive);
