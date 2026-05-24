@@ -10,7 +10,11 @@ const BotContext = createContext<any>(undefined);
 
 const WIN_SOUND_URL = "https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3";
 
-const SCANNER_ASSETS = ['1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V'];
+// Scanner expandido para incluir 1s e Contínuos
+const SCANNER_ASSETS = [
+    '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V',
+    'R_10', 'R_25', 'R_50', 'R_75', 'R_100'
+];
 
 const SEARCHING_MESSAGES = [
     "Escaneando Volatilidade 10s...",
@@ -18,6 +22,8 @@ const SEARCHING_MESSAGES = [
     "Mapeando padrões 50s...",
     "Sincronizando 75s...",
     "Monitorando 100s...",
+    "Vigiando Volatility 10 Index...",
+    "Vigiando Volatility 50 Index...",
     "Aguardando confirmação neural...",
     "Calculando probabilidades..."
 ];
@@ -112,7 +118,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sendMessageRef.current({ ticks_history: symbol, adjust_start_time: 1, count: 500, end: "latest", start: 1, style: "ticks" });
     }, []);
 
-    // Subscreve em todos os ativos do scanner
+    // Subscreve em todos os ativos do scanner (1s + Contínuos)
     useEffect(() => { 
         if (isConnected) {
             sendMessageRef.current({ forget_all: 'ticks' });
@@ -134,7 +140,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const currentHistory = prev[symbol] || [];
             const newHistory = [lastDigit, ...currentHistory].slice(0, 500);
             
-            // Se for o ativo selecionado na UI, atualiza o lastDigits global
             if (symbol === asset) {
                 setLastDigits(newHistory);
                 setLastTickEpoch(tick.epoch);
@@ -145,7 +150,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         updateNeuralPredictions(symbol);
 
-        // Lógica de processamento de resultado virtual
         if (virtualTradePending && virtualTradePending.symbol === symbol) {
             const isEven = lastDigit % 2 === 0;
             const win = virtualTradePending.type === 'EVEN' ? isEven : !isEven;
@@ -171,7 +175,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 if (next >= 5) {
                     setIsStudying(false);
                     addLog("Scanner Multi-Ativos Sincronizado.", "INFO");
-                    setAiThought("Monitorando 10s até 100s...");
+                    setAiThought("Monitorando 10 mercados simultâneos...");
                     return 0;
                 }
                 return next;
@@ -328,7 +332,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const digits = multiAssetDigits[symbol] || [];
         if (activeTrades.current.size > 0 || isStudying || digits.length < 10) return null;
 
-        // Se estiver em Gale, continua no mesmo ativo do Gale
         if (martingaleLevel.current > 0 && lastTradedAsset.current === symbol) {
             const contract = lastContractType.current || 'DIGITEVEN';
             return { 
@@ -340,7 +343,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 symbol
             };
         } else if (martingaleLevel.current > 0) {
-            return null; // Aguarda o ativo do Gale
+            return null; 
         }
 
         let currentStreak = 1;
@@ -395,7 +398,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params, passthrough: { signalId, strategyName } });
     }, [isConnected, initialStake, sendMessage, setTradeStatus, martingaleFactor, isStudying, addLog]);
 
-    // Loop de monitoramento multi-ativo
     useEffect(() => {
         if (!isBotRunning || isStudying) return;
         
