@@ -34,7 +34,6 @@ const DEFAULTS = {
     bankManagementDailyStopPercent: '10.0',
     bankManagementCurrentDay: 1,
     bankManagementActualBankroll: '100.00',
-    // NOVO: MODO SMART
     isSmartModeActive: true,
 };
 
@@ -77,6 +76,9 @@ export const useBotState = () => {
     const [losses, setLosses] = useState(0);
     const [consecutiveLosses, setConsecutiveLosses] = useState(0);
     const [lastDigits, setLastDigits] = useState<number[]>([]);
+    // Novo: Histórico para múltiplos ativos
+    const [multiAssetDigits, setMultiAssetDigits] = useState<Record<string, number[]>>({});
+    
     const [lastTickEpoch, setLastTickEpoch] = useState<number | null>(null);
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [signals, setSignals] = useState<SignalEntry[]>([]);
@@ -128,7 +130,9 @@ export const useBotState = () => {
         isBotRunning, setIsBotRunning, isManualMode, setIsManualMode,
         totalProfit, setTotalProfit, wins, setWins, losses, setLosses,
         consecutiveLosses, setConsecutiveLosses,
-        lastDigits, setLastDigits, lastTickEpoch, setLastTickEpoch, logs, setLogs, signals, setSignals, accountBalance, setAccountBalance,
+        lastDigits, setLastDigits, 
+        multiAssetDigits, setMultiAssetDigits,
+        lastTickEpoch, setLastTickEpoch, logs, setLogs, signals, setSignals, accountBalance, setAccountBalance,
         tradeStatus, setTradeStatus, addLog, addSignal, updateSignalResult,
         overUnderDirection, setOverUnderDirection,
         isStudying, setIsStudying, studyTicksCount, setStudyTicksCount,
