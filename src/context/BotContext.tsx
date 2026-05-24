@@ -33,6 +33,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [appFlow, setAppFlow] = useState<'selection' | 'operating'>('selection');
     const [selectedAIInfo, setSelectedAIInfo] = useState<any>(null);
     const [aiThought, setAiThought] = useState("Aguardando comando...");
+    const [isConnecting, setIsConnecting] = useState(false);
 
     const activeTrades = useRef<Set<string>>(new Set());
     const processedTickEpoch = useRef<number | null>(null);
@@ -157,7 +158,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 return next;
             });
         } else if (isBotRunning && !virtualTradePending) {
-            // Atualiza o "pensamento" aleatoriamente para simular análise
             if (Math.random() > 0.7) {
                 setAiThought(SEARCHING_MESSAGES[Math.floor(Math.random() * SEARCHING_MESSAGES.length)]);
             }
@@ -221,6 +221,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (event.type === 'message') {
             if (data?.msg_type === 'authorize') {
                 setIsConnected(true); 
+                setIsConnecting(false);
                 setStatus({ message: `Sniper Ativo`, color: 'bg-green-500' });
                 if (data.authorize?.balance !== undefined) {
                     setAccountBalance(parseFloat(data.authorize.balance));
@@ -407,19 +408,26 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const selectAI = useCallback((ia: any) => { setSelectedAIInfo(ia); setActiveStrategy(ia.id); setAppFlow('operating'); }, [setActiveStrategy]);
     const exitToSelection = useCallback(() => { stopBot("Sessão Finalizada"); setAppFlow('selection'); }, [stopBot]);
+    
     const handleConnect = useCallback((targetType?: 'real' | 'demo', targetToken?: string) => {
         const type = targetType || accountType;
         const token = targetToken || (type === 'real' ? realToken : demoToken);
         if (token) {
+            setIsConnecting(true);
             if (isConnected) { disconnect(); connect(token, type); }
             else connect(token, type);
         }
     }, [accountType, realToken, demoToken, connect, disconnect, isConnected]);
 
+    const handleDisconnect = useCallback(() => {
+        setIsConnecting(false);
+        disconnect();
+    }, [disconnect]);
+
     const contextValue = useMemo(() => ({
-        ...stateAndSetters, isConnected, status, handleConnect, handleDisconnect: disconnect, 
+        ...stateAndSetters, isConnected, isConnecting, status, handleConnect, handleDisconnect, 
         toggleBot, resetOperations, appFlow, setAppFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, aiThought
-    }), [stateAndSetters, isConnected, status, handleConnect, disconnect, toggleBot, resetOperations, appFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, aiThought]);
+    }), [stateAndSetters, isConnected, isConnecting, status, handleConnect, handleDisconnect, toggleBot, resetOperations, appFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, aiThought]);
 
     return <BotContext.Provider value={contextValue}>{children}</BotContext.Provider>;
 };

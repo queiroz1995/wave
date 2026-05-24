@@ -4,7 +4,7 @@ import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Power, PowerOff, RotateCcw, Wallet } from 'lucide-react';
+import { Power, PowerOff, RotateCcw, Wallet, Loader2 } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
 import { cn } from '@/lib/utils';
 
@@ -14,9 +14,8 @@ export const ConnectionPanel: React.FC = () => {
         demoToken, setDemoToken,
         accountType, setAccountType,
         handleConnect, handleDisconnect,
-        isConnected, status,
+        isConnected, isConnecting, status,
         accountBalance,
-        addLog,
     } = useBotContext();
 
     const currentToken = accountType === 'real' ? realToken : demoToken;
@@ -31,7 +30,7 @@ export const ConnectionPanel: React.FC = () => {
         <div className="w-full flex flex-col sm:flex-row items-center gap-2 bg-white/40 backdrop-blur-md border border-white/60 p-2 px-3 rounded-2xl shadow-sm mb-4">
             {/* Seletor de Conta e Status */}
             <div className="flex items-center gap-2 w-full sm:w-auto">
-                <Select value={accountType} onValueChange={handleAccountTypeChange}>
+                <Select value={accountType} onValueChange={handleAccountTypeChange} disabled={isConnecting}>
                     <SelectTrigger className="h-8 w-[90px] text-[10px] font-black uppercase tracking-widest rounded-xl border-none bg-white/50">
                         <SelectValue />
                     </SelectTrigger>
@@ -53,10 +52,10 @@ export const ConnectionPanel: React.FC = () => {
                     value={currentToken} 
                     onChange={(e) => accountType === 'real' ? setRealToken(e.target.value) : setDemoToken(e.target.value)} 
                     placeholder="Token API" 
-                    disabled={isConnected} 
+                    disabled={isConnected || isConnecting} 
                     className="h-8 text-[11px] font-mono pr-8 rounded-xl border-none bg-white/50 focus-visible:ring-primary/30"
                 />
-                {!isConnected && (
+                {!isConnected && !isConnecting && (
                     <Button 
                         onClick={() => handleConnect()} 
                         variant="ghost" 
@@ -80,14 +79,19 @@ export const ConnectionPanel: React.FC = () => {
                 <Button 
                     onClick={isConnected ? handleDisconnect : () => handleConnect(accountType, currentToken)} 
                     variant={isConnected ? "destructive" : "default"}
-                    className="h-8 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest flex-1 sm:flex-none"
+                    disabled={isConnecting}
+                    className="h-8 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest flex-1 sm:flex-none min-w-[100px]"
                 >
-                    {isConnected ? (
+                    {isConnecting ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" />
+                    ) : isConnected ? (
                         <PowerOff className="h-3.5 w-3.5" />
                     ) : (
                         <Power className="h-3.5 w-3.5 mr-2" />
                     )}
-                    <span className={cn(isConnected && "sr-only")}>{isConnected ? "OFF" : "Conectar"}</span>
+                    <span className={cn(isConnected && !isConnecting && "sr-only")}>
+                        {isConnecting ? "Aguarde..." : isConnected ? "OFF" : "Conectar"}
+                    </span>
                 </Button>
             </div>
         </div>
