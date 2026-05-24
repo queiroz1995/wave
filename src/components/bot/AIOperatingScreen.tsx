@@ -9,7 +9,6 @@ import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
 import { SettingsSheet } from './SettingsSheet';
-import { OperationDiagnostic } from './OperationDiagnostic';
 
 export const AIOperatingScreen = () => {
     const { 
@@ -166,9 +165,6 @@ export const AIOperatingScreen = () => {
                     </div>
                 </CardContent>
             </Card>
-
-            {/* Diagnóstico de Operação */}
-            <OperationDiagnostic />
 
             {/* Pensamento da IA - Estilo Terminal */}
             {isBotRunning && (
