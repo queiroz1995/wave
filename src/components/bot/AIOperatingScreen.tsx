@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, Bot, Zap, Volume2, VolumeX, Globe, Cpu, DollarSign, FileSpreadsheet, Percent, ShieldAlert, RotateCcw } from 'lucide-react';
+import { Power, RefreshCw, Bot, Zap, Volume2, VolumeX, Globe, Cpu, DollarSign, FileSpreadsheet, Percent, ShieldAlert, RotateCcw, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
@@ -21,7 +21,8 @@ export const AIOperatingScreen = () => {
         isStudying, studyTicksCount,
         isSoundEnabled, setIsSoundEnabled,
         currentConfidence,
-        virtualLossStreak, virtualTargetLosses
+        virtualLossStreak, virtualTargetLosses,
+        aiThought
     } = useBotContext();
 
     const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
@@ -64,6 +65,24 @@ export const AIOperatingScreen = () => {
     return (
         <div className="w-full max-w-md mx-auto space-y-4 sm:space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-700 px-2 sm:px-0">
             
+            {/* Pensamento da I.A. - Terminal Neural */}
+            <div className="bg-black/90 border border-blue-500/30 rounded-2xl p-3 sm:p-4 shadow-[0_0_15px_rgba(59,130,246,0.1)] relative overflow-hidden">
+                <div className="absolute inset-0 ai-scanline opacity-10" />
+                <div className="flex items-start gap-3 relative z-10">
+                    <div className="bg-blue-500/20 p-2 rounded-xl">
+                        <MessageSquare className="h-4 w-4 text-blue-400 animate-pulse" />
+                    </div>
+                    <div className="flex-1">
+                        <p className="text-[8px] font-black text-blue-400 uppercase tracking-[0.3em] mb-1">Neural_Thought_Stream</p>
+                        <p className="text-xs sm:text-sm font-mono text-blue-100 leading-tight">
+                            <span className="text-blue-500 mr-2">{'>'}</span>
+                            {aiThought}
+                            <span className="inline-block w-1.5 h-3 bg-blue-500 ml-1 animate-pulse" />
+                        </p>
+                    </div>
+                </div>
+            </div>
+
             {/* Status de Sincronização Neural */}
             {isBotRunning && (
                 <div className={cn(

@@ -10,6 +10,16 @@ const BotContext = createContext<any>(undefined);
 
 const WIN_SOUND_URL = "https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3";
 
+const SEARCHING_MESSAGES = [
+    "Procurando melhor oportunidade...",
+    "Analisando fluxo de paridade...",
+    "Escaneando micro-tendências...",
+    "Aguardando confirmação neural...",
+    "Mapeando ciclos de volatilidade...",
+    "Calculando probabilidades de reversão...",
+    "Sincronizando com o mercado..."
+];
+
 export const useBotContext = () => {
     const context = useContext(BotContext);
     if (!context) throw new Error('useBotContext must be used within a BotProvider');
@@ -22,6 +32,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const [appFlow, setAppFlow] = useState<'selection' | 'operating'>('selection');
     const [selectedAIInfo, setSelectedAIInfo] = useState<any>(null);
+    const [aiThought, setAiThought] = useState("Aguardando comando...");
 
     const activeTrades = useRef<Set<string>>(new Set());
     const processedTickEpoch = useRef<number | null>(null);
@@ -140,12 +151,18 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 if (next >= 5) {
                     setIsStudying(false);
                     addLog("Sincronização Neural Completa. Iniciando Monitoramento.", "INFO");
+                    setAiThought("Monitoramento Ativo. Buscando padrões...");
                     return 0;
                 }
                 return next;
             });
+        } else if (isBotRunning && !virtualTradePending) {
+            // Atualiza o "pensamento" aleatoriamente para simular análise
+            if (Math.random() > 0.7) {
+                setAiThought(SEARCHING_MESSAGES[Math.floor(Math.random() * SEARCHING_MESSAGES.length)]);
+            }
         }
-    }, [setLastDigits, setLastTickEpoch, updateNeuralPredictions, isStudying, setIsStudying, setStudyTicksCount, addLog, virtualTradePending, virtualLossStreak, virtualTargetLosses, setVirtualLossStreak, playWinSound, updateSignalResult, initialStake]);
+    }, [setLastDigits, setLastTickEpoch, updateNeuralPredictions, isStudying, setIsStudying, setStudyTicksCount, addLog, virtualTradePending, virtualLossStreak, virtualTargetLosses, setVirtualLossStreak, playWinSound, updateSignalResult, initialStake, isBotRunning]);
 
     const stopBot = useCallback((reason: string) => {
         setIsBotRunning(false);
@@ -156,6 +173,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setVirtualTradePending(null);
         setIsStudying(false);
         setTradeStatus('IDLE');
+        setAiThought("Sistema em Standby.");
         addLog(reason, 'INFO');
     }, [setIsBotRunning, addLog, setIsStudying, setVirtualLossStreak, setTradeStatus]);
 
@@ -173,6 +191,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeTrades.current.clear();
         pendingContracts.current.clear();
         setTradeStatus('IDLE');
+        setAiThought("Operações resetadas.");
         addLog("Operações resetadas pelo usuário.", "INFO");
     }, [setTotalProfit, setWins, setLosses, setConsecutiveLosses, setSignals, setVirtualLossStreak, addLog, setTradeStatus]);
 
@@ -192,6 +211,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             pendingContracts.current.clear();
             martingaleLevel.current = 0;
             setTradeStatus('IDLE');
+            setAiThought("Iniciando protocolos de análise...");
             addLog(`Iniciando Sniper em Conta ${accountType.toUpperCase()}.`, "INFO");
         }
     }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, addLog, setIsStudying, setStudyTicksCount, accountType, setVirtualLossStreak, setTradeStatus]);
@@ -250,18 +270,19 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             const nextConsecutiveLosses = consecutiveLosses + 1;
                             setConsecutiveLosses(nextConsecutiveLosses);
                             martingaleLevel.current += 1;
+                            setAiThought(`Loss detectado. Iniciando Gale Nível ${martingaleLevel.current}...`);
                             
-                            // LÓGICA SOLICITADA: Se tomou 2 losses reais (Entrada + Gale 1), volta para o virtual
                             if (nextConsecutiveLosses === 2) {
                                 addLog("Trava de Segurança: 2 Losses reais detectados. Retornando ao Virtual para filtrar o 3º tiro (Gale 2).", "INFO");
-                                setVirtualLossStreak(0); // Reseta o contador virtual para forçar a espera
+                                setVirtualLossStreak(0); 
                             }
                         } else {
                             winsRef.current += 1;
                             setWins(winsRef.current);
                             setConsecutiveLosses(0);
                             martingaleLevel.current = 0;
-                            setVirtualLossStreak(0); // Reseta virtual após vitória para novo ciclo
+                            setVirtualLossStreak(0); 
+                            setAiThought("Vitória confirmada! Buscando novo ciclo...");
                             playWinSound();
                         }
 
@@ -288,7 +309,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const calculateTradeSignal = useCallback(() => {
         if (activeTrades.current.size > 0 || isStudying || lastDigits.length < 10) return null;
 
-        // Lógica de Recuperação (Gale)
         if (martingaleLevel.current > 0) {
             const contract = lastContractType.current || 'DIGITEVEN';
             return { 
@@ -300,7 +320,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             };
         }
 
-        // Filtro Anti-Esticamento
         let currentStreak = 1;
         const firstParity = lastDigits[0] % 2 === 0;
         for (let i = 1; i < lastDigits.length; i++) {
@@ -309,7 +328,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         if (currentStreak > 4) return null;
 
-        // Detector de Alternância (Zigue-Zague)
         const last4 = lastDigits.slice(0, 4);
         const isAlternating = (last4[0] % 2 !== last4[1] % 2) && (last4[1] % 2 !== last4[2] % 2) && (last4[2] % 2 !== last4[3] % 2);
 
@@ -324,7 +342,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             };
         }
 
-        // Estratégia Padrão Otimizada
         if (currentStreak === consecutiveTarget) {
             const streakParity = firstParity ? 'EVEN' : 'ODD';
             let targetType: 'EVEN' | 'ODD';
@@ -352,7 +369,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         lastContractType.current = contractType;
         activeTrades.current.add(signalId);
         setTradeStatus('SENDING');
-        addLog(`Executando entrada REAL em CONTA ${accountType.toUpperCase()} ($${stakeToUse.toFixed(2)})`, "INFO");
+        setAiThought(`Estratégia [${strategyName}] ativada! Entrando agora.`);
+        addLog(`Executando entrada REAL em CONTA ${accountType.toUpperCase()} ($${stakeToUse.toFixed(2)}) via ${strategyName}`, "INFO");
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params, passthrough: { signalId, strategyName } });
 
         setTimeout(() => {
@@ -369,13 +387,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         processedTickEpoch.current = lastTickEpoch;
         const signal = calculateTradeSignal();
         if (signal) {
-            // LÓGICA DE FILTRO VIRTUAL:
-            // 1. Se martingaleLevel === 0 (Início do ciclo) -> Espera virtual
-            // 2. Se consecutiveLosses === 2 (Após 2 losses reais) -> Espera virtual para o 3º tiro
             const shouldWaitVirtual = virtualTargetLosses > 0 && virtualLossStreak < virtualTargetLosses && (martingaleLevel.current === 0 || consecutiveLosses === 2);
             
             if (shouldWaitVirtual) {
                 if (!virtualTradePending) {
+                    setAiThought(`Padrão [${signal.name}] identificado. Iniciando filtro virtual...`);
                     const sId = addSignal({ strategy: `VIRTUAL: ${signal.name}`, signal: signal.type as any, details: `Simulação ${virtualLossStreak + 1}/${virtualTargetLosses}`, winRate: `${signal.confidence}%` });
                     setVirtualTradePending({ ...signal, signalId: sId });
                 }
@@ -402,8 +418,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const contextValue = useMemo(() => ({
         ...stateAndSetters, isConnected, status, handleConnect, handleDisconnect: disconnect, 
-        toggleBot, resetOperations, appFlow, setAppFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence
-    }), [stateAndSetters, isConnected, status, handleConnect, disconnect, toggleBot, resetOperations, appFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence]);
+        toggleBot, resetOperations, appFlow, setAppFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, aiThought
+    }), [stateAndSetters, isConnected, status, handleConnect, disconnect, toggleBot, resetOperations, appFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, aiThought]);
 
     return <BotContext.Provider value={contextValue}>{children}</BotContext.Provider>;
 };
