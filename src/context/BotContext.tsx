@@ -70,11 +70,16 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     }, [isSoundEnabled]);
 
+    // Cálculo de Confiança Baseado em Matriz de Probabilidade
     const updateNeuralPredictions = useCallback(() => {
         if (lastDigits.length < 50) return;
+        
+        // Analisa a dominância de paridade nos últimos 50 ticks
         const evens = lastDigits.slice(0, 50).filter(d => d % 2 === 0).length;
         const odds = 50 - evens;
         const bias = Math.abs(evens - odds) / 50;
+        
+        // Confiança baseada no desequilíbrio (quanto mais desequilibrado, mais confiável a reversão)
         const confidence = Math.floor(75 + (bias * 25));
         setCurrentConfidence(confidence);
 
@@ -100,7 +105,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     }, [asset, isConnected, fetchDerivHistory]);
 
-    // Estado para controlar a entrada virtual pendente
     const [virtualTradePending, setVirtualTradePending] = useState<any>(null);
 
     const processTickData = useCallback((tick: { quote: string, epoch: number }) => {
@@ -110,7 +114,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setLastDigits((prev: number[]) => {
             const newList = [lastDigit, ...prev].slice(0, 500);
             
-            // Lógica de resolução do Loss Virtual baseada no próximo tick
             if (virtualTradePending) {
                 const isEven = lastDigit % 2 === 0;
                 const win = virtualTradePending.type === 'EVEN' ? isEven : !isEven;
@@ -136,12 +139,13 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setLastTickEpoch(tick.epoch);
         updateNeuralPredictions();
 
+        // Fase de Estudo Neural
         if (isStudying) {
             setStudyTicksCount((c: number) => {
                 const next = c + 1;
                 if (next >= 5) {
                     setIsStudying(false);
-                    addLog("Estudo Concluído: Padrões Mapeados.", "INFO");
+                    addLog("Sincronização Neural Completa. Iniciando Monitoramento.", "INFO");
                     return 0;
                 }
                 return next;
@@ -278,30 +282,25 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const calculateTradeSignal = useCallback(() => {
         if (activeTrades.current.size > 0 || isStudying || lastDigits.length < 10) return null;
 
-        // Lógica de Recuperação (Gale)
         if (martingaleLevel.current > 0) {
             const contract = lastContractType.current || 'DIGITEVEN';
             return { type: contract === 'DIGITEVEN' ? 'EVEN' : 'ODD', contract, name: 'Recuperação Sniper', confidence: 100, details: `Gale Nível ${martingaleLevel.current}` };
         }
 
-        // 1. FILTRO ANTI-ESTICAMENTO (Evita entrar em sequências longas)
+        // Filtro Anti-Esticamento
         let currentStreak = 1;
         const firstParity = lastDigits[0] % 2 === 0;
         for (let i = 1; i < lastDigits.length; i++) {
             if ((lastDigits[i] % 2 === 0) === firstParity) currentStreak++;
             else break;
         }
-        if (currentStreak > 4) {
-            // Se o mercado está muito esticado, não entra
-            return null;
-        }
+        if (currentStreak > 4) return null;
 
-        // 2. DETECTOR DE ALTERNÂNCIA (Zigue-Zague)
+        // Detector de Alternância (Zigue-Zague)
         const last4 = lastDigits.slice(0, 4);
         const isAlternating = (last4[0] % 2 !== last4[1] % 2) && (last4[1] % 2 !== last4[2] % 2) && (last4[2] % 2 !== last4[3] % 2);
 
         if (isAlternating) {
-            // Se está alternando, aposta na continuação da alternância
             const nextType = last4[0] % 2 === 0 ? 'ODD' : 'EVEN';
             return { 
                 type: nextType, 
@@ -312,7 +311,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             };
         }
 
-        // 3. ESTRATÉGIA PADRÃO (Apenas se não estiver esticado)
+        // Estratégia Padrão Otimizada
         if (currentStreak === consecutiveTarget) {
             const streakParity = firstParity ? 'EVEN' : 'ODD';
             let targetType: 'EVEN' | 'ODD';

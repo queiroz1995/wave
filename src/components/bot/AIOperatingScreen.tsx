@@ -64,6 +64,7 @@ export const AIOperatingScreen = () => {
     return (
         <div className="w-full max-w-md mx-auto space-y-4 sm:space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-700 px-2 sm:px-0">
             
+            {/* Status de Sincronização Neural */}
             {isBotRunning && (
                 <div className={cn(
                     "rounded-2xl p-3 sm:p-4 flex items-center justify-between border-2 transition-all duration-500",
@@ -95,6 +96,7 @@ export const AIOperatingScreen = () => {
                 </div>
             )}
 
+            {/* Monitor de Perda Virtual */}
             {isBotRunning && virtualTargetLosses > 0 && (
                 <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-3 flex items-center justify-between">
                     <div className="flex items-center gap-2">
