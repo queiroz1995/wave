@@ -155,8 +155,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setVirtualLossStreak(0);
         setVirtualTradePending(null);
         setIsStudying(false);
+        setTradeStatus('IDLE');
         addLog(reason, 'INFO');
-    }, [setIsBotRunning, addLog, setIsStudying, setVirtualLossStreak]);
+    }, [setIsBotRunning, addLog, setIsStudying, setVirtualLossStreak, setTradeStatus]);
 
     const resetOperations = useCallback(() => {
         totalProfitRef.current = 0;
@@ -169,8 +170,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         martingaleLevel.current = 0;
         setVirtualLossStreak(0);
         setVirtualTradePending(null);
+        activeTrades.current.clear();
+        pendingContracts.current.clear();
+        setTradeStatus('IDLE');
         addLog("Operações resetadas pelo usuário.", "INFO");
-    }, [setTotalProfit, setWins, setLosses, setConsecutiveLosses, setSignals, setVirtualLossStreak, addLog]);
+    }, [setTotalProfit, setWins, setLosses, setConsecutiveLosses, setSignals, setVirtualLossStreak, addLog, setTradeStatus]);
 
     const toggleBot = useCallback(() => {
         if (!isConnected) return;
@@ -187,9 +191,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             activeTrades.current.clear();
             pendingContracts.current.clear();
             martingaleLevel.current = 0;
+            setTradeStatus('IDLE');
             addLog(`Iniciando Sniper em Conta ${accountType.toUpperCase()}.`, "INFO");
         }
-    }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, addLog, setIsStudying, setStudyTicksCount, accountType, setVirtualLossStreak]);
+    }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, addLog, setIsStudying, setStudyTicksCount, accountType, setVirtualLossStreak, setTradeStatus]);
 
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
         const data = event.payload;
@@ -228,12 +233,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             } else if (data?.msg_type === 'proposal_open_contract') {
                 const contract = data.proposal_open_contract;
-                if (contract?.is_sold) {
+                if (contract?.is_sold || contract?.status === 'won' || contract?.status === 'lost') {
                     const savedData = pendingContracts.current.get(contract.contract_id);
                     if (savedData) {
                         const { profit, status, exit_tick } = contract;
                         const isLoss = status === 'lost';
-                        const exitDigit = parseInt(String(exit_tick).slice(-1));
+                        const exitDigit = exit_tick ? parseInt(String(exit_tick).slice(-1)) : undefined;
                         const profitValue = parseFloat(profit);
 
                         setAccountBalance((prev: number | null) => prev !== null ? Number((prev + profitValue).toFixed(2)) : null);
@@ -245,7 +250,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             setConsecutiveLosses((p: number) => p + 1);
                             martingaleLevel.current += 1;
                             
-                            // Se tomou 2 losses seguidos, força a volta para o virtual
                             if (consecutiveLosses + 1 === 2) {
                                 addLog("Trava de Segurança: 2 Losses detectados. Retornando ao Filtro Virtual para o 3º Gale.", "INFO");
                                 setVirtualLossStreak(0);
@@ -281,14 +285,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const calculateTradeSignal = useCallback(() => {
         if (activeTrades.current.size > 0 || isStudying || lastDigits.length < 10) return null;
 
-        // Lógica de Recuperação (Gale)
         if (martingaleLevel.current > 0) {
-            // Se estamos no 2º loss consecutivo, o useEffect vai barrar a entrada real e forçar o virtual
             const contract = lastContractType.current || 'DIGITEVEN';
             return { type: contract === 'DIGITEVEN' ? 'EVEN' : 'ODD', contract, name: 'Recuperação Sniper', confidence: 100, details: `Gale Nível ${martingaleLevel.current}` };
         }
 
-        // Filtro Anti-Esticamento
         let currentStreak = 1;
         const firstParity = lastDigits[0] % 2 === 0;
         for (let i = 1; i < lastDigits.length; i++) {
@@ -297,7 +298,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         if (currentStreak > 4) return null;
 
-        // Detector de Alternância (Zigue-Zague)
         const last4 = lastDigits.slice(0, 4);
         const isAlternating = (last4[0] % 2 !== last4[1] % 2) && (last4[1] % 2 !== last4[2] % 2) && (last4[2] % 2 !== last4[3] % 2);
 
@@ -312,7 +312,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             };
         }
 
-        // Estratégia Padrão Otimizada
         if (currentStreak === consecutiveTarget) {
             const streakParity = firstParity ? 'EVEN' : 'ODD';
             let targetType: 'EVEN' | 'ODD';
@@ -342,6 +341,15 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTradeStatus('SENDING');
         addLog(`Executando entrada REAL em CONTA ${accountType.toUpperCase()} ($${stakeToUse.toFixed(2)})`, "INFO");
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params, passthrough: { signalId, strategyName } });
+
+        // Trava de segurança: se não houver resposta em 15s, limpa o estado
+        setTimeout(() => {
+            if (activeTrades.current.has(signalId)) {
+                activeTrades.current.delete(signalId);
+                setTradeStatus('IDLE');
+                addLog("Timeout de operação detectado. Destravando sistema.", "ERROR");
+            }
+        }, 15000);
     }, [isConnected, initialStake, asset, sendMessage, setTradeStatus, martingaleFactor, isStudying, accountType, addLog]);
 
     useEffect(() => {
@@ -349,7 +357,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         processedTickEpoch.current = lastTickEpoch;
         const signal = calculateTradeSignal();
         if (signal) {
-            // NOVA LÓGICA: Volta ao virtual se (não tem gale) OU (se tem exatamente 2 losses seguidos)
             const shouldWaitVirtual = virtualTargetLosses > 0 && virtualLossStreak < virtualTargetLosses && (martingaleLevel.current === 0 || consecutiveLosses === 2);
             
             if (shouldWaitVirtual) {
