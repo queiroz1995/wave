@@ -104,9 +104,6 @@ export const AIOperatingScreen = () => {
                         </div>
                         
                         <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="icon" className="h-10 w-10 rounded-2xl bg-gray-50/50" onClick={() => setIsSoundEnabled(!isSoundEnabled)}>
-                                {isSoundEnabled ? <Volume2 className="h-4 w-4 text-muted-foreground" /> : <VolumeX className="h-4 w-4 text-muted-foreground" />}
-                            </Button>
                             <SettingsSheet trigger={
                                 <Button variant="ghost" size="icon" className="h-10 w-10 rounded-2xl bg-gray-50/50">
                                     <FileSpreadsheet className="h-4 w-4 text-muted-foreground" />
