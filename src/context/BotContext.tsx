@@ -247,18 +247,21 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
                         if (isLoss) {
                             setLosses((prev: number) => prev + 1);
-                            setConsecutiveLosses((p: number) => p + 1);
+                            const nextConsecutiveLosses = consecutiveLosses + 1;
+                            setConsecutiveLosses(nextConsecutiveLosses);
                             martingaleLevel.current += 1;
                             
-                            if (consecutiveLosses + 1 === 2) {
-                                addLog("Trava de Segurança: 2 Losses detectados. Retornando ao Filtro Virtual para o 3º Gale.", "INFO");
-                                setVirtualLossStreak(0);
+                            // LÓGICA SOLICITADA: Se tomou 2 losses reais (Entrada + Gale 1), volta para o virtual
+                            if (nextConsecutiveLosses === 2) {
+                                addLog("Trava de Segurança: 2 Losses reais detectados. Retornando ao Virtual para filtrar o 3º tiro (Gale 2).", "INFO");
+                                setVirtualLossStreak(0); // Reseta o contador virtual para forçar a espera
                             }
                         } else {
                             winsRef.current += 1;
                             setWins(winsRef.current);
                             setConsecutiveLosses(0);
                             martingaleLevel.current = 0;
+                            setVirtualLossStreak(0); // Reseta virtual após vitória para novo ciclo
                             playWinSound();
                         }
 
@@ -285,11 +288,19 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const calculateTradeSignal = useCallback(() => {
         if (activeTrades.current.size > 0 || isStudying || lastDigits.length < 10) return null;
 
+        // Lógica de Recuperação (Gale)
         if (martingaleLevel.current > 0) {
             const contract = lastContractType.current || 'DIGITEVEN';
-            return { type: contract === 'DIGITEVEN' ? 'EVEN' : 'ODD', contract, name: 'Recuperação Sniper', confidence: 100, details: `Gale Nível ${martingaleLevel.current}` };
+            return { 
+                type: contract === 'DIGITEVEN' ? 'EVEN' : 'ODD', 
+                contract, 
+                name: 'Recuperação Sniper', 
+                confidence: 100, 
+                details: `Gale Nível ${martingaleLevel.current}` 
+            };
         }
 
+        // Filtro Anti-Esticamento
         let currentStreak = 1;
         const firstParity = lastDigits[0] % 2 === 0;
         for (let i = 1; i < lastDigits.length; i++) {
@@ -298,6 +309,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         if (currentStreak > 4) return null;
 
+        // Detector de Alternância (Zigue-Zague)
         const last4 = lastDigits.slice(0, 4);
         const isAlternating = (last4[0] % 2 !== last4[1] % 2) && (last4[1] % 2 !== last4[2] % 2) && (last4[2] % 2 !== last4[3] % 2);
 
@@ -312,6 +324,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             };
         }
 
+        // Estratégia Padrão Otimizada
         if (currentStreak === consecutiveTarget) {
             const streakParity = firstParity ? 'EVEN' : 'ODD';
             let targetType: 'EVEN' | 'ODD';
@@ -342,7 +355,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addLog(`Executando entrada REAL em CONTA ${accountType.toUpperCase()} ($${stakeToUse.toFixed(2)})`, "INFO");
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params, passthrough: { signalId, strategyName } });
 
-        // Trava de segurança: se não houver resposta em 15s, limpa o estado
         setTimeout(() => {
             if (activeTrades.current.has(signalId)) {
                 activeTrades.current.delete(signalId);
@@ -357,6 +369,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         processedTickEpoch.current = lastTickEpoch;
         const signal = calculateTradeSignal();
         if (signal) {
+            // LÓGICA DE FILTRO VIRTUAL:
+            // 1. Se martingaleLevel === 0 (Início do ciclo) -> Espera virtual
+            // 2. Se consecutiveLosses === 2 (Após 2 losses reais) -> Espera virtual para o 3º tiro
             const shouldWaitVirtual = virtualTargetLosses > 0 && virtualLossStreak < virtualTargetLosses && (martingaleLevel.current === 0 || consecutiveLosses === 2);
             
             if (shouldWaitVirtual) {
