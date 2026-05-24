@@ -97,6 +97,26 @@ export const AIOperatingScreen = () => {
                 </div>
             )}
 
+            {/* Pensamento da I.A. - Terminal Neural (Integrado no Topo) */}
+            {isBotRunning && (
+                <div className="bg-black/90 border border-blue-500/30 rounded-2xl p-3 sm:p-4 shadow-[0_0_15px_rgba(59,130,246,0.1)] relative overflow-hidden animate-in slide-in-from-top-4 duration-500">
+                    <div className="absolute inset-0 ai-scanline opacity-10" />
+                    <div className="flex items-start gap-3 relative z-10">
+                        <div className="bg-blue-500/20 p-2 rounded-xl">
+                            <MessageSquare className="h-4 w-4 text-blue-400 animate-pulse" />
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-[8px] font-black text-blue-400 uppercase tracking-[0.3em] mb-1">Neural_Thought_Stream</p>
+                            <p className="text-xs sm:text-sm font-mono text-blue-100 leading-tight">
+                                <span className="text-blue-500 mr-2">{'>'}</span>
+                                {aiThought}
+                                <span className="inline-block w-1.5 h-3 bg-blue-500 ml-1 animate-pulse" />
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Monitor de Perda Virtual */}
             {isBotRunning && virtualTargetLosses > 0 && (
                 <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-3 flex items-center justify-between">
@@ -269,24 +289,6 @@ export const AIOperatingScreen = () => {
                         </tbody>
                     </table>
                 </ScrollArea>
-            </div>
-
-            {/* Pensamento da I.A. - Terminal Neural (Movido para baixo) */}
-            <div className="bg-black/90 border border-blue-500/30 rounded-2xl p-3 sm:p-4 shadow-[0_0_15px_rgba(59,130,246,0.1)] relative overflow-hidden">
-                <div className="absolute inset-0 ai-scanline opacity-10" />
-                <div className="flex items-start gap-3 relative z-10">
-                    <div className="bg-blue-500/20 p-2 rounded-xl">
-                        <MessageSquare className="h-4 w-4 text-blue-400 animate-pulse" />
-                    </div>
-                    <div className="flex-1">
-                        <p className="text-[8px] font-black text-blue-400 uppercase tracking-[0.3em] mb-1">Neural_Thought_Stream</p>
-                        <p className="text-xs sm:text-sm font-mono text-blue-100 leading-tight">
-                            <span className="text-blue-500 mr-2">{'>'}</span>
-                            {aiThought}
-                            <span className="inline-block w-1.5 h-3 bg-blue-500 ml-1 animate-pulse" />
-                        </p>
-                    </div>
-                </div>
             </div>
 
             <QuickConfigModal isOpen={isConfigModalOpen} onClose={() => setIsConfigModalOpen(false)} onConfirm={confirmStart} />
