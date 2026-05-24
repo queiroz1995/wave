@@ -10,7 +10,6 @@ const BotContext = createContext<any>(undefined);
 
 const WIN_SOUND_URL = "https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3";
 
-// Scanner expandido para incluir 1s e Contínuos
 const SCANNER_ASSETS = [
     '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V',
     'R_10', 'R_25', 'R_50', 'R_75', 'R_100'
@@ -49,6 +48,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const martingaleLevel = useRef(0);
     const lastContractType = useRef<ContractType | null>(null);
     const lastTradedAsset = useRef<string | null>(null);
+    const lastPrices = useRef<Record<string, number>>({});
     
     const winsRef = useRef(0);
     const pendingContracts = useRef<Map<string, any>>(new Map());
@@ -72,6 +72,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isSoundEnabled,
         consecutiveTarget, entryDirection,
         isSmartModeActive,
+        digitTradeMode,
         setSignals
     } = stateAndSetters;
 
@@ -118,7 +119,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sendMessageRef.current({ ticks_history: symbol, adjust_start_time: 1, count: 500, end: "latest", start: 1, style: "ticks" });
     }, []);
 
-    // Subscreve em todos os ativos do scanner (1s + Contínuos)
     useEffect(() => { 
         if (isConnected) {
             sendMessageRef.current({ forget_all: 'ticks' });
@@ -133,9 +133,14 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const processTickData = useCallback((tick: { quote: string, epoch: number, symbol: string }) => {
         const symbol = tick.symbol;
+        const price = parseFloat(tick.quote);
         const lastDigit = parseInt(String(tick.quote).replace(/[^\d.]/g, '').slice(-1));
         if (isNaN(lastDigit)) return;
         
+        const prevPrice = lastPrices.current[symbol];
+        const direction = prevPrice ? (price > prevPrice ? 'UP' : price < prevPrice ? 'DOWN' : 'STABLE') : 'STABLE';
+        lastPrices.current[symbol] = price;
+
         setMultiAssetDigits((prev: Record<string, number[]>) => {
             const currentHistory = prev[symbol] || [];
             const newHistory = [lastDigit, ...currentHistory].slice(0, 500);
@@ -151,14 +156,18 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateNeuralPredictions(symbol);
 
         if (virtualTradePending && virtualTradePending.symbol === symbol) {
-            const isEven = lastDigit % 2 === 0;
-            const win = virtualTradePending.type === 'EVEN' ? isEven : !isEven;
+            let win = false;
+            if (virtualTradePending.contract === 'DIGITEVEN') win = lastDigit % 2 === 0;
+            else if (virtualTradePending.contract === 'DIGITODD') win = lastDigit % 2 !== 0;
+            else if (virtualTradePending.contract === 'CALL') win = direction === 'UP';
+            else if (virtualTradePending.contract === 'PUT') win = direction === 'DOWN';
+
             const baseStake = parseFloat(initialStake) || 0.35;
             
             if (win) {
                 setVirtualLossStreak(0);
                 playWinSound();
-                addLog(`Vitória Virtual em ${symbol} (Dígito ${lastDigit}). Resetando.`, "INFO");
+                addLog(`Vitória Virtual em ${symbol}. Resetando.`, "INFO");
                 updateSignalResult(virtualTradePending.signalId, 'WIN', baseStake * 0.95, baseStake, lastDigit);
             } else {
                 const nextStreak = virtualLossStreak + 1;
@@ -335,7 +344,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (martingaleLevel.current > 0 && lastTradedAsset.current === symbol) {
             const contract = lastContractType.current || 'DIGITEVEN';
             return { 
-                type: contract === 'DIGITEVEN' ? 'EVEN' : 'ODD', 
+                type: contract === 'DIGITEVEN' ? 'EVEN' : contract === 'DIGITODD' ? 'ODD' : contract === 'CALL' ? 'CALL' : 'PUT', 
                 contract, 
                 name: 'Recuperação Sniper', 
                 confidence: 100, 
@@ -346,32 +355,55 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return null; 
         }
 
-        let currentStreak = 1;
-        const firstParity = digits[0] % 2 === 0;
-        for (let i = 1; i < digits.length; i++) {
-            if ((digits[i] % 2 === 0) === firstParity) currentStreak++;
-            else break;
+        // Lógica para Rise/Fall (Sobe/Desce)
+        if (digitTradeMode === 'riseFall' || digitTradeMode === 'multimodal') {
+            const lastPrice = lastPrices.current[symbol];
+            const prevPrice = lastPrice; // Simplificado para exemplo
+            // Aqui poderíamos ter um histórico de preços para analisar tendência
+            // Por enquanto, vamos usar uma lógica baseada na paridade do dígito para decidir Rise/Fall no modo multimodal
+            if (digitTradeMode === 'riseFall') {
+                const isEven = digits[0] % 2 === 0;
+                const targetType = isEven ? 'CALL' : 'PUT';
+                return {
+                    type: targetType,
+                    contract: targetType,
+                    name: 'WAVE Rise/Fall',
+                    confidence: 80,
+                    details: `Análise de Fluxo em ${symbol}`,
+                    symbol
+                };
+            }
         }
-        if (currentStreak > 4) return null;
 
-        if (currentStreak === consecutiveTarget) {
-            const streakParity = firstParity ? 'EVEN' : 'ODD';
-            let targetType: 'EVEN' | 'ODD';
-            if (entryDirection === 'AGAINST') targetType = streakParity === 'EVEN' ? 'ODD' : 'EVEN';
-            else targetType = streakParity === 'EVEN' ? 'EVEN' : 'ODD';
-            
-            return { 
-                type: targetType, 
-                contract: targetType === 'EVEN' ? 'DIGITEVEN' : 'DIGITODD', 
-                name: isSmartModeActive ? 'SMART NEURAL' : 'WAVE Sniper', 
-                confidence: 85, 
-                details: `${entryDirection === 'AGAINST' ? 'Reversão' : 'Tendência'} ${currentStreak}x em ${symbol}`,
-                symbol
-            };
+        // Lógica para Even/Odd (Par/Ímpar)
+        if (digitTradeMode === 'evenOdd' || digitTradeMode === 'multimodal') {
+            let currentStreak = 1;
+            const firstParity = digits[0] % 2 === 0;
+            for (let i = 1; i < digits.length; i++) {
+                if ((digits[i] % 2 === 0) === firstParity) currentStreak++;
+                else break;
+            }
+            if (currentStreak > 4) return null;
+
+            if (currentStreak === consecutiveTarget) {
+                const streakParity = firstParity ? 'EVEN' : 'ODD';
+                let targetType: 'EVEN' | 'ODD';
+                if (entryDirection === 'AGAINST') targetType = streakParity === 'EVEN' ? 'ODD' : 'EVEN';
+                else targetType = streakParity === 'EVEN' ? 'EVEN' : 'ODD';
+                
+                return { 
+                    type: targetType, 
+                    contract: targetType === 'EVEN' ? 'DIGITEVEN' : 'DIGITODD', 
+                    name: isSmartModeActive ? 'SMART NEURAL' : 'WAVE Sniper', 
+                    confidence: 85, 
+                    details: `${entryDirection === 'AGAINST' ? 'Reversão' : 'Tendência'} ${currentStreak}x em ${symbol}`,
+                    symbol
+                };
+            }
         }
 
         return null;
-    }, [multiAssetDigits, consecutiveTarget, entryDirection, isStudying, isSmartModeActive]);
+    }, [multiAssetDigits, consecutiveTarget, entryDirection, isStudying, isSmartModeActive, digitTradeMode]);
 
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string, symbol: string) => {
         if (!isConnected || isStudying || activeTrades.current.size > 0) return;

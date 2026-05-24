@@ -52,6 +52,14 @@ export const AIOperatingScreen = () => {
                 text = 'ÍMPAR'; 
                 baseColor = isVirtual ? 'bg-blue-50 text-blue-500 border-blue-100' : 'bg-red-50 text-red-600 border-red-100';
                 break;
+            case 'CALL': 
+                text = 'SOBE'; 
+                baseColor = isVirtual ? 'bg-blue-50 text-blue-500 border-blue-100' : 'bg-green-50 text-green-600 border-green-100';
+                break;
+            case 'PUT': 
+                text = 'DESCE'; 
+                baseColor = isVirtual ? 'bg-blue-50 text-blue-500 border-blue-100' : 'bg-red-50 text-red-600 border-red-100';
+                break;
             default: 
                 text = signal; 
                 baseColor = 'bg-gray-50 text-gray-500 border-gray-100';

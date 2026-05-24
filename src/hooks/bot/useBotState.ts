@@ -10,7 +10,7 @@ const DEFAULTS = {
     asset: '1HZ100V',
     duration: 1,
     initialStake: '0.35',
-    digitTradeMode: 'evenOdd' as 'evenOdd' | 'overUnder',
+    digitTradeMode: 'evenOdd' as 'evenOdd' | 'overUnder' | 'riseFall' | 'multimodal',
     attackMode: ['traditional'] as string[],
     digitPrediction: 4,
     overUnderDirection: 'OVER' as 'OVER' | 'UNDER',
@@ -60,7 +60,7 @@ export const useBotState = () => {
     const [asset, setAsset] = useState(initialState.asset);
     const [duration, setDuration] = useState(initialState.duration);
     const [initialStake, setInitialStake] = useState(initialState.initialStake);
-    const [digitTradeMode, setDigitTradeMode] = useState<'evenOdd' | 'overUnder'>(initialState.digitTradeMode);
+    const [digitTradeMode, setDigitTradeMode] = useState<'evenOdd' | 'overUnder' | 'riseFall' | 'multimodal'>(initialState.digitTradeMode);
     const [attackMode, setAttackMode] = useState<string[]>(initialState.attackMode);
     const [digitPrediction, setDigitPrediction] = useState<number>(initialState.digitPrediction);
     const [overUnderDirection, setOverUnderDirection] = useState<'OVER' | 'UNDER'>(initialState.overUnderDirection);
@@ -89,7 +89,7 @@ export const useBotState = () => {
     const [consecutiveTarget, setConsecutiveTarget] = useState(initialState.consecutiveTarget);
     const [entryDirection, setEntryDirection] = useState<'AGAINST' | 'FAVOR'>(initialState.entryDirection);
     const [virtualLossStreak, setVirtualLossStreak] = useState(0);
-    const [virtualTargetLosses, setVirtualTargetLosses] = useState(1); // Padrão seguro: 1 Loss Virtual
+    const [virtualTargetLosses, setVirtualTargetLosses] = useState(1); 
     const [isHybridModeActive, setIsHybridModeActive] = useState(initialState.isHybridModeActive);
     const [hybridWinsRequired, setHybridWinsRequired] = useState(initialState.hybridWinsRequired);
     const [isSmartModeActive, setIsSmartModeActive] = useState(initialState.isSmartModeActive);

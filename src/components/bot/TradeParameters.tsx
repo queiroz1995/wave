@@ -31,7 +31,6 @@ export const TradeParameters = () => {
         asset, setAsset,
         setDuration, setInitialStake,
         isManualMode, setIsManualMode,
-        isManualGaleActive, setIsManualGaleActive,
         digitTradeMode, setDigitTradeMode,
         digitPrediction, setDigitPrediction,
         overUnderDirection, setOverUnderDirection,
@@ -79,13 +78,14 @@ export const TradeParameters = () => {
                 <div className="space-y-2">
                     <div className="flex items-center gap-1.5">
                         <Label>Modalidade Analítica</Label>
-                        <InfoTooltip infoText="Multimodal permite que a I.A decida entre Par/Ímpar, Rise/Fall ou Acima/Abaixo com base na oportunidade." />
+                        <InfoTooltip infoText="Multimodal permite que a I.A decida entre Par/Ímpar ou Sobe/Desce com base na oportunidade." />
                     </div>
                     <Select value={digitTradeMode} onValueChange={(v) => setDigitTradeMode(v as any)}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="multimodal">Multi-Modal (I.A Decida)</SelectItem>
                             <SelectItem value="evenOdd">Apenas Dígitos (Par/Ímpar)</SelectItem>
+                            <SelectItem value="riseFall">Apenas Sobe/Desce (Rise/Fall)</SelectItem>
                             <SelectItem value="overUnder">Apenas Dígitos (Acima/Abaixo)</SelectItem>
                         </SelectContent>
                     </Select>
