@@ -85,7 +85,6 @@ export const useBotState = () => {
     const [tradeStatus, setTradeStatus] = useState<'IDLE' | 'SENDING' | 'ACTIVE'>('IDLE');
     const [isStudying, setIsStudying] = useState(false);
     const [studyTicksCount, setStudyTicksCount] = useState(0);
-    const [isSoundEnabled, setIsSoundEnabled] = useState(true);
     const [consecutiveTarget, setConsecutiveTarget] = useState(initialState.consecutiveTarget);
     const [entryDirection, setEntryDirection] = useState<'AGAINST' | 'FAVOR'>(initialState.entryDirection);
     const [virtualLossStreak, setVirtualLossStreak] = useState(0);
@@ -135,7 +134,6 @@ export const useBotState = () => {
         tradeStatus, setTradeStatus, addLog, addSignal, updateSignalResult,
         overUnderDirection, setOverUnderDirection,
         isStudying, setIsStudying, studyTicksCount, setStudyTicksCount,
-        isSoundEnabled, setIsSoundEnabled,
         consecutiveTarget, setConsecutiveTarget, entryDirection, setEntryDirection,
         virtualLossStreak, setVirtualLossStreak, virtualTargetLosses, setVirtualTargetLosses,
         isHybridModeActive, setIsHybridModeActive, hybridWinsRequired, setHybridWinsRequired,

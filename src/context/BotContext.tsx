@@ -8,8 +8,6 @@ import { ContractType } from '@/types/bot';
 
 const BotContext = createContext<any>(undefined);
 
-const WIN_SOUND_URL = "https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3";
-
 const SCANNER_ASSETS = [
     '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V',
     'R_10', 'R_25', 'R_50', 'R_75', 'R_100'
@@ -69,7 +67,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isStudying, setIsStudying, setStudyTicksCount,
         virtualLossStreak, setVirtualLossStreak,
         virtualTargetLosses,
-        isSoundEnabled,
         consecutiveTarget, entryDirection,
         isSmartModeActive,
         digitTradeMode,
@@ -79,19 +76,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [isConnected, setIsConnected] = useState(false);
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
     const [currentConfidence, setCurrentConfidence] = useState(0);
-
-    const audioRef = useRef<HTMLAudioElement | null>(null);
-
-    useEffect(() => {
-        audioRef.current = new Audio(WIN_SOUND_URL);
-    }, []);
-
-    const playWinSound = useCallback(() => {
-        if (isSoundEnabled && audioRef.current) {
-            audioRef.current.currentTime = 0;
-            audioRef.current.play().catch(err => console.warn("Erro ao tocar som:", err));
-        }
-    }, [isSoundEnabled]);
 
     const updateNeuralPredictions = useCallback((symbol: string) => {
         const digits = multiAssetDigits[symbol] || [];
@@ -166,7 +150,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             
             if (win) {
                 setVirtualLossStreak(0);
-                playWinSound();
                 addLog(`Vitória Virtual em ${symbol}. Resetando.`, "INFO");
                 updateSignalResult(virtualTradePending.signalId, 'WIN', baseStake * 0.95, baseStake, lastDigit);
             } else {
@@ -194,7 +177,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setAiThought(SEARCHING_MESSAGES[Math.floor(Math.random() * SEARCHING_MESSAGES.length)]);
             }
         }
-    }, [asset, setLastDigits, setLastTickEpoch, updateNeuralPredictions, isStudying, setIsStudying, setStudyTicksCount, addLog, virtualTradePending, virtualLossStreak, virtualTargetLosses, setVirtualLossStreak, playWinSound, updateSignalResult, initialStake, isBotRunning]);
+    }, [asset, setLastDigits, setLastTickEpoch, updateNeuralPredictions, isStudying, setIsStudying, setStudyTicksCount, addLog, virtualTradePending, virtualLossStreak, virtualTargetLosses, setVirtualLossStreak, updateSignalResult, initialStake, isBotRunning]);
 
     const stopBot = useCallback((reason: string) => {
         setIsBotRunning(false);
@@ -314,7 +297,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             martingaleLevel.current = 0;
                             setVirtualLossStreak(0); 
                             setAiThought(`Vitória em ${savedData.symbol}!`);
-                            playWinSound();
                         }
 
                         updateSignalResult(savedData.signalId, isLoss ? 'LOSS' : 'WIN', profitValue, savedData.stake, exitDigit);
@@ -331,7 +313,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             }
         }
-    }, [asset, processTickData, setAccountBalance, setTradeStatus, addLog, setLastDigits, setTotalProfit, setWins, setLosses, setConsecutiveLosses, updateSignalResult, playWinSound, takeProfit, stopLoss, stopBot, setMultiAssetDigits]);
+    }, [asset, processTickData, setAccountBalance, setTradeStatus, addLog, setLastDigits, setTotalProfit, setWins, setLosses, setConsecutiveLosses, updateSignalResult, takeProfit, stopLoss, stopBot, setMultiAssetDigits]);
 
     const ws = useTradingWebSocketManager({ isConnected, status, setIsConnected, setStatus, setAccountBalance, onMessage: handleWebSocketMessage, reconnectAttemptsRef });
     const { sendMessage, connect, disconnect } = ws;
