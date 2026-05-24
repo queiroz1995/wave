@@ -70,16 +70,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     }, [isSoundEnabled]);
 
-    // Cálculo de Confiança Baseado em Matriz de Probabilidade
     const updateNeuralPredictions = useCallback(() => {
         if (lastDigits.length < 50) return;
-        
-        // Analisa a dominância de paridade nos últimos 50 ticks
         const evens = lastDigits.slice(0, 50).filter(d => d % 2 === 0).length;
         const odds = 50 - evens;
         const bias = Math.abs(evens - odds) / 50;
-        
-        // Confiança baseada no desequilíbrio (quanto mais desequilibrado, mais confiável a reversão)
         const confidence = Math.floor(75 + (bias * 25));
         setCurrentConfidence(confidence);
 
@@ -139,7 +134,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setLastTickEpoch(tick.epoch);
         updateNeuralPredictions();
 
-        // Fase de Estudo Neural
         if (isStudying) {
             setStudyTicksCount((c: number) => {
                 const next = c + 1;
@@ -250,6 +244,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             setLosses((prev: number) => prev + 1);
                             setConsecutiveLosses((p: number) => p + 1);
                             martingaleLevel.current += 1;
+                            
+                            // Se tomou 2 losses seguidos, força a volta para o virtual
+                            if (consecutiveLosses + 1 === 2) {
+                                addLog("Trava de Segurança: 2 Losses detectados. Retornando ao Filtro Virtual para o 3º Gale.", "INFO");
+                                setVirtualLossStreak(0);
+                            }
                         } else {
                             winsRef.current += 1;
                             setWins(winsRef.current);
@@ -258,7 +258,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             playWinSound();
                         }
 
-                        setVirtualLossStreak(0);
                         updateSignalResult(savedData.signalId, isLoss ? 'LOSS' : 'WIN', profitValue, savedData.stake, exitDigit);
                         activeTrades.current.delete(savedData.signalId);
                         pendingContracts.current.delete(contract.contract_id);
@@ -273,7 +272,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             }
         }
-    }, [asset, processTickData, setAccountBalance, setTradeStatus, addLog, setLastDigits, setTotalProfit, setWins, setLosses, setConsecutiveLosses, updateSignalResult, playWinSound, takeProfit, stopLoss, stopBot, setVirtualLossStreak]);
+    }, [asset, processTickData, setAccountBalance, setTradeStatus, addLog, setLastDigits, setTotalProfit, setWins, setLosses, setConsecutiveLosses, updateSignalResult, playWinSound, takeProfit, stopLoss, stopBot, setVirtualLossStreak, consecutiveLosses]);
 
     const ws = useTradingWebSocketManager({ isConnected, status, setIsConnected, setStatus, setAccountBalance, onMessage: handleWebSocketMessage, reconnectAttemptsRef });
     const { sendMessage, connect, disconnect } = ws;
@@ -282,7 +281,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const calculateTradeSignal = useCallback(() => {
         if (activeTrades.current.size > 0 || isStudying || lastDigits.length < 10) return null;
 
+        // Lógica de Recuperação (Gale)
         if (martingaleLevel.current > 0) {
+            // Se estamos no 2º loss consecutivo, o useEffect vai barrar a entrada real e forçar o virtual
             const contract = lastContractType.current || 'DIGITEVEN';
             return { type: contract === 'DIGITEVEN' ? 'EVEN' : 'ODD', contract, name: 'Recuperação Sniper', confidence: 100, details: `Gale Nível ${martingaleLevel.current}` };
         }
@@ -348,19 +349,23 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         processedTickEpoch.current = lastTickEpoch;
         const signal = calculateTradeSignal();
         if (signal) {
-            if (virtualTargetLosses > 0 && virtualLossStreak < virtualTargetLosses && martingaleLevel.current === 0) {
+            // NOVA LÓGICA: Volta ao virtual se (não tem gale) OU (se tem exatamente 2 losses seguidos)
+            const shouldWaitVirtual = virtualTargetLosses > 0 && virtualLossStreak < virtualTargetLosses && (martingaleLevel.current === 0 || consecutiveLosses === 2);
+            
+            if (shouldWaitVirtual) {
                 if (!virtualTradePending) {
                     const sId = addSignal({ strategy: `VIRTUAL: ${signal.name}`, signal: signal.type as any, details: `Simulação ${virtualLossStreak + 1}/${virtualTargetLosses}`, winRate: `${signal.confidence}%` });
                     setVirtualTradePending({ ...signal, signalId: sId });
                 }
                 return;
             }
+            
             if (activeTrades.current.size === 0) {
                 const sId = addSignal({ strategy: signal.name, signal: signal.type as any, details: signal.details, winRate: `${signal.confidence}%` });
                 executeBuy(signal.contract as ContractType, signal.name, sId, signal.confidence);
             }
         }
-    }, [isBotRunning, lastTickEpoch, calculateTradeSignal, addSignal, executeBuy, isStudying, virtualTargetLosses, virtualLossStreak, virtualTradePending]);
+    }, [isBotRunning, lastTickEpoch, calculateTradeSignal, addSignal, executeBuy, isStudying, virtualTargetLosses, virtualLossStreak, virtualTradePending, consecutiveLosses]);
 
     const selectAI = useCallback((ia: any) => { setSelectedAIInfo(ia); setActiveStrategy(ia.id); setAppFlow('operating'); }, [setActiveStrategy]);
     const exitToSelection = useCallback(() => { stopBot("Sessão Finalizada"); setAppFlow('selection'); }, [stopBot]);
