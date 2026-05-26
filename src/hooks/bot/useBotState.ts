@@ -93,6 +93,9 @@ export const useBotState = () => {
     const [hybridWinsRequired, setHybridWinsRequired] = useState(initialState.hybridWinsRequired);
     const [isSmartModeActive, setIsSmartModeActive] = useState(initialState.isSmartModeActive);
     
+    // Novo: Filtro de Segurança Pós-Loss
+    const [isWaitingForRecoveryVirtual, setIsWaitingForRecoveryVirtual] = useState(false);
+
     const [analyzerWindowSize, setAnalyzerWindowSize] = useState(initialState.analyzerWindowSize);
     const [learningData, setLearningData] = useState<any>(null);
     const [scoreThreshold, setScoreThreshold] = useState(initialState.scoreThreshold);
@@ -138,6 +141,7 @@ export const useBotState = () => {
         virtualLossStreak, setVirtualLossStreak, virtualTargetLosses, setVirtualTargetLosses,
         isHybridModeActive, setIsHybridModeActive, hybridWinsRequired, setHybridWinsRequired,
         isSmartModeActive, setIsSmartModeActive,
+        isWaitingForRecoveryVirtual, setIsWaitingForRecoveryVirtual,
         analyzerWindowSize, setAnalyzerWindowSize, learningData, setLearningData,
         scoreThreshold, setScoreThreshold, marketStabilityThreshold, setMarketStabilityThreshold,
         bankManagementInitialBankroll, setBankManagementInitialBankroll,
