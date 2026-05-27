@@ -22,37 +22,6 @@ interface QuickConfigModalProps {
     onConfirm: () => void;
 }
 
-export const QuickConfigModal: React.FC<dyad-problem-report summary="3 problems">
-<problem file="src/components/bot/QuickConfigModal.tsx" line="37" column="44" code="1005">',' expected.</problem>
-<problem file="src/components/bot/QuickConfigModal.tsx" line="45" column="13" code="2552">Cannot find name 'setTempStop'. Did you mean 'tempStop'?</problem>
-<problem file="src/components/bot/QuickConfigModal.tsx" line="150" column="50" code="2552">Cannot find name 'setTempStop'. Did you mean 'tempStop'?</problem>
-</dyad-problem-report>Corrigi os erros de sintaxe e referências no estado `tempStop` dentro do componente `QuickConfigModal.tsx`.
-
-<dyad-write path="src/components/bot/QuickConfigModal.tsx" description="Corrigindo erros de sintaxe no estado tempStop e referências não encontradas.">
-"use client";
-
-import React, { useState, useEffect } from 'react';
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DollarSign, Target, Play, Zap, ListOrdered, ShieldAlert } from 'lucide-react';
-import { useBotContext } from '@/context/BotContext';
-import { cn } from '@/lib/utils';
-
-interface QuickConfigModalProps {
-    isOpen: boolean;
-    onClose: () => void;
-    onConfirm: () => void;
-}
-
 export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onClose, onConfirm }) => {
     const { 
         initialStake, setInitialStake, 
