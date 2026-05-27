@@ -13,14 +13,15 @@ const SCANNER_ASSETS = [
     'R_10', 'R_25', 'R_50', 'R_75', 'R_100'
 ];
 
-const SEARCHING_MESSAGES = [
-    "Escaneando fluxo neural...",
-    "Buscando anomalias de paridade...",
-    "Mapeando ciclos de volatilidade...",
-    "Aguardando gatilho de alta precisão...",
-    "Sincronizando com servidores Deriv...",
-    "Analisando densidade de ticks...",
-    "Avaliando risco de manipulação..."
+const NEURAL_MESSAGES = [
+    "Analisando Entropia do Fluxo...",
+    "Calculando Matriz de Transição...",
+    "Sincronizando Ciclos de Volatilidade...",
+    "Avaliando Convergência Multi-Ativo...",
+    "Protocolo Anti-Manipulação Ativo...",
+    "Mapeando Densidade de Ticks...",
+    "Otimizando Vetores de Entrada...",
+    "Auditando Histórico de 500ms..."
 ];
 
 export const useBotContext = () => {
@@ -45,6 +46,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const lastTradedAsset = useRef<string | null>(null);
     const lastPrices = useRef<Record<string, number>>({});
     
+    // Matriz de Transição Neural (Probabilidade de Digito X após Digito Y)
+    const transitionMatrix = useRef<Record<string, number[][]>>({});
+
     const winsRef = useRef(0);
     const pendingContracts = useRef<Map<string, any>>(new Map());
     const reconnectAttemptsRef = useRef(0);
@@ -75,26 +79,46 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
     const [currentConfidence, setCurrentConfidence] = useState(0);
 
+    // Função para calcular Entropia (Caos) do mercado
+    const calculateEntropy = (digits: number[]) => {
+        if (digits.length < 20) return 1;
+        const counts = new Array(10).fill(0);
+        digits.slice(0, 50).forEach(d => counts[d]++);
+        const probs = counts.map(c => c / 50).filter(p => p > 0);
+        return -probs.reduce((sum, p) => sum + p * Math.log2(p), 0) / 3.32; // Normalizado 0-1
+    };
+
     const updateNeuralPredictions = useCallback((symbol: string) => {
         const digits = multiAssetDigits[symbol] || [];
-        if (digits.length < 50) return;
+        if (digits.length < 50) return { confidence: 0, entropy: 1 };
         
         const evens = digits.slice(0, 50).filter(d => d % 2 === 0).length;
         const odds = 50 - evens;
         const bias = Math.abs(evens - odds) / 50;
-        const confidence = Math.floor(75 + (bias * 25));
+        const entropy = calculateEntropy(digits);
+        
+        // Confiança baseada em Bias (Desequilíbrio) e Estabilidade (Baixa Entropia)
+        const confidence = Math.floor((70 + (bias * 30)) * (1.2 - (entropy * 0.2)));
         
         if (symbol === asset) {
-            setCurrentConfidence(confidence);
-            const matrix = Array.from({ length: 10 }, () => new Array(10).fill(0));
-            const reversed = [...digits].reverse();
-            for (let i = 0; i < reversed.length - 1; i++) matrix[reversed[i]][reversed[i+1]]++;
+            setCurrentConfidence(Math.min(99, confidence));
+            
+            // Atualiza Matriz de Transição
+            if (!transitionMatrix.current[symbol]) {
+                transitionMatrix.current[symbol] = Array.from({ length: 10 }, () => new Array(10).fill(0));
+            }
+            const matrix = transitionMatrix.current[symbol];
+            const reversed = [...digits].reverse().slice(-100);
+            for (let i = 0; i < reversed.length - 1; i++) {
+                matrix[reversed[i]][reversed[i+1]]++;
+            }
+            
             const lastDigit = digits[0];
             const transitions = matrix[lastDigit];
             const total = transitions.reduce((a, b) => a + b, 0);
             if (total > 0) setNeuralPredictions(transitions.map(t => (t / total) * 100));
         }
-        return confidence;
+        return { confidence, entropy };
     }, [multiAssetDigits, asset, setNeuralPredictions]);
 
     const fetchDerivHistory = useCallback((symbol: string) => {
@@ -136,31 +160,30 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return { ...prev, [symbol]: newHistory };
         });
 
-        const confidence = updateNeuralPredictions(symbol);
+        const { confidence, entropy } = updateNeuralPredictions(symbol);
 
+        // Processamento de Resultado Virtual
         if (virtualTradePending && virtualTradePending.symbol === symbol) {
             let win = false;
             if (virtualTradePending.contract === 'DIGITEVEN') win = lastDigit % 2 === 0;
             else if (virtualTradePending.contract === 'DIGITODD') win = lastDigit % 2 !== 0;
-            else if (virtualTradePending.contract === 'CALL') win = direction === 'UP';
-            else if (virtualTradePending.contract === 'PUT') win = direction === 'DOWN';
 
             const baseStake = parseFloat(initialStake) || 0.35;
             
             if (win) {
                 setVirtualLossStreak(0);
-                addLog(`Sucesso Virtual em ${symbol}. Ciclo ainda instável.`, "INFO");
+                addLog(`Sucesso Virtual em ${symbol}. Ciclo Neutro.`, "INFO");
                 updateSignalResult(virtualTradePending.signalId, 'WIN', baseStake * 0.95, baseStake, lastDigit);
             } else {
                 const nextStreak = virtualLossStreak + 1;
                 setVirtualLossStreak(nextStreak);
-                addLog(`Anomalia detectada em ${symbol}. Ciclo limpando...`, "INFO");
+                addLog(`Divergência detectada em ${symbol}. Limpando ruído...`, "INFO");
                 updateSignalResult(virtualTradePending.signalId, 'LOSS', -baseStake, baseStake, lastDigit);
                 
                 if (isWaitingForRecoveryVirtual) {
                     setIsWaitingForRecoveryVirtual(false);
-                    addLog("Ciclo Limpo. Protocolo de Segurança Finalizado.", "INFO");
-                    setAiThought("Ciclo estabilizado. Preparando Gale...");
+                    addLog("Ciclo Estabilizado. Protocolo de Segurança Finalizado.", "INFO");
+                    setAiThought("Oportunidade Limpa. Preparando Sniper Real...");
                 }
             }
             setVirtualTradePending(null);
@@ -169,17 +192,17 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (isStudying && symbol === asset) {
             setStudyTicksCount((c: number) => {
                 const next = c + 1;
-                if (next >= 5) {
+                if (next >= 10) {
                     setIsStudying(false);
-                    addLog("Scanner Multi-Ativos Sincronizado.", "INFO");
-                    setAiThought("Monitorando 10 mercados simultâneos...");
+                    addLog("Matriz Neural v3.0 Sincronizada.", "INFO");
+                    setAiThought("Protocolos de Convergência Ativos.");
                     return 0;
                 }
                 return next;
             });
         } else if (isBotRunning && !virtualTradePending) {
-            if (Math.random() > 0.97) {
-                setAiThought(SEARCHING_MESSAGES[Math.floor(Math.random() * SEARCHING_MESSAGES.length)]);
+            if (Math.random() > 0.98) {
+                setAiThought(NEURAL_MESSAGES[Math.floor(Math.random() * NEURAL_MESSAGES.length)]);
             }
         }
     }, [asset, setLastDigits, setLastTickEpoch, updateNeuralPredictions, isStudying, setIsStudying, setStudyTicksCount, addLog, virtualTradePending, virtualLossStreak, virtualTargetLosses, setVirtualLossStreak, updateSignalResult, initialStake, isBotRunning, isWaitingForRecoveryVirtual, setIsWaitingForRecoveryVirtual]);
@@ -194,7 +217,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsStudying(false);
         setIsWaitingForRecoveryVirtual(false);
         setTradeStatus('IDLE');
-        setAiThought("Sistema em Standby.");
+        setAiThought("Núcleo Neural Desativado.");
         addLog(reason, 'INFO');
     }, [setIsBotRunning, addLog, setIsStudying, setVirtualLossStreak, setTradeStatus, setIsWaitingForRecoveryVirtual]);
 
@@ -213,7 +236,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeTrades.current.clear();
         pendingContracts.current.clear();
         setTradeStatus('IDLE');
-        setAiThought("Operações resetadas.");
+        setAiThought("Sistema Reinicializado.");
         addLog("Operações resetadas pelo usuário.", "INFO");
     }, [setTotalProfit, setWins, setLosses, setConsecutiveLosses, setSignals, setVirtualLossStreak, addLog, setTradeStatus, setIsWaitingForRecoveryVirtual]);
 
@@ -234,8 +257,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             pendingContracts.current.clear();
             martingaleLevel.current = 0;
             setTradeStatus('IDLE');
-            setAiThought("Iniciando Scanner Multi-Ativos...");
-            addLog(`Iniciando Scanner em Conta ${accountType.toUpperCase()}.`, "INFO");
+            setAiThought("Iniciando Mapeamento Quântico...");
+            addLog(`Iniciando Sniper v3.0 em Conta ${accountType.toUpperCase()}.`, "INFO");
         }
     }, [isConnected, isBotRunning, stopBot, setIsBotRunning, setTotalProfit, setWins, setLosses, setConsecutiveLosses, addLog, setIsStudying, setStudyTicksCount, accountType, setVirtualLossStreak, setTradeStatus, setIsWaitingForRecoveryVirtual]);
 
@@ -245,7 +268,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (data?.msg_type === 'authorize') {
                 setIsConnected(true); 
                 setIsConnecting(false);
-                setStatus({ message: `Sniper Ativo`, color: 'bg-green-500' });
+                setStatus({ message: `Sincronizado`, color: 'bg-green-500' });
                 if (data.authorize?.balance !== undefined) {
                     setAccountBalance(parseFloat(data.authorize.balance));
                 }
@@ -298,8 +321,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             martingaleLevel.current += 1;
                             
                             setIsWaitingForRecoveryVirtual(true);
-                            setAiThought(`Mapeando zona de risco em ${savedData.symbol}...`);
-                            addLog("Proteção Ativada. Aguardando sinal de saída do ciclo.", "INFO");
+                            setAiThought(`Risco detectado em ${savedData.symbol}. Escudo Ativo.`);
+                            addLog("Operação Fallback. Ativando Proteção Pós-Loss.", "INFO");
                         } else {
                             winsRef.current += 1;
                             setWins(winsRef.current);
@@ -307,7 +330,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             martingaleLevel.current = 0;
                             setVirtualLossStreak(0); 
                             setIsWaitingForRecoveryVirtual(false);
-                            setAiThought(`Alvo neutralizado em ${savedData.symbol}!`);
+                            setAiThought(`Convergência bem-sucedida em ${savedData.symbol}!`);
                         }
 
                         updateSignalResult(savedData.signalId, isLoss ? 'LOSS' : 'WIN', profitValue, savedData.stake, exitDigit);
@@ -334,22 +357,22 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const digits = multiAssetDigits[symbol] || [];
         if (activeTrades.current.size > 0 || isStudying || digits.length < 10) return null;
 
-        // Recuperação Gale (Sempre volta para o ativo que perdeu se estiver no modo Gale)
+        // Recuperação Sniper (Gale Inteligente)
         if (martingaleLevel.current > 0 && lastTradedAsset.current === symbol) {
             const contract = lastContractType.current || 'DIGITEVEN';
             return { 
-                type: contract === 'DIGITEVEN' ? 'EVEN' : contract === 'DIGITODD' ? 'ODD' : contract === 'CALL' ? 'CALL' : 'PUT', 
+                type: contract === 'DIGITEVEN' ? 'EVEN' : 'ODD', 
                 contract, 
                 name: 'Neural Recovery', 
-                confidence: 100, 
-                details: `Gale Nível ${martingaleLevel.current} em ${symbol}`,
+                confidence: 98, 
+                details: `Protocolo Recovery G${martingaleLevel.current} em ${symbol}`,
                 symbol
             };
         } else if (martingaleLevel.current > 0) {
             return null; 
         }
 
-        // --- Lógica de Sinais Normais ---
+        // --- Lógica de Sinais v3.0 ---
         let currentStreak = 1;
         const firstParity = digits[0] % 2 === 0;
         for (let i = 1; i < digits.length; i++) {
@@ -357,24 +380,37 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             else break;
         }
 
+        // Filtro de Entropia Global
+        const entropy = calculateEntropy(digits);
+        if (entropy > 0.85) return null; // Mercado muito caótico
+
         if (currentStreak === consecutiveTarget) {
             const streakParity = firstParity ? 'EVEN' : 'ODD';
             let targetType: 'EVEN' | 'ODD';
             if (entryDirection === 'AGAINST') targetType = streakParity === 'EVEN' ? 'ODD' : 'EVEN';
             else targetType = streakParity === 'EVEN' ? 'EVEN' : 'ODD';
             
-            // Cálculo de confiança baseado na janela histórica
-            const evens = digits.slice(0, 50).filter(d => d % 2 === 0).length;
-            const odds = 50 - evens;
-            const bias = targetType === 'EVEN' ? (evens / 50) : (odds / 50);
-            const confidence = Math.floor(75 + (bias * 20));
+            // Refinamento via Matriz de Transição
+            const lastDigit = digits[0];
+            const matrix = transitionMatrix.current[symbol];
+            let transitionScore = 50;
+            if (matrix) {
+                const transitions = matrix[lastDigit];
+                const total = transitions.reduce((a, b) => a + b, 0);
+                if (total > 0) {
+                    const probNextEven = transitions.filter((_, i) => i % 2 === 0).reduce((a, b) => a + b, 0) / total;
+                    transitionScore = targetType === 'EVEN' ? probNextEven * 100 : (1 - probNextEven) * 100;
+                }
+            }
+
+            const confidence = Math.floor((70 + (transitionScore * 0.3)));
 
             return { 
                 type: targetType, 
                 contract: targetType === 'EVEN' ? 'DIGITEVEN' : 'DIGITODD', 
-                name: 'WAVE Sniper', 
+                name: 'NEURAL CORE', 
                 confidence, 
-                details: `${entryDirection === 'AGAINST' ? 'Reversão' : 'Tendência'} ${currentStreak}x em ${symbol}`,
+                details: `${entryDirection === 'AGAINST' ? 'Reversão' : 'Tendência'} em ${symbol}`,
                 symbol
             };
         }
@@ -402,8 +438,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         lastTradedAsset.current = symbol;
         activeTrades.current.add(signalId);
         setTradeStatus('SENDING');
-        setAiThought(`Alvo identificado em ${symbol}. Executando Sniper...`);
-        addLog(`Executando REAL em ${symbol} ($${stakeToUse.toFixed(2)})`, "INFO");
+        setAiThought(`Convergência detectada em ${symbol}. Strike!`);
+        addLog(`ENTRADA REAL: ${symbol} ($${stakeToUse.toFixed(2)})`, "INFO");
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params, passthrough: { signalId, strategyName } });
     }, [isConnected, initialStake, sendMessage, setTradeStatus, martingaleFactor, isStudying, addLog]);
 
@@ -413,25 +449,25 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         for (const symbol of SCANNER_ASSETS) {
             const signal = calculateTradeSignal(symbol);
             if (signal) {
-                // BYPASS DE CONFIANÇA: Se sinal > 92% e estamos em segurança, ignoramos o filtro.
-                const hasGoldenOpportunity = isWaitingForRecoveryVirtual && signal.confidence >= 92;
+                // BYPASS DE OURO: Se confiança > 94%, ignora o filtro virtual
+                const isGoldenSignal = signal.confidence >= 94;
                 
                 const isInitialVirtualWait = virtualTargetLosses > 0 && virtualLossStreak < virtualTargetLosses && martingaleLevel.current === 0;
-                const isRecoveryVirtualWait = isWaitingForRecoveryVirtual && martingaleLevel.current > 0 && !hasGoldenOpportunity;
+                const isRecoveryVirtualWait = isWaitingForRecoveryVirtual && martingaleLevel.current > 0 && !isGoldenSignal;
                 
                 const shouldWaitVirtual = isInitialVirtualWait || isRecoveryVirtualWait;
                 
                 if (shouldWaitVirtual) {
                     if (!virtualTradePending) {
-                        setAiThought(isRecoveryVirtualWait ? `Aguardando purificação do ciclo em ${symbol}...` : `Oportunidade em ${symbol}. Analisando via Virtual...`);
-                        const sId = addSignal({ strategy: `VIRTUAL: ${signal.name}`, signal: signal.type as any, details: `Mapeamento técnico em ${symbol}`, winRate: `${signal.confidence}%` });
+                        setAiThought(isRecoveryVirtualWait ? `Aguardando purificação em ${symbol}...` : `Análise Neural em ${symbol} (Virtual)...`);
+                        const sId = addSignal({ strategy: `VIRTUAL: ${signal.name}`, signal: signal.type as any, details: `Simulação Probabilística em ${symbol}`, winRate: `${signal.confidence}%` });
                         setVirtualTradePending({ ...signal, signalId: sId, symbol });
                     }
                     break;
                 }
                 
                 if (activeTrades.current.size === 0) {
-                    if (hasGoldenOpportunity) addLog("Gatilho de Ouro detectado! Ignorando zona de segurança.", "INFO");
+                    if (isGoldenSignal && isWaitingForRecoveryVirtual) addLog("GATILHO DE OURO: Ignorando zona de segurança pós-loss.", "INFO");
                     const sId = addSignal({ strategy: signal.name, signal: signal.type as any, details: signal.details, winRate: `${signal.confidence}%` });
                     executeBuy(signal.contract as ContractType, signal.name, sId, symbol);
                     break;
