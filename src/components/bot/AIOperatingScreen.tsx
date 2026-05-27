@@ -160,7 +160,7 @@ export const AIOperatingScreen = () => {
                                 <DollarSign className="h-6 w-6" />
                             </div>
                             <div>
-                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-0.5">Saldo</p>
+                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-0.5">Saldo {accountType === 'real' ? 'Real' : 'Demo'}</p>
                                 <p className="text-2xl font-black tracking-tight">${accountBalance?.toFixed(2) || '0.00'}</p>
                             </div>
                         </div>
