@@ -33,7 +33,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const martingaleLevel = useRef(0);
     const lastContractType = useRef<ContractType | null>(null);
     const lastTradedAsset = useRef<string | null>(null);
-    const lastPrices = useRef<Record<string, number>>({});
     
     const pendingContracts = useRef<Map<string, any>>(new Map());
     const reconnectAttemptsRef = useRef(0);
@@ -48,15 +47,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTradeStatus, isBotRunning, setActiveStrategy,
         accountType, realToken, demoToken,
         takeProfit, stopLoss, martingaleFactor,
-        consecutiveLosses, setConsecutiveLosses,
         setNeuralPredictions,
         isStudying, setIsStudying, setStudyTicksCount,
         virtualLossStreak, setVirtualLossStreak,
         virtualTargetLosses, setVirtualTargetLosses,
         consecutiveTarget, entryDirection,
         isSmartModeActive,
-        digitTradeMode,
-        isWaitingForRecoveryVirtual, setIsWaitingForRecoveryVirtual,
         setSignals
     } = stateAndSetters;
 
@@ -64,7 +60,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
     const [currentConfidence, setCurrentConfidence] = useState(0);
 
-    // Cálculos de Inteligência de Mercado
     const calculateEntropy = (digits: number[]) => {
         if (digits.length < 20) return 1;
         const counts = new Array(10).fill(0);
@@ -83,12 +78,13 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const entropy = calculateEntropy(digits);
         const confidence = Math.floor((70 + (bias * 30)) * (1.2 - (entropy * 0.2)));
         
-        // DECISÃO AUTÔNOMA: Define quantos losses virtuais fazer conforme a entropia
+        // DECISÃO AUTÔNOMA AMPLIADA: 0 a 4 perdas virtuais
         let recVirtual = 1;
-        if (entropy > 0.92) recVirtual = 3; // Mercado muito caótico: Proteção máxima
-        else if (entropy > 0.85) recVirtual = 2; // Mercado instável: Proteção moderada
-        else if (bias > 0.15) recVirtual = 0; // Tendência forte detectada: Sniper sem filtro
-        else recVirtual = 1; // Mercado padrão
+        if (entropy > 0.96) recVirtual = 4;      // Manipulação extrema/Ruído total
+        else if (entropy > 0.92) recVirtual = 3; // Alta instabilidade
+        else if (entropy > 0.86) recVirtual = 2; // Instabilidade moderada
+        else if (bias > 0.18) recVirtual = 0;    // Tendência fortíssima (Sniper direto)
+        else recVirtual = 1;                     // Mercado padrão
 
         if (symbol === asset) setCurrentConfidence(Math.min(99, confidence));
         
@@ -126,7 +122,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return { ...prev, [symbol]: newHistory };
         });
 
-        const { recommendedVirtualLosses, entropy } = getMarketState(symbol);
+        const { recommendedVirtualLosses } = getMarketState(symbol);
 
         if (virtualTradePending && virtualTradePending.symbol === symbol) {
             let win = false;
@@ -136,19 +132,18 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (win) {
                 setVirtualLossStreak(0);
                 updateSignalResult(virtualTradePending.signalId, 'WIN', 0, 0, lastDigit);
-                setAiThought(`Refração detectada em ${symbol}. Reiniciando filtro.`);
+                setAiThought(`Refração em ${symbol}. Reiniciando proteção.`);
             } else {
                 const nextStreak = virtualLossStreak + 1;
                 setVirtualLossStreak(nextStreak);
                 updateSignalResult(virtualTradePending.signalId, 'LOSS', 0, 0, lastDigit);
                 
-                // I.A decide se o streak é suficiente baseado no estado do mercado
                 const target = isSmartModeActive ? recommendedVirtualLosses : virtualTargetLosses;
                 
                 if (nextStreak >= target) {
-                    setAiThought(`Ciclo de erro neutralizado em ${symbol}. Pronto!`);
+                    setAiThought(`Proteção de ${target} níveis atingida em ${symbol}. Pronto!`);
                 } else {
-                    setAiThought(`Mapeando... Aguardando +${target - nextStreak} Loss Virtual.`);
+                    setAiThought(`Filtro Anti-Manipulação: +${target - nextStreak} Loss Virtual.`);
                 }
             }
             setVirtualTradePending(null);
@@ -197,7 +192,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setIsBotRunning(true); 
             resetOperations();
             setIsStudying(true);
-            setAiThought("Analizando entropia dos mercados...");
+            setAiThought("Varrendo ativos por manipulação...");
         }
     }, [isConnected, isBotRunning, stopBot, resetOperations]);
 
@@ -242,12 +237,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         if (isLoss) {
                             setLosses((prev: number) => prev + 1);
                             martingaleLevel.current += 1;
-                            setAiThought("Loss Real. Ativando recuperação...");
+                            setAiThought("Detectada variância. Entrando em modo defensivo.");
                         } else {
                             setWins((prev: number) => prev + 1);
                             martingaleLevel.current = 0;
                             setVirtualLossStreak(0);
-                            setAiThought("Win Real! Mercado neutralizado.");
+                            setAiThought("Operação Neutralizada com Sucesso.");
                         }
 
                         updateSignalResult(savedData.signalId, isLoss ? 'LOSS' : 'WIN', profitValue, savedData.stake, exitDigit);
@@ -316,21 +311,21 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         for (const symbol of SCANNER_ASSETS) {
             const signal = calculateTradeSignal(symbol);
             if (signal) {
-                const { recommendedVirtualLosses, entropy } = getMarketState(symbol);
+                const { recommendedVirtualLosses } = getMarketState(symbol);
                 const target = isSmartModeActive ? recommendedVirtualLosses : virtualTargetLosses;
                 
                 const needsVirtual = target > 0 && virtualLossStreak < target;
                 
                 if (needsVirtual) {
                     if (!virtualTradePending) {
-                        const sId = addSignal({ strategy: `VIRTUAL (IA: ${target}L)`, signal: signal.type as any, details: `Entropia: ${(entropy * 100).toFixed(0)}%`, winRate: `${signal.confidence}%` });
+                        const sId = addSignal({ strategy: `VIRTUAL (IA: ${target}L)`, signal: signal.type as any, details: `Filtro dinâmico em ${symbol}`, winRate: `${signal.confidence}%` });
                         setVirtualTradePending({ ...signal, signalId: sId, symbol });
                     }
                     break;
                 }
                 
                 if (activeTrades.current.size === 0) {
-                    const sId = addSignal({ strategy: signal.name, signal: signal.type as any, details: `Sniper em ${symbol}`, winRate: `${signal.confidence}%` });
+                    const sId = addSignal({ strategy: signal.name, signal: signal.type as any, details: `Sniper Real em ${symbol}`, winRate: `${signal.confidence}%` });
                     executeBuy(signal.contract as ContractType, signal.name, sId, symbol);
                     break;
                 }
