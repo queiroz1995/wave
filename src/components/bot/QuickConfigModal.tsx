@@ -11,10 +11,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DollarSign, Target, Play, Zap, ListOrdered, ShieldAlert } from 'lucide-react';
+import { DollarSign, Target, Play, Zap } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
-import { cn } from '@/lib/utils';
 
 interface QuickConfigModalProps {
     isOpen: boolean;
@@ -27,93 +25,41 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
         initialStake, setInitialStake, 
         takeProfit, setTakeProfit,
         stopLoss, setStopLoss,
-        virtualTargetLosses, setVirtualTargetLosses,
-        entryDirection, setEntryDirection,
         setIsSmartModeActive
     } = useBotContext();
     
     const [tempStake, setTempStake] = useState(initialStake);
     const [tempMeta, setTempMeta] = useState(takeProfit);
     const [tempStop, setTempStop] = useState(stopLoss);
-    const [tempVirtual, setTempVirtual] = useState(virtualTargetLosses);
-    const [tempDirection, setTempDirection] = useState(entryDirection);
 
     useEffect(() => {
         if (isOpen) {
             setTempStake(initialStake);
             setTempMeta(takeProfit);
             setTempStop(stopLoss);
-            setTempVirtual(virtualTargetLosses);
-            setTempDirection(entryDirection);
         }
-    }, [isOpen, initialStake, takeProfit, stopLoss, virtualTargetLosses, entryDirection]);
+    }, [isOpen, initialStake, takeProfit, stopLoss]);
 
     const handleConfirm = () => {
         setInitialStake(tempStake);
         setTakeProfit(tempMeta);
         setStopLoss(tempStop);
-        setVirtualTargetLosses(tempVirtual);
-        setEntryDirection(tempDirection);
-        setIsSmartModeActive(false); 
+        setIsSmartModeActive(true); // Reativa a decisão autônoma da I.A
         onConfirm();
     };
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[480px] rounded-[2.5rem] glass-panel border-none p-8 sm:p-10 max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <DialogContent className="sm:max-w-[420px] rounded-[2.5rem] glass-panel border-none p-8 sm:p-10">
                 <DialogHeader className="space-y-3">
-                    <div className="mx-auto bg-blue-500/10 p-3 rounded-2xl w-fit">
-                        <Zap className="h-6 w-6 text-blue-600 fill-current" />
+                    <div className="mx-auto bg-primary/10 p-3 rounded-2xl w-fit">
+                        <Zap className="h-6 w-6 text-primary fill-current" />
                     </div>
                     <DialogTitle className="text-2xl font-black uppercase tracking-tighter text-center">Protocolo de Partida</DialogTitle>
-                    <p className="text-center text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">Configure sua estratégia de decolagem</p>
+                    <p className="text-center text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">Gestão de Sessão</p>
                 </DialogHeader>
                 
                 <div className="space-y-6 py-6">
-                    <div className="p-6 rounded-[2rem] border-2 border-orange-500/20 bg-orange-500/5 space-y-4">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-orange-500/10 rounded-xl">
-                                <ShieldAlert className="h-5 w-5 text-orange-600" />
-                            </div>
-                            <div className="space-y-0.5">
-                                <Label className="text-sm font-black uppercase tracking-tight">Filtro de Segurança</Label>
-                                <p className="text-[9px] font-bold text-orange-600/80 uppercase">Quantos Loss Virtuais antes de entrar?</p>
-                            </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-5 gap-2">
-                            {[0, 1, 2, 3, 4].map((num) => (
-                                <Button
-                                    key={num}
-                                    variant={tempVirtual === num ? "default" : "outline"}
-                                    onClick={() => setTempVirtual(num)}
-                                    className={cn(
-                                        "h-12 rounded-xl font-black text-base",
-                                        tempVirtual === num ? "bg-orange-500 hover:bg-orange-600 text-white" : "bg-white border-none"
-                                    )}
-                                >
-                                    {num}
-                                </Button>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div className="p-5 rounded-3xl bg-primary/5 border border-primary/10 space-y-4">
-                        <div className="flex items-center gap-2 mb-2">
-                            <ListOrdered className="h-4 w-4 text-primary" />
-                            <span className="text-[10px] font-black uppercase tracking-widest text-primary">Direção da Entrada</span>
-                        </div>
-                        <Select value={tempDirection} onValueChange={(v: any) => setTempDirection(v)}>
-                            <SelectTrigger className="h-11 rounded-xl font-bold bg-white border-none shadow-sm">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="AGAINST">Contra a Sequência (Reversão)</SelectItem>
-                                <SelectItem value="FAVOR">A Favor da Sequência (Tendência)</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label className="text-[9px] font-black uppercase tracking-widest ml-1 opacity-60">Entrada ($)</Label>
@@ -151,12 +97,18 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                             />
                         </div>
                     </div>
+
+                    <div className="p-4 rounded-2xl bg-primary/5 border border-primary/10">
+                        <p className="text-[10px] font-bold text-primary text-center uppercase tracking-widest leading-relaxed">
+                            A I.A assumirá o controle total dos filtros de segurança e direção após a decolagem.
+                        </p>
+                    </div>
                 </div>
 
                 <DialogFooter>
                     <Button 
                         onClick={handleConfirm}
-                        className="w-full h-14 rounded-2xl text-base font-black uppercase tracking-[0.2em] bg-blue-600 hover:bg-blue-700 shadow-xl shadow-blue-500/20"
+                        className="w-full h-14 rounded-2xl text-base font-black uppercase tracking-[0.2em] bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20"
                     >
                         <Play className="h-4 w-4 mr-2 fill-current" /> DECOLAR SISTEMA
                     </Button>

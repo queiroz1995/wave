@@ -52,7 +52,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         virtualLossStreak, setVirtualLossStreak,
         virtualTargetLosses, setVirtualTargetLosses,
         consecutiveTarget, entryDirection,
-        isSmartModeActive,
+        isSmartModeActive, setIsSmartModeActive,
         setSignals
     } = stateAndSetters;
 
@@ -70,7 +70,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const getMarketState = useCallback((symbol: string) => {
         const digits = multiAssetDigits[symbol] || [];
-        if (digits.length < 50) return { confidence: 0, entropy: 1, recommendedVirtualLosses: 1 };
+        if (digits.length < 50) return { confidence: 0, entropy: 1, recommendedVirtualLosses: 1, recommendedDirection: 'AGAINST' };
         
         const evens = digits.slice(0, 50).filter(d => d % 2 === 0).length;
         const odds = 50 - evens;
@@ -78,17 +78,20 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const entropy = calculateEntropy(digits);
         const confidence = Math.floor((70 + (bias * 30)) * (1.2 - (entropy * 0.2)));
         
-        // DECISÃO AUTÔNOMA AMPLIADA: 0 a 4 perdas virtuais
+        // Decisão de Loss Virtual (0-4)
         let recVirtual = 1;
-        if (entropy > 0.96) recVirtual = 4;      // Manipulação extrema/Ruído total
-        else if (entropy > 0.92) recVirtual = 3; // Alta instabilidade
-        else if (entropy > 0.86) recVirtual = 2; // Instabilidade moderada
-        else if (bias > 0.18) recVirtual = 0;    // Tendência fortíssima (Sniper direto)
-        else recVirtual = 1;                     // Mercado padrão
+        if (entropy > 0.96) recVirtual = 4;
+        else if (entropy > 0.92) recVirtual = 3;
+        else if (entropy > 0.86) recVirtual = 2;
+        else if (bias > 0.18) recVirtual = 0;
+        else recVirtual = 1;
+
+        // Decisão de Direção (Tendência vs Reversão)
+        const recDirection = bias > 0.22 ? 'FAVOR' : 'AGAINST';
 
         if (symbol === asset) setCurrentConfidence(Math.min(99, confidence));
         
-        return { confidence, entropy, recommendedVirtualLosses: recVirtual };
+        return { confidence, entropy, recommendedVirtualLosses: recVirtual, recommendedDirection: recDirection };
     }, [multiAssetDigits, asset]);
 
     const fetchDerivHistory = useCallback((symbol: string) => {
@@ -266,6 +269,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const digits = multiAssetDigits[symbol] || [];
         if (activeTrades.current.size > 0 || isStudying || digits.length < 5) return null;
 
+        const { recommendedDirection } = getMarketState(symbol);
+        const direction = isSmartModeActive ? recommendedDirection : entryDirection;
+
         if (martingaleLevel.current > 0 && lastTradedAsset.current === symbol) {
             const contract = lastContractType.current || 'DIGITEVEN';
             return { type: contract === 'DIGITEVEN' ? 'EVEN' : 'ODD', contract, name: 'Recovery', confidence: 99, symbol };
@@ -279,7 +285,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         if (currentStreak >= consecutiveTarget) {
-            const targetType = entryDirection === 'AGAINST' ? (firstParity ? 'ODD' : 'EVEN') : (firstParity ? 'EVEN' : 'ODD');
+            const targetType = direction === 'AGAINST' ? (firstParity ? 'ODD' : 'EVEN') : (firstParity ? 'EVEN' : 'ODD');
             return { 
                 type: targetType, 
                 contract: targetType === 'EVEN' ? 'DIGITEVEN' : 'DIGITODD', 
@@ -289,7 +295,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             };
         }
         return null;
-    }, [multiAssetDigits, consecutiveTarget, entryDirection, isStudying]);
+    }, [multiAssetDigits, consecutiveTarget, entryDirection, isStudying, isSmartModeActive, getMarketState]);
 
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string, symbol: string) => {
         if (!isConnected || isStudying || activeTrades.current.size > 0) return;
