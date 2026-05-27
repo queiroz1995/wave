@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DollarSign, Target, Play, Zap, ListOrdered, BrainCircuit, Sparkles, ShieldAlert } from 'lucide-react';
+import { DollarSign, Target, Play, Zap, ListOrdered, BrainCircuit, Sparkles, ShieldCheck } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
 import { cn } from '@/lib/utils';
 
@@ -30,8 +30,7 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
         stopLoss, setStopLoss,
         consecutiveTarget, setConsecutiveTarget,
         entryDirection, setEntryDirection,
-        isSmartModeActive, setIsSmartModeActive,
-        virtualTargetLosses, setVirtualTargetLosses
+        isSmartModeActive, setIsSmartModeActive
     } = useBotContext();
     
     const [tempStake, setTempStake] = useState(initialStake);
@@ -39,8 +38,7 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
     const [tempStop, setTempStop] = useState(stopLoss);
     const [tempConsecutive, setTempConsecutive] = useState(consecutiveTarget);
     const [tempDirection, setTempDirection] = useState(entryDirection);
-    const [tempSmartActive, setTempSmartActive] = useState(isSmartModeActive);
-    const [tempVirtualLoss, setTempVirtualLoss] = useState(virtualTargetLosses);
+    const [tempSmartActive, setTempSmartActive] = useState(true); // Sempre ativo por padrão agora
 
     useEffect(() => {
         if (isOpen) {
@@ -50,9 +48,8 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
             setTempConsecutive(consecutiveTarget);
             setTempDirection(entryDirection);
             setTempSmartActive(isSmartModeActive);
-            setTempVirtualLoss(virtualTargetLosses);
         }
-    }, [isOpen, initialStake, takeProfit, stopLoss, consecutiveTarget, entryDirection, isSmartModeActive, virtualTargetLosses]);
+    }, [isOpen, initialStake, takeProfit, stopLoss, consecutiveTarget, entryDirection, isSmartModeActive]);
 
     const handleConfirm = () => {
         setInitialStake(tempStake);
@@ -61,7 +58,6 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
         setConsecutiveTarget(tempConsecutive);
         setEntryDirection(tempDirection);
         setIsSmartModeActive(tempSmartActive);
-        setVirtualTargetLosses(tempVirtualLoss);
         onConfirm();
     };
 
@@ -73,23 +69,23 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                         <Zap className="h-6 w-6 text-blue-600 fill-current" />
                     </div>
                     <DialogTitle className="text-2xl font-black uppercase tracking-tighter text-center">Protocolo de Partida</DialogTitle>
-                    <p className="text-center text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">Configure a inteligência de operação</p>
+                    <p className="text-center text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">O I.A Gerencia os filtros para você</p>
                 </DialogHeader>
                 
                 <div className="space-y-6 py-6">
                     <div className={cn(
-                        "p-5 rounded-3xl border-2 transition-all duration-500 space-y-4 relative overflow-hidden",
-                        tempSmartActive ? "bg-blue-600/10 border-blue-500/40 shadow-[0_0_20px_rgba(59,130,246,0.1)]" : "bg-gray-50 border-transparent"
+                        "p-6 rounded-[2rem] border-2 transition-all duration-500 space-y-4 relative overflow-hidden",
+                        tempSmartActive ? "bg-blue-600/10 border-blue-500/40 shadow-[0_0_30px_rgba(59,130,246,0.1)]" : "bg-gray-50 border-transparent"
                     )}>
-                        {tempSmartActive && <div className="absolute top-0 right-0 p-2"><Sparkles className="h-4 w-4 text-blue-500 animate-pulse" /></div>}
+                        {tempSmartActive && <div className="absolute top-0 right-0 p-3"><Sparkles className="h-5 w-5 text-blue-500 animate-pulse" /></div>}
                         <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className={cn("p-2 rounded-xl", tempSmartActive ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-400")}>
-                                    <BrainCircuit className="h-5 w-5" />
+                            <div className="flex items-center gap-4">
+                                <div className={cn("p-3 rounded-2xl shadow-lg", tempSmartActive ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-400")}>
+                                    <BrainCircuit className="h-6 w-6" />
                                 </div>
                                 <div className="space-y-0.5">
-                                    <Label className="text-[11px] font-black uppercase tracking-tight">Modo Smart Neural</Label>
-                                    <p className="text-[8px] font-bold text-muted-foreground uppercase">A I.A decide tudo sozinha</p>
+                                    <Label className="text-sm font-black uppercase tracking-tight">Filtro Inteligente Ativo</Label>
+                                    <p className="text-[9px] font-bold text-blue-600/80 uppercase">Decisão Autônoma de Loss Virtual</p>
                                 </div>
                             </div>
                             <Switch 
@@ -99,22 +95,13 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                         </div>
                     </div>
 
-                    <div className="p-5 rounded-3xl bg-orange-500/5 border border-orange-500/20 space-y-4">
-                        <div className="flex items-center gap-2 mb-2">
-                            <ShieldAlert className="h-4 w-4 text-orange-500" />
-                            <span className="text-[10px] font-black uppercase tracking-widest text-orange-600">Filtro de Perda Virtual</span>
+                    <div className="p-5 rounded-3xl bg-green-500/5 border border-green-500/20 flex items-center gap-4">
+                        <div className="bg-green-500/10 p-2.5 rounded-xl">
+                            <ShieldCheck className="h-5 w-5 text-green-600" />
                         </div>
-                        <div className="space-y-2">
-                            <Label className="text-[9px] font-black uppercase tracking-widest ml-1 opacity-60">Esperar quantos Loss (Perdas)?</Label>
-                            <Input 
-                                type="number"
-                                value={tempVirtualLoss}
-                                onChange={(e) => setTempVirtualLoss(parseInt(e.target.value) || 0)}
-                                min="0"
-                                max="10"
-                                className="h-11 rounded-xl font-black text-center bg-white border-none shadow-sm"
-                            />
-                            <p className="text-[8px] text-muted-foreground text-center uppercase font-bold">O robô aguarda perdas simuladas antes de entrar real</p>
+                        <div>
+                            <p className="text-[10px] font-black uppercase text-green-700 tracking-wider">Proteção de Capital Dinâmica</p>
+                            <p className="text-[8px] text-green-600/70 font-bold uppercase">O Robô analisa o loss e decide quando entrar real</p>
                         </div>
                     </div>
 
