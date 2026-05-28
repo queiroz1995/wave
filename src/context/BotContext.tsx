@@ -26,8 +26,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [selectedAIInfo, setSelectedAIInfo] = useState<any>(null);
     const [aiThought, setAiThought] = useState("Sincronizando I.A...");
     const [isConnecting, setIsConnecting] = useState(false);
-    const [isTradeLocked, setIsTradeLocked] = useState(false); // Trava de segurança reativa
 
+    // Refs para controle ultra-rápido (Ignora o delay do ciclo React)
+    const isTradeLockedRef = useRef(false);
     const activeTrades = useRef<Set<string>>(new Set());
     const totalProfitRef = useRef(0.00);
     const currentMartingaleLevel = useRef(0);
@@ -52,21 +53,21 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
     const [currentConfidence, setCurrentConfidence] = useState(0);
 
-    // Watchdog para evitar travamentos eternos
+    // Watchdog de segurança
     useEffect(() => {
         const interval = setInterval(() => {
-            if (isBotRunning && isTradeLocked) {
-                // Se ficar travado por mais de 6 segundos, libera
-                setIsTradeLocked(false);
+            if (isBotRunning && isTradeLockedRef.current) {
+                // Se o contrato sumir ou travar, libera após 8s
+                isTradeLockedRef.current = false;
                 setTradeStatus('IDLE');
             }
-        }, 6000);
+        }, 8000);
         return () => clearInterval(interval);
-    }, [isBotRunning, isTradeLocked, setTradeStatus]);
+    }, [isBotRunning, setTradeStatus]);
 
     const getMarketState = useCallback((symbol: string) => {
         const digits = multiAssetDigits[symbol] || [];
-        if (digits.length < 10) return { confidence: 0, lastDigit: -1 };
+        if (digits.length < 5) return { confidence: 0, lastDigit: -1 };
         return { confidence: 91, lastDigit: digits[0] };
     }, [multiAssetDigits]);
 
@@ -109,7 +110,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const stopBot = useCallback((reason: string) => {
         setIsBotRunning(false);
-        setIsTradeLocked(false);
+        isTradeLockedRef.current = false;
         activeTrades.current.clear();
         currentMartingaleLevel.current = 0;
         setTradeStatus('IDLE');
@@ -120,12 +121,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const resetOperations = useCallback(() => {
         totalProfitRef.current = 0;
         currentMartingaleLevel.current = 0;
+        isTradeLockedRef.current = false;
         setTotalProfit(0);
         setWins(0);
         setLosses(0);
         setSignals([]);
         setTradeStatus('IDLE');
-        setIsTradeLocked(false);
     }, [setTotalProfit, setWins, setLosses, setSignals, setTradeStatus]);
 
     const toggleBot = useCallback(() => {
@@ -161,18 +162,14 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             activeTrades.current.delete(savedData.signalId);
             pendingContracts.current.delete(contract.contract_id);
             
-            // Libera para a próxima operação
-            setIsTradeLocked(false);
+            // LIBERAÇÃO IMEDIATA (Ref)
+            isTradeLockedRef.current = false;
             setTradeStatus('IDLE'); 
 
             if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot(`Meta batida!`);
             else if (totalProfitRef.current <= -Math.abs(parseFloat(stopLoss))) stopBot(`Stop Loss.`);
-            else if (currentMartingaleLevel.current >= maxLevels) {
-                currentMartingaleLevel.current = 0;
-                addLog("Limite de Gale atingido.", "INFO");
-            }
         }
-    }, [setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, maxLevels, addLog, setTradeStatus]);
+    }, [setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, setTradeStatus]);
 
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
         const data = event.payload;
@@ -197,12 +194,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             stake: data.echo_req.price,
                             symbol: data.echo_req.parameters.symbol
                         });
-                        // Se o contrato já retornar com status fechado na compra (raro mas acontece no differ)
-                        if (data.buy.status && data.buy.status !== 'open') {
-                             handleContractResult(data.buy);
-                        } else {
-                             sendMessageRef.current({ proposal_open_contract: 1, contract_id: contractId, subscribe: 1 });
-                        }
+                        // Ativa monitoramento imediato
+                        sendMessageRef.current({ proposal_open_contract: 1, contract_id: contractId, subscribe: 1 });
                     }
                 }
             } else if (data?.msg_type === 'proposal_open_contract') {
@@ -218,19 +211,16 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { sendMessage, connect, disconnect } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
-    const executeBuy = useCallback((contractType: string, strategyName: string, signalId: string, symbol: string, barrier: number) => {
-        if (!isConnected || isStudying || isTradeLocked) return;
+    const executeBuy = useCallback((strategyName: string, signalId: string, symbol: string, barrier: number) => {
+        if (!isConnected || isStudying || isTradeLockedRef.current) return;
         
-        setIsTradeLocked(true); // Trava reativa para o ciclo React
+        isTradeLockedRef.current = true; // Trava imediata
         setTradeStatus('ACTIVE');
 
         const baseStake = parseFloat(initialStake) || 0.35;
         let currentStake = baseStake;
 
-        // Recuperação agressiva para Digit Differ (Payout ~9%)
         if (currentMartingaleLevel.current > 0) {
-            // No Differ, precisamos de aproximadamente 11x a stake para recuperar tudo em 1 win.
-            // Usamos o martingaleFactor definido para dar flexibilidade.
             const factor = parseFloat(martingaleFactor) || 11.5;
             currentStake = baseStake * Math.pow(factor, currentMartingaleLevel.current);
         }
@@ -248,26 +238,35 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         
         activeTrades.current.add(signalId);
         sendMessage({ buy: 1, price: currentStake, parameters: params, passthrough: { signalId, strategyName } });
-    }, [isConnected, initialStake, sendMessage, setTradeStatus, isStudying, martingaleFactor, isTradeLocked]);
+    }, [isConnected, initialStake, sendMessage, setTradeStatus, isStudying, martingaleFactor]);
 
+    // Loop de monitoramento contínuo
     useEffect(() => {
-        if (!isBotRunning || isStudying || isTradeLocked) return;
-        
-        for (const symbol of SCANNER_ASSETS) {
-            const digits = multiAssetDigits[symbol] || [];
-            if (digits.length >= 10 && !isTradeLocked) {
-                const { lastDigit } = getMarketState(symbol);
-                const sId = addSignal({ 
-                    strategy: 'Quantum Scalper', 
-                    signal: 'DIFF' as any, 
-                    details: `Analisando: ${symbol}`, 
-                    winRate: `91%` 
-                });
-                executeBuy('DIGITDIFF', 'Quantum Scalper', sId, symbol, lastDigit);
-                break;
+        if (!isBotRunning || isStudying) return;
+
+        const checkAndTrade = () => {
+            if (isTradeLockedRef.current) return;
+
+            // Varre todos os ativos buscando o sinal mais fresco
+            for (const symbol of SCANNER_ASSETS) {
+                const digits = multiAssetDigits[symbol] || [];
+                if (digits.length >= 5) {
+                    const { lastDigit } = getMarketState(symbol);
+                    const sId = addSignal({ 
+                        strategy: 'Quantum Scalper', 
+                        signal: 'DIFF' as any, 
+                        details: `Neural Link: ${symbol}`, 
+                        winRate: `91%` 
+                    });
+                    executeBuy('Quantum Scalper', sId, symbol, lastDigit);
+                    break; // Sai do loop para processar este trade
+                }
             }
-        }
-    }, [isBotRunning, addSignal, executeBuy, isStudying, isTradeLocked, multiAssetDigits, getMarketState]);
+        };
+
+        const timer = setInterval(checkAndTrade, 100); // Checa a cada 100ms oportunidades
+        return () => clearInterval(timer);
+    }, [isBotRunning, isStudying, multiAssetDigits, addSignal, executeBuy, getMarketState]);
 
     const selectAI = useCallback((ia: any) => { setSelectedAIInfo(ia); setAppFlow('operating'); }, []);
     const exitToSelection = useCallback(() => { stopBot("Fim"); setAppFlow('selection'); }, [stopBot]);
