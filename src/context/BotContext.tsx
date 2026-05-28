@@ -30,6 +30,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const activeTrades = useRef<Set<string>>(new Set());
     const totalProfitRef = useRef(0.00);
+    const currentMartingaleLevel = useRef(0);
     const pendingContracts = useRef<Map<number, any>>(new Map());
     const reconnectAttemptsRef = useRef(0);
     const sendMessageRef = useRef<(payload: any) => void>(() => {});
@@ -42,7 +43,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         multiAssetDigits, setMultiAssetDigits,
         setTradeStatus, isBotRunning, setActiveStrategy, activeStrategy,
         accountType, realToken, demoToken,
-        takeProfit, stopLoss,
+        takeProfit, stopLoss, martingaleFactor, maxLevels,
         isStudying, setIsStudying, setStudyTicksCount,
         setSignals
     } = stateAndSetters;
@@ -51,7 +52,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
     const [currentConfidence, setCurrentConfidence] = useState(0);
 
-    // Watchdog mais agressivo para destravar trades
     useEffect(() => {
         const interval = setInterval(() => {
             if (isBotRunning && activeTrades.current.size > 0) {
@@ -113,6 +113,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const stopBot = useCallback((reason: string) => {
         setIsBotRunning(false);
         activeTrades.current.clear();
+        currentMartingaleLevel.current = 0;
         setTradeStatus('IDLE');
         setAiThought(`Meta Atingida.`);
         addLog(reason, 'INFO');
@@ -120,6 +121,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const resetOperations = useCallback(() => {
         totalProfitRef.current = 0;
+        currentMartingaleLevel.current = 0;
         setTotalProfit(0);
         setWins(0);
         setLosses(0);
@@ -161,7 +163,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             stake: data.echo_req.price,
                             symbol: data.echo_req.parameters.symbol
                         });
-                        // Inscreve para receber atualizações do contrato
                         sendMessageRef.current({ proposal_open_contract: 1, contract_id: contractId, subscribe: 1 });
                     }
                 }
@@ -177,8 +178,15 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         totalProfitRef.current += profitValue;
                         setTotalProfit(totalProfitRef.current);
 
-                        if (isLoss) setLosses((prev: number) => prev + 1);
-                        else setWins((prev: number) => prev + 1);
+                        if (isLoss) {
+                            setLosses((prev: number) => prev + 1);
+                            currentMartingaleLevel.current += 1;
+                            setAiThought(`Loss detectado. Aplicando Gale Nível ${currentMartingaleLevel.current}...`);
+                        } else {
+                            setWins((prev: number) => prev + 1);
+                            currentMartingaleLevel.current = 0; // Reset no win
+                            setAiThought("Lucro computado. Buscando nova entrada...");
+                        }
 
                         updateSignalResult(savedData.signalId, isLoss ? 'LOSS' : 'WIN', profitValue, savedData.stake, exitDigit);
                         activeTrades.current.delete(savedData.signalId);
@@ -187,11 +195,16 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
                         if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot(`Meta batida!`);
                         else if (totalProfitRef.current <= -Math.abs(parseFloat(stopLoss))) stopBot(`Stop Loss.`);
+                        else if (currentMartingaleLevel.current >= maxLevels) {
+                            currentMartingaleLevel.current = 0;
+                            setAiThought("Limite de Gale atingido. Resetando ciclo.");
+                            addLog("Max Gale atingido. Resetando stake.", "INFO");
+                        }
                     }
                 }
             }
         }
-    }, [processTickData, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot]);
+    }, [processTickData, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, maxLevels]);
 
     const ws = useTradingWebSocketManager({ isConnected, status, setIsConnected, setStatus, setAccountBalance, onMessage: handleWebSocketMessage, reconnectAttemptsRef });
     const { sendMessage, connect, disconnect } = ws;
@@ -199,10 +212,20 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const executeBuy = useCallback((contractType: string, strategyName: string, signalId: string, symbol: string, barrier: number) => {
         if (!isConnected || isStudying || activeTrades.current.size > 0) return;
+        
         const baseStake = parseFloat(initialStake) || 0.35;
+        let currentStake = baseStake;
+
+        // Lógica de Martingale para Digit Differ (Payout de ~9%)
+        // Para recuperar rápido no Differ, o multiplicador precisa ser alto (~11x)
+        // Mas vamos usar o fator configurado pelo usuário para respeitar a gestão.
+        if (currentMartingaleLevel.current > 0) {
+            const factor = parseFloat(martingaleFactor) || 2.1;
+            currentStake = baseStake * Math.pow(factor, currentMartingaleLevel.current);
+        }
         
         const params: any = { 
-            amount: baseStake, 
+            amount: parseFloat(currentStake.toFixed(2)), 
             basis: 'stake', 
             contract_type: 'DIGITDIFF', 
             currency: 'USD', 
@@ -214,8 +237,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         
         activeTrades.current.add(signalId);
         setTradeStatus('ACTIVE');
-        sendMessage({ buy: 1, price: baseStake, parameters: params, passthrough: { signalId, strategyName } });
-    }, [isConnected, initialStake, sendMessage, setTradeStatus, isStudying]);
+        sendMessage({ buy: 1, price: currentStake, parameters: params, passthrough: { signalId, strategyName } });
+    }, [isConnected, initialStake, sendMessage, setTradeStatus, isStudying, martingaleFactor]);
 
     const calculateTradeSignals = useCallback((symbol: string) => {
         const digits = multiAssetDigits[symbol] || [];
