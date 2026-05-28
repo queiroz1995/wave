@@ -49,13 +49,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTradeStatus, isBotRunning, setActiveStrategy, activeStrategy,
         accountType, realToken, demoToken,
         takeProfit, stopLoss, martingaleFactor,
-        setNeuralPredictions,
         isStudying, setIsStudying, setStudyTicksCount,
         virtualLossStreak, setVirtualLossStreak,
         virtualTargetLosses, setVirtualTargetLosses,
-        consecutiveTarget, entryDirection,
-        isSmartModeActive, setIsSmartModeActive,
-        setSignals
+        consecutiveTarget, isSmartModeActive, setSignals
     } = stateAndSetters;
 
     const [isConnected, setIsConnected] = useState(false);
@@ -66,11 +63,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     useEffect(() => {
         const interval = setInterval(() => {
             if (isBotRunning && activeTrades.current.size > 0) {
-                // Se uma operação demorar mais de 15 segundos, limpamos para não travar o bot
                 setAiThought("Watchdog: Verificando integridade dos sinais...");
-                if (activeTrades.current.size > 0) {
-                    setTradeStatus('IDLE');
-                }
+                setTradeStatus('IDLE');
             }
         }, 15000);
         return () => clearInterval(interval);
@@ -86,34 +80,23 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const getMarketState = useCallback((symbol: string) => {
         const digits = multiAssetDigits[symbol] || [];
-        if (digits.length < 50) return { confidence: 0, entropy: 1, recommendedVirtualLosses: 1, recommendedDirection: 'AGAINST', isStable: false, topDigits: [], evensPercentage: 50 };
+        if (digits.length < 50) return { confidence: 0, entropy: 1, topDigits: [], evensPercentage: 50, coldDigits: [] };
         
         const counts = new Array(10).fill(0);
         digits.slice(0, 100).forEach(d => counts[d]++);
         
         const digitStats = counts.map((count, digit) => ({ digit, count }));
-        const topDigits = [...digitStats].sort((a, b) => b.count - a.count).slice(0, 5).map(d => d.digit);
+        const topDigits = [...digitStats].sort((a, b) => b.count - a.count).slice(0, 3).map(d => d.digit);
+        const coldDigits = [...digitStats].sort((a, b) => a.count - b.count).slice(0, 3).map(d => d.digit);
 
         const evensCount = digits.slice(0, 100).filter(d => d % 2 === 0).length;
-        const evensPercentage = evensCount; 
-        
-        const bias = Math.abs(50 - evensPercentage) / 100;
         const entropy = calculateEntropy(digits);
-        const confidence = Math.floor((70 + (bias * 60)) * (1.2 - (entropy * 0.2)));
+        const bias = Math.abs(50 - evensCount) / 100;
+        const confidence = Math.floor((75 + (bias * 50)) * (1.1 - (entropy * 0.1)));
         
-        let recVirtual = 1;
-        if (entropy > 0.96) recVirtual = 4;
-        else if (entropy > 0.92) recVirtual = 3;
-        else if (entropy > 0.86) recVirtual = 2;
-        else if (bias > 0.15) recVirtual = 0;
-        else recVirtual = 1;
-
-        const recDirection = evensPercentage > 50 ? 'FAVOR' : 'AGAINST';
-        const isStable = entropy < 0.90 && bias < 0.30;
-
         if (symbol === asset) setCurrentConfidence(Math.min(99, confidence));
         
-        return { confidence, entropy, recommendedVirtualLosses: recVirtual, recommendedDirection: recDirection, isStable, topDigits, evensPercentage };
+        return { confidence, entropy, topDigits, coldDigits, evensPercentage: evensCount };
     }, [multiAssetDigits, asset]);
 
     const fetchDerivHistory = useCallback((symbol: string) => {
@@ -147,33 +130,20 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return { ...prev, [symbol]: newHistory };
         });
 
-        const { recommendedVirtualLosses } = getMarketState(symbol);
-
         if (virtualTradePending && virtualTradePending.symbol === symbol) {
             let win = false;
             if (virtualTradePending.contract === 'DIGITEVEN') win = lastDigit % 2 === 0;
             else if (virtualTradePending.contract === 'DIGITODD') win = lastDigit % 2 !== 0;
-            else if (virtualTradePending.contract === 'DIGITMATCH') win = lastDigit === virtualTradePending.barrier;
+            else if (virtualTradePending.contract === 'DIGITOVER') win = lastDigit > virtualTradePending.barrier;
+            else if (virtualTradePending.contract === 'DIGITUNDER') win = lastDigit < virtualTradePending.barrier;
 
             if (win) {
                 setVirtualLossStreak(0);
                 updateSignalResult(virtualTradePending.signalId, 'WIN', 0, 0, lastDigit);
-                setAiThought(`Refração em ${symbol}. Reiniciando proteção.`);
             } else {
                 const nextStreak = virtualLossStreak + 1;
                 setVirtualLossStreak(nextStreak);
                 updateSignalResult(virtualTradePending.signalId, 'LOSS', 0, 0, lastDigit);
-                
-                const target = isSmartModeActive ? recommendedVirtualLosses : virtualTargetLosses;
-                
-                if (nextStreak >= target) {
-                    setAiThought(`Proteção atingida em ${symbol}. Liberando Sniper!`);
-                    if (isGalePausedForFilter.current && symbol === lastTradedAsset.current) {
-                        isGalePausedForFilter.current = false;
-                    }
-                } else {
-                    setAiThought(`Filtro Anti-Manipulação: +${target - nextStreak} Loss Virtual.`);
-                }
             }
             setVirtualTradePending(null);
         }
@@ -188,17 +158,16 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 return next;
             });
         }
-    }, [asset, getMarketState, isStudying, setIsStudying, setStudyTicksCount, virtualTradePending, virtualLossStreak, virtualTargetLosses, isSmartModeActive, updateSignalResult]);
+    }, [asset, isStudying, setIsStudying, setStudyTicksCount, virtualTradePending, virtualLossStreak, updateSignalResult, setLastDigits, setLastTickEpoch, setMultiAssetDigits]);
 
     const stopBot = useCallback((reason: string) => {
         setIsBotRunning(false);
         activeTrades.current.clear();
         martingaleLevel.current = 0;
-        isGalePausedForFilter.current = false;
         setVirtualLossStreak(0);
         setVirtualTradePending(null);
         setTradeStatus('IDLE');
-        setAiThought(`Sessão Encerrada: ${reason}`);
+        setAiThought(`Sessão Encerrada.`);
         addLog(reason, 'INFO');
     }, [setIsBotRunning, addLog, setTradeStatus]);
 
@@ -209,26 +178,21 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setLosses(0);
         setSignals([]);
         martingaleLevel.current = 0;
-        isGalePausedForFilter.current = false;
         setVirtualLossStreak(0);
         setVirtualTradePending(null);
         setTradeStatus('IDLE');
-        addLog("Operações Reiniciadas.", "INFO");
-    }, [setTotalProfit, setWins, setLosses, setSignals, setVirtualLossStreak, addLog, setTradeStatus]);
+    }, [setTotalProfit, setWins, setLosses, setSignals, setTradeStatus]);
 
     const toggleBot = useCallback(() => {
-        if (!isConnected) {
-            addLog("Conecte-se antes de iniciar.", "ERROR");
-            return;
-        }
-        if (isBotRunning) stopBot("Sniper Parado Manualmente");
+        if (!isConnected) return;
+        if (isBotRunning) stopBot("Sniper Parado");
         else { 
             setIsBotRunning(true); 
             resetOperations();
             setIsStudying(true);
-            setAiThought("Varrendo ativos por manipulação...");
+            setAiThought("Analisando micro-tendências...");
         }
-    }, [isConnected, isBotRunning, stopBot, resetOperations, addLog]);
+    }, [isConnected, isBotRunning, stopBot, resetOperations]);
 
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
         const data = event.payload;
@@ -255,9 +219,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     }
                     setTradeStatus('ACTIVE'); 
                     sendMessageRef.current({ proposal_open_contract: 1, contract_id: data.buy.contract_id, subscribe: 1 });
-                } else if (data.error) {
-                    setTradeStatus('IDLE');
-                    addLog(`Erro na compra: ${data.error.message}`, "ERROR");
                 }
             } else if (data?.msg_type === 'proposal_open_contract') {
                 const contract = data.proposal_open_contract;
@@ -273,24 +234,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
                         if (isLoss) {
                             setLosses((prev: number) => prev + 1);
-                            
-                            if (activeStrategy !== 'frequencySniper') {
-                                martingaleLevel.current += 1;
-                                const { isStable } = getMarketState(savedData.symbol);
-                                if (!isStable) {
-                                    isGalePausedForFilter.current = true;
-                                    setVirtualLossStreak(0);
-                                    setAiThought("Ciclo instável detectado! Pausando Gale.");
-                                }
-                            } else {
-                                setAiThought("Derrota no dígito. Mantendo stake fixa.");
-                            }
+                            martingaleLevel.current += 1;
                         } else {
                             setWins((prev: number) => prev + 1);
                             martingaleLevel.current = 0;
-                            isGalePausedForFilter.current = false;
-                            setVirtualLossStreak(0);
-                            setAiThought("Operação Neutralizada com Sucesso.");
+                            setAiThought("Alvo neutralizado com lucro.");
                         }
 
                         updateSignalResult(savedData.signalId, isLoss ? 'LOSS' : 'WIN', profitValue, savedData.stake, exitDigit);
@@ -298,27 +246,24 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         pendingContracts.current.delete(contract.contract_id);
                         setTradeStatus('IDLE'); 
 
-                        const tp = parseFloat(takeProfit);
-                        const sl = parseFloat(stopLoss);
-
-                        if (totalProfitRef.current >= tp) stopBot(`Meta batida! (+$${totalProfitRef.current.toFixed(2)})`);
-                        else if (totalProfitRef.current <= -Math.abs(sl)) stopBot(`Stop Loss atingido. (-$${Math.abs(totalProfitRef.current).toFixed(2)})`);
+                        if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot(`Meta batida!`);
+                        else if (totalProfitRef.current <= -Math.abs(parseFloat(stopLoss))) stopBot(`Stop Loss.`);
                     }
                 }
             }
         }
-    }, [processTickData, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, getMarketState, activeStrategy, addLog]);
+    }, [processTickData, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot]);
 
     const ws = useTradingWebSocketManager({ isConnected, status, setIsConnected, setStatus, setAccountBalance, onMessage: handleWebSocketMessage, reconnectAttemptsRef });
     const { sendMessage, connect, disconnect } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string, symbol: string, barrier?: number) => {
-        if (!isConnected || isStudying || activeTrades.current.size >= 10) return;
+        if (!isConnected || isStudying || activeTrades.current.size > 0) return;
         const baseStake = parseFloat(initialStake) || 0.35;
         
         let stakeToUse = baseStake;
-        if (activeStrategy !== 'frequencySniper' && martingaleLevel.current > 0) {
+        if (martingaleLevel.current > 0) {
             const mgFactor = parseFloat(martingaleFactor) || 2.1;
             stakeToUse = baseStake * Math.pow(mgFactor, martingaleLevel.current);
         }
@@ -340,68 +285,57 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeTrades.current.add(signalId);
         setTradeStatus('SENDING');
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params, passthrough: { signalId, strategyName } });
-    }, [isConnected, initialStake, sendMessage, setTradeStatus, martingaleFactor, isStudying, activeStrategy]);
+    }, [isConnected, initialStake, sendMessage, setTradeStatus, martingaleFactor, isStudying]);
 
     const calculateTradeSignals = useCallback((symbol: string) => {
         const digits = multiAssetDigits[symbol] || [];
-        if (activeTrades.current.size > 0 || isStudying || digits.length < 5) return [];
+        if (activeTrades.current.size > 0 || isStudying || digits.length < 10) return [];
 
-        if (isGalePausedForFilter.current && symbol === lastTradedAsset.current) return [];
+        const { coldDigits, evensPercentage, entropy } = getMarketState(symbol);
 
-        const { topDigits, evensPercentage } = getMarketState(symbol);
-
-        // Inteligência Superior para Frequency Sniper
+        // Lógica Inteligente Neural Sniper (Substituindo o Digit Match arriscado)
         if (activeStrategy === 'frequencySniper') {
-            let targetDigits = topDigits;
-            let strategyName = 'FREQ: TOP 5';
-
-            if (evensPercentage > 56) {
-                targetDigits = [0, 2, 4, 6, 8];
-                strategyName = 'FREQ: FULL EVENS';
-                if (symbol === asset) setAiThought("Dominância de Pares! Snipando bloco 0-2-4-6-8.");
-            } else if (evensPercentage < 44) {
-                targetDigits = [1, 3, 5, 7, 9];
-                strategyName = 'FREQ: FULL ODDS';
-                if (symbol === asset) setAiThought("Dominância de Ímpares! Snipando bloco 1-3-5-7-9.");
-            } else {
-                if (symbol === asset) setAiThought("Mercado Lateral. Snipando os 5 dígitos mais frequentes.");
+            // Caso 1: Estabilidade para Over 2 (Dígitos baixos sumiram)
+            const lowDigitsCold = coldDigits.filter(d => d <= 2).length >= 2;
+            if (lowDigitsCold && entropy < 0.92) {
+                if (symbol === asset) setAiThought("Detectada zona fria (0-2). Atacando Over 2.");
+                return [{ type: 'OVER', contract: 'DIGITOVER', barrier: 2, name: 'Neural: Over 2', confidence: 88, symbol }];
             }
 
-            return targetDigits.map(digit => ({
-                type: `MATCH_${digit}`,
-                contract: 'DIGITMATCH',
-                barrier: digit,
-                name: strategyName,
-                confidence: 90,
-                symbol
-            }));
+            // Caso 2: Estabilidade para Under 7 (Dígitos altos sumiram)
+            const highDigitsCold = coldDigits.filter(d => d >= 7).length >= 2;
+            if (highDigitsCold && entropy < 0.92) {
+                if (symbol === asset) setAiThought("Detectada zona fria (7-9). Atacando Under 7.");
+                return [{ type: 'UNDER', contract: 'DIGITUNDER', barrier: 7, name: 'Neural: Under 7', confidence: 88, symbol }];
+            }
+
+            // Caso 3: Desequilíbrio de Paridade (Entrada de Reversão Inteligente)
+            if (evensPercentage > 62) {
+                if (symbol === asset) setAiThought("Saturação de Pares. Snipando Ímpar.");
+                return [{ type: 'ODD', contract: 'DIGITODD', name: 'Neural: Reversão Ímpar', confidence: 82, symbol }];
+            } else if (evensPercentage < 38) {
+                if (symbol === asset) setAiThought("Saturação de Ímpares. Snipando Par.");
+                return [{ type: 'EVEN', contract: 'DIGITEVEN', name: 'Neural: Reversão Par', confidence: 82, symbol }];
+            }
         }
 
         // WAVE original
-        if (martingaleLevel.current > 0 && lastTradedAsset.current === symbol) {
-            const contract = lastContractType.current || 'DIGITEVEN';
-            return [{ type: contract === 'DIGITEVEN' ? 'EVEN' : 'ODD', contract, name: 'Recovery (Gale)', confidence: 99, symbol }];
-        }
+        if (activeStrategy === 'trendSurfer') {
+            let currentStreak = 1;
+            const firstParity = digits[0] % 2 === 0;
+            for (let i = 1; i < digits.length; i++) {
+                if ((digits[i] % 2 === 0) === firstParity) currentStreak++;
+                else break;
+            }
 
-        let currentStreak = 1;
-        const firstParity = digits[0] % 2 === 0;
-        for (let i = 1; i < digits.length; i++) {
-            if ((digits[i] % 2 === 0) === firstParity) currentStreak++;
-            else break;
+            if (currentStreak >= consecutiveTarget) {
+                const targetType = firstParity ? 'ODD' : 'EVEN';
+                return [{ type: targetType, contract: targetType === 'EVEN' ? 'DIGITEVEN' : 'DIGITODD', name: 'WAVE: Against', confidence: 85, symbol }];
+            }
         }
-
-        if (currentStreak >= consecutiveTarget) {
-            const targetType = firstParity ? 'ODD' : 'EVEN';
-            return [{ 
-                type: targetType, 
-                contract: targetType === 'EVEN' ? 'DIGITEVEN' : 'DIGITODD', 
-                name: 'WAVE', 
-                confidence: 85 + (currentStreak * 2), 
-                symbol 
-            }];
-        }
+        
         return [];
-    }, [multiAssetDigits, consecutiveTarget, isStudying, getMarketState, activeStrategy, asset]);
+    }, [multiAssetDigits, isStudying, getMarketState, activeStrategy, asset, consecutiveTarget]);
 
     useEffect(() => {
         if (!isBotRunning || isStudying) return;
@@ -409,41 +343,20 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         for (const symbol of SCANNER_ASSETS) {
             const signalsFound = calculateTradeSignals(symbol);
             if (signalsFound.length > 0) {
-                const { recommendedVirtualLosses } = getMarketState(symbol);
-                const target = isSmartModeActive ? recommendedVirtualLosses : virtualTargetLosses;
-                
-                const mainSignal = signalsFound[0];
-                const isRecovery = mainSignal.name.includes('Recovery');
-                const needsVirtual = target > 0 && virtualLossStreak < target;
-                
-                if (needsVirtual) {
-                    if (!virtualTradePending) {
-                        const sId = addSignal({ 
-                            strategy: isRecovery ? `VIRTUAL (RECOVERY)` : `VIRTUAL (IA)`, 
-                            signal: mainSignal.type as any, 
-                            details: `Filtro de segurança em ${symbol}`, 
-                            winRate: `${mainSignal.confidence}%` 
-                        });
-                        setVirtualTradePending({ ...mainSignal, signalId: sId, symbol });
-                    }
-                    break;
-                }
-                
                 if (activeTrades.current.size === 0) {
-                    signalsFound.forEach((signal: any) => {
-                        const sId = addSignal({ 
-                            strategy: signal.name, 
-                            signal: signal.type as any, 
-                            details: signal.contract === 'DIGITMATCH' ? `Dígito: ${signal.barrier}` : `Sniper Real em ${symbol}`, 
-                            winRate: `${signal.confidence}%` 
-                        });
-                        executeBuy(signal.contract as ContractType, signal.name, sId, symbol, signal.barrier);
+                    const signal = signalsFound[0];
+                    const sId = addSignal({ 
+                        strategy: signal.name, 
+                        signal: signal.type as any, 
+                        details: `Neural Core Synced: ${symbol}`, 
+                        winRate: `${signal.confidence}%` 
                     });
+                    executeBuy(signal.contract as ContractType, signal.name, sId, symbol, (signal as any).barrier);
                     break;
                 }
             }
         }
-    }, [isBotRunning, calculateTradeSignals, addSignal, executeBuy, isStudying, virtualTradePending, virtualLossStreak, virtualTargetLosses, isSmartModeActive, getMarketState]);
+    }, [isBotRunning, calculateTradeSignals, addSignal, executeBuy, isStudying]);
 
     const selectAI = useCallback((ia: any) => { setSelectedAIInfo(ia); setActiveStrategy(ia.id); setAppFlow('operating'); }, [setActiveStrategy]);
     const exitToSelection = useCallback(() => { stopBot("Sessão Finalizada"); setAppFlow('selection'); }, [stopBot]);

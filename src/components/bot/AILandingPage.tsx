@@ -3,7 +3,7 @@
 import React from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { StrategyAICard } from './StrategyAICard';
-import { Sparkles, Zap, Target, BarChart3 } from 'lucide-react';
+import { Zap } from 'lucide-react';
 
 const strategies = [
     { 
@@ -12,17 +12,17 @@ const strategies = [
         style: "Especialista em Paridade", 
         image: "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&q=80&w=600",
         color: "blue",
-        description: "Inteligência Artificial de alta frequência focada em padrões de Par e Ímpar com taxa de confiança dinâmica.",
+        description: "Inteligência Artificial focada em sequências de repetição. Opera contra a tendência de paridade com alta precisão.",
         compatibleModes: ['evenOdd'] 
     },
     { 
         id: "frequencySniper", 
-        name: "NÚCLEO FREQUENCY", 
-        style: "Analista de Probabilidade", 
+        name: "NEURAL SNIPER", 
+        style: "Analista de Zonas Mortas", 
         image: "https://images.unsplash.com/photo-1531746790731-6c087fecd05a?auto=format&fit=crop&q=80&w=600",
         color: "orange",
-        description: "Identifica os 5 dígitos mais fortes do mercado e opera simultaneamente para capturar o maior valor de retorno.",
-        compatibleModes: ['digitMatch'] 
+        description: "Mapeia dígitos em desuso e opera Over/Under em zonas de segurança. Muito mais estável e inteligente.",
+        compatibleModes: ['overUnder'] 
     }
 ];
 
