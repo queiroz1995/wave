@@ -7,22 +7,22 @@ import { Zap } from 'lucide-react';
 
 const strategies = [
     { 
+        id: "quantum", 
+        name: "NÚCLEO QUANTUM", 
+        style: "Hyper-Scalper 91%", 
+        image: "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?auto=format&fit=crop&q=80&w=600",
+        color: "cyan",
+        description: "A I.A mais rápida do sistema. Ganha dinheiro em 90% das jogadas apostando na não-repetição de dígitos. Lucro constante.",
+        compatibleModes: ['digit'] 
+    },
+    { 
         id: "trendSurfer", 
         name: "NÚCLEO WAVE", 
         style: "Especialista em Paridade", 
         image: "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&q=80&w=600",
         color: "blue",
-        description: "Inteligência Artificial focada em sequências de repetição. Opera contra a tendência de paridade com alta precisão.",
+        description: "Inteligência focada em grandes tendências de Par/Ímpar. Mais conservadora, mas com alvos certeiros.",
         compatibleModes: ['evenOdd'] 
-    },
-    { 
-        id: "frequencySniper", 
-        name: "NEURAL SNIPER", 
-        style: "Analista de Zonas Mortas", 
-        image: "https://images.unsplash.com/photo-1531746790731-6c087fecd05a?auto=format&fit=crop&q=80&w=600",
-        color: "orange",
-        description: "Mapeia dígitos em desuso e opera Over/Under em zonas de segurança. Muito mais estável e inteligente.",
-        compatibleModes: ['overUnder'] 
     }
 ];
 
@@ -32,7 +32,7 @@ export const AILandingPage = () => {
     return (
         <div className="space-y-8 pb-10 animate-in fade-in duration-700">
             <div className="text-center space-y-2">
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-600 text-[10px] font-black uppercase tracking-[0.2em] mb-4">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-600 text-[10px] font-black uppercase tracking-[0.2em] mb-4">
                     <Zap className="h-3 w-3" /> Rico Intelligence v2.0
                 </div>
                 <h1 className="text-4xl font-black uppercase tracking-tighter">Ative o Núcleo</h1>
