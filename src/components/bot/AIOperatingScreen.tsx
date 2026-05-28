@@ -17,8 +17,7 @@ export const AIOperatingScreen = () => {
         status, signals,
         handleConnect, accountType, realToken, demoToken,
         isPaused, isManipulationDetected,
-        isStudying, studyTicksCount,
-        isSoundEnabled, setIsSoundEnabled,
+        isStudying,
         currentConfidence,
         aiThought
     } = useBotContext();
@@ -46,6 +45,15 @@ export const AIOperatingScreen = () => {
         if (signal.startsWith('MATCH_')) {
             text = `DÍGITO ${signal.split('_')[1]}`;
             baseColor = 'bg-orange-50 text-orange-600 border-orange-100';
+        } else if (signal === 'DIFF') {
+            text = 'DIFERENTE';
+            baseColor = 'bg-cyan-50 text-cyan-600 border-cyan-100';
+        } else if (signal === 'OVER') {
+            text = 'ACIMA';
+            baseColor = 'bg-green-50 text-green-600 border-green-100';
+        } else if (signal === 'UNDER') {
+            text = 'ABAIXO';
+            baseColor = 'bg-red-50 text-red-600 border-red-100';
         } else {
             switch (signal) {
                 case 'EVEN': 
@@ -54,14 +62,6 @@ export const AIOperatingScreen = () => {
                     break;
                 case 'ODD': 
                     text = 'ÍMPAR'; 
-                    baseColor = isVirtual ? 'bg-blue-50 text-blue-500 border-blue-100' : 'bg-red-50 text-red-600 border-red-100';
-                    break;
-                case 'CALL': 
-                    text = 'SOBE'; 
-                    baseColor = isVirtual ? 'bg-blue-50 text-blue-500 border-blue-100' : 'bg-green-50 text-green-600 border-green-100';
-                    break;
-                case 'PUT': 
-                    text = 'DESCE'; 
                     baseColor = isVirtual ? 'bg-blue-50 text-blue-500 border-blue-100' : 'bg-red-50 text-red-600 border-red-100';
                     break;
                 default: 
@@ -76,45 +76,44 @@ export const AIOperatingScreen = () => {
     return (
         <div className="w-full max-w-md mx-auto space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-700 px-3 pb-10">
             
-            {/* HUD de Status - Estilo Pílula */}
+            {/* HUD de Status */}
             <div className="flex items-center justify-between bg-white/40 backdrop-blur-md border border-white/60 p-2 px-4 rounded-full shadow-sm">
                 <div className="flex items-center gap-2">
                     <div className={cn("h-2 w-2 rounded-full", isBotRunning ? "bg-green-500 animate-pulse" : "bg-gray-300")} />
                     <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                        {isBotRunning ? (isStudying ? "Sincronizando" : "Sniper Ativo") : "Standby"}
+                        {isBotRunning ? (isStudying ? "Quantum Scanning" : "Quantum Link Ativo") : "Standby"}
                     </span>
                 </div>
                 {isBotRunning && !isStudying && (
-                    <div className="flex items-center gap-1.5 bg-primary/10 px-3 py-0.5 rounded-full border border-primary/20">
-                        <Activity className="h-3 w-3 text-primary" />
-                        <span className="text-[10px] font-black text-primary">{currentConfidence}%</span>
+                    <div className="flex items-center gap-1.5 bg-cyan-500/10 px-3 py-0.5 rounded-full border border-cyan-500/20">
+                        <Activity className="h-3 w-3 text-cyan-600" />
+                        <span className="text-[10px] font-black text-cyan-600">{currentConfidence}%</span>
                     </div>
                 )}
             </div>
 
-            {/* Card Principal - Premium Glass */}
+            {/* Card Principal */}
             <Card className="bg-white/80 backdrop-blur-2xl border-white/40 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.1)] rounded-[2.5rem] sm:rounded-[3rem] overflow-hidden relative">
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-500/20 to-transparent" />
                 
                 <CardContent className="p-6 sm:p-8 space-y-6 sm:space-y-8">
-                    {/* Header do Robô */}
                     <div className="flex justify-between items-center">
                         <div className="flex items-center gap-3 sm:gap-4">
                             <div className="relative">
-                                <div className="absolute -inset-1 bg-primary/20 rounded-2xl blur-sm" />
+                                <div className="absolute -inset-1 bg-cyan-500/20 rounded-2xl blur-sm" />
                                 <div className="h-12 w-12 sm:h-14 sm:w-14 bg-white rounded-2xl p-1 shadow-sm border border-gray-100 overflow-hidden relative">
                                     {selectedAIInfo?.image ? (
                                         <img src={selectedAIInfo.image} alt="" className="w-full h-full object-cover rounded-xl" />
                                     ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-gray-50"><Bot className="h-6 w-6 text-primary" /></div>
+                                        <div className="w-full h-full flex items-center justify-center bg-gray-50"><Bot className="h-6 w-6 text-cyan-600" /></div>
                                     )}
                                 </div>
                             </div>
                             <div>
                                 <h2 className="text-base sm:text-lg font-black uppercase tracking-tighter italic leading-none">
-                                    {selectedAIInfo?.name || "SNIPER CORE"}
+                                    {selectedAIInfo?.name || "QUANTUM CORE"}
                                 </h2>
-                                <p className="text-[8px] sm:text-[9px] font-black text-primary uppercase tracking-[0.3em] mt-1">Neural Core v2.0</p>
+                                <p className="text-[8px] sm:text-[9px] font-black text-cyan-600 uppercase tracking-[0.3em] mt-1">Sincronia Neural v2.1</p>
                             </div>
                         </div>
                         
@@ -130,20 +129,18 @@ export const AIOperatingScreen = () => {
                         </div>
                     </div>
 
-                    {/* Display de Lucro */}
                     <div className="text-center py-2 sm:py-4 relative">
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-primary/5 rounded-full blur-3xl -z-10" />
-                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.5em] mb-1 sm:mb-2">Lucro da Sessão</p>
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-cyan-500/5 rounded-full blur-3xl -z-10" />
+                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.5em] mb-1 sm:mb-2">Lucro Gerado</p>
                         <div className={cn(
-                            "text-5xl sm:text-7xl font-black tracking-tighter leading-none transition-all duration-500",
-                            isWin ? "text-green-500" : "text-red-500"
+                            "text-5xl sm:text-7xl font-black tracking-tighter leading-none transition-all duration-300",
+                            isWin ? "text-green-500 drop-shadow-[0_0_15px_rgba(34,197,94,0.3)]" : "text-red-500"
                         )}>
                             <span className="text-2xl sm:text-3xl opacity-30 mr-1 font-light">$</span>
                             {totalProfit.toFixed(2)}
                         </div>
                     </div>
 
-                    {/* Botão de Ação */}
                     <Button 
                         onClick={handleStartClick}
                         disabled={status.message.includes('Desconectado') || isPaused || isManipulationDetected}
@@ -151,13 +148,12 @@ export const AIOperatingScreen = () => {
                             "w-full h-16 sm:h-20 rounded-[2rem] sm:rounded-[2.5rem] text-lg sm:text-xl font-black uppercase tracking-[0.3em] transition-all duration-500 shadow-xl",
                             isBotRunning 
                                 ? "bg-red-500 hover:bg-red-600 shadow-red-500/20" 
-                                : "bg-primary hover:bg-primary/90 shadow-primary/20 animate-pulse-bright"
+                                : "bg-cyan-600 hover:bg-cyan-700 shadow-cyan-500/20"
                         )}
                     >
-                        {isBotRunning ? "PARAR" : "INICIAR"}
+                        {isBotRunning ? "INTERROMPER" : "ATIKAR QUANTUM"}
                     </Button>
 
-                    {/* Saldo */}
                     <div className="bg-gray-50/50 border border-gray-100 rounded-[2rem] sm:rounded-[2.5rem] p-4 sm:p-6 flex items-center justify-between">
                         <div className="flex items-center gap-3 sm:gap-4">
                             <div className={cn(
@@ -167,7 +163,7 @@ export const AIOperatingScreen = () => {
                                 <DollarSign className="h-5 w-5 sm:h-6 sm:w-6" />
                             </div>
                             <div>
-                                <p className="text-[8px] sm:text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-0.5">Saldo {accountType === 'real' ? 'Real' : 'Demo'}</p>
+                                <p className="text-[8px] sm:text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-0.5">Banca {accountType === 'real' ? 'Real' : 'Demo'}</p>
                                 <p className="text-xl sm:text-2xl font-black tracking-tight">${accountBalance?.toFixed(2) || '0.00'}</p>
                             </div>
                         </div>
@@ -181,12 +177,12 @@ export const AIOperatingScreen = () => {
             {/* Pensamento da IA */}
             {isBotRunning && (
                 <div className="bg-slate-900 rounded-[1.5rem] sm:rounded-[2rem] p-4 flex items-start gap-3 shadow-lg border border-white/10 mx-1">
-                    <MessageSquare className="h-4 w-4 text-primary mt-1 flex-shrink-0" />
+                    <MessageSquare className="h-4 w-4 text-cyan-400 mt-1 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
-                        <p className="text-[8px] font-black text-primary/60 uppercase tracking-widest mb-1">Neural_Thought</p>
-                        <p className="text-xs font-mono text-blue-50 leading-relaxed">
+                        <p className="text-[8px] font-black text-cyan-400/60 uppercase tracking-widest mb-1">Quantum_Intelligence</p>
+                        <p className="text-xs font-mono text-cyan-50 leading-relaxed">
                             {aiThought}
-                            <span className="inline-block w-1.5 h-3 bg-primary ml-1 animate-pulse" />
+                            <span className="inline-block w-1.5 h-3 bg-cyan-400 ml-1 animate-pulse" />
                         </p>
                     </div>
                 </div>
@@ -195,7 +191,7 @@ export const AIOperatingScreen = () => {
             {/* Histórico de Sinais */}
             <div className="bg-white/60 backdrop-blur-md border border-white/80 rounded-[2rem] sm:rounded-[2.5rem] p-5 sm:p-6 shadow-sm mx-1">
                 <div className="flex items-center justify-between mb-4 px-1">
-                    <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Monitor de Sinais</span>
+                    <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Feed de Operações</span>
                     <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl" onClick={resetOperations}>
                         <RotateCcw className="h-4 w-4 text-muted-foreground" />
                     </Button>
@@ -204,10 +200,10 @@ export const AIOperatingScreen = () => {
                     <div className="space-y-3">
                         {signals.length > 0 ? signals.map((s: any) => {
                             const label = getSignalLabel(s.signal, s.strategy);
-                            const hasFinished = typeof s.profit === 'number';
+                            const hasFinished = s.result === 'WIN' || s.result === 'LOSS';
                             
                             return (
-                                <div key={s.id} className="flex items-center justify-between py-2 sm:py-3 border-b border-gray-50 last:border-0">
+                                <div key={s.id} className="flex items-center justify-between py-2 sm:py-3 border-b border-gray-50 last:border-0 animate-in slide-in-from-right-4 duration-300">
                                     <div className="flex items-center gap-3">
                                         <span className="text-[8px] sm:text-[9px] font-mono text-muted-foreground/40">{s.timestamp}</span>
                                         <span className={cn("px-2 py-0.5 rounded-lg text-[8px] sm:text-[9px] font-black uppercase border", label.color)}>
@@ -215,15 +211,15 @@ export const AIOperatingScreen = () => {
                                         </span>
                                     </div>
                                     <div className={cn(
-                                        "text-xs sm:text-sm font-black", 
-                                        !hasFinished ? "text-primary animate-pulse" : (s.result === 'WIN' ? "text-green-500" : "text-red-500")
+                                        "text-xs sm:text-sm font-black transition-all", 
+                                        !hasFinished ? "text-cyan-500 animate-pulse" : (s.result === 'WIN' ? "text-green-500" : "text-red-500")
                                     )}>
-                                        {hasFinished ? `${s.profit > 0 ? '+' : ''}${s.profit.toFixed(2)}` : '...'}
+                                        {hasFinished ? `${s.profit > 0 ? '+' : ''}${s.profit.toFixed(2)}` : 'PROCESSANDO...'}
                                     </div>
                                 </div>
                             );
                         }) : (
-                            <div className="py-12 text-center text-[10px] font-black text-muted-foreground/20 uppercase tracking-[0.3em] italic">Aguardando Sinais Neurais...</div>
+                            <div className="py-12 text-center text-[10px] font-black text-muted-foreground/20 uppercase tracking-[0.3em] italic">Aguardando Pulso Quantum...</div>
                         )}
                     </div>
                 </ScrollArea>
