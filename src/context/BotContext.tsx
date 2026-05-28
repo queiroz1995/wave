@@ -252,15 +252,21 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
                         if (isLoss) {
                             setLosses((prev: number) => prev + 1);
-                            martingaleLevel.current += 1;
                             
-                            const { isStable } = getMarketState(savedData.symbol);
-                            if (!isStable) {
-                                isGalePausedForFilter.current = true;
-                                setVirtualLossStreak(0);
-                                setAiThought("Ciclo instável detectado! Pausando Gale e ativando Filtro Virtual.");
+                            // Se NÃO for a estratégia de Frequência, aplica Gale
+                            if (activeStrategy !== 'frequencySniper') {
+                                martingaleLevel.current += 1;
+                                
+                                const { isStable } = getMarketState(savedData.symbol);
+                                if (!isStable) {
+                                    isGalePausedForFilter.current = true;
+                                    setVirtualLossStreak(0);
+                                    setAiThought("Ciclo instável detectado! Pausando Gale e ativando Filtro Virtual.");
+                                } else {
+                                    setAiThought("Mercado estável. Preparando Gale imediato.");
+                                }
                             } else {
-                                setAiThought("Mercado estável. Preparando Gale imediato.");
+                                setAiThought("Derrota no dígito. Mantendo stake fixa (Sem Gale).");
                             }
                         } else {
                             setWins((prev: number) => prev + 1);
@@ -281,7 +287,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             }
         }
-    }, [processTickData, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, getMarketState]);
+    }, [processTickData, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, getMarketState, activeStrategy]);
 
     const ws = useTradingWebSocketManager({ isConnected, status, setIsConnected, setStatus, setAccountBalance, onMessage: handleWebSocketMessage, reconnectAttemptsRef });
     const { sendMessage, connect, disconnect } = ws;
@@ -290,8 +296,13 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string, symbol: string, barrier?: number) => {
         if (!isConnected || isStudying || activeTrades.current.size >= 10) return;
         const baseStake = parseFloat(initialStake) || 0.35;
-        const mgFactor = parseFloat(martingaleFactor) || 2.1; 
-        const stakeToUse = martingaleLevel.current > 0 ? baseStake * Math.pow(mgFactor, martingaleLevel.current) : baseStake;
+        
+        // Aplica o multiplicador apenas se NÃO for Frequency Sniper
+        let stakeToUse = baseStake;
+        if (activeStrategy !== 'frequencySniper' && martingaleLevel.current > 0) {
+            const mgFactor = parseFloat(martingaleFactor) || 2.1;
+            stakeToUse = baseStake * Math.pow(mgFactor, martingaleLevel.current);
+        }
         
         const params: any = { 
             amount: parseFloat(stakeToUse.toFixed(2)), 
@@ -310,7 +321,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeTrades.current.add(signalId);
         setTradeStatus('SENDING');
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params, passthrough: { signalId, strategyName } });
-    }, [isConnected, initialStake, sendMessage, setTradeStatus, martingaleFactor, isStudying]);
+    }, [isConnected, initialStake, sendMessage, setTradeStatus, martingaleFactor, isStudying, activeStrategy]);
 
     const calculateTradeSignals = useCallback((symbol: string) => {
         const digits = multiAssetDigits[symbol] || [];
