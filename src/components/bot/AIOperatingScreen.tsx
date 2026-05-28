@@ -81,10 +81,10 @@ export const AIOperatingScreen = () => {
                 <div className="flex items-center gap-2">
                     <div className={cn("h-2 w-2 rounded-full", isBotRunning ? "bg-green-500 animate-pulse" : "bg-gray-300")} />
                     <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                        {isBotRunning ? (isStudying ? "Quantum Scanning" : "Quantum Link Ativo") : "Standby"}
+                        {isBotRunning ? "Quantum Link Ativo" : "Standby"}
                     </span>
                 </div>
-                {isBotRunning && !isStudying && (
+                {isBotRunning && (
                     <div className="flex items-center gap-1.5 bg-cyan-500/10 px-3 py-0.5 rounded-full border border-cyan-500/20">
                         <Activity className="h-3 w-3 text-cyan-600" />
                         <span className="text-[10px] font-black text-cyan-600">{currentConfidence}%</span>
@@ -151,7 +151,7 @@ export const AIOperatingScreen = () => {
                                 : "bg-cyan-600 hover:bg-cyan-700 shadow-cyan-500/20"
                         )}
                     >
-                        {isBotRunning ? "INTERROMPER" : "ATIKAR QUANTUM"}
+                        {isBotRunning ? "INTERROMPER" : "ATIVAR QUANTUM"}
                     </Button>
 
                     <div className="bg-gray-50/50 border border-gray-100 rounded-[2rem] sm:rounded-[2.5rem] p-4 sm:p-6 flex items-center justify-between">

@@ -4,6 +4,7 @@ import React, { createContext, useContext, useRef, useCallback, useEffect, useSt
 import { useBotState } from '../hooks/bot/useBotState';
 import { useBotPersistence } from '../hooks/bot/useBotPersistence';
 import { useTradingWebSocketManager } from '../hooks/bot/useTradingWebSocketManager';
+import { toast } from "sonner";
 
 const BotContext = createContext<any>(undefined);
 
@@ -27,7 +28,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [aiThought, setAiThought] = useState("Sincronizando I.A...");
     const [isConnecting, setIsConnecting] = useState(false);
 
-    // Controle de Memória (Estado do Robô)
+    // Controle de Memória
     const isTradeLockedRef = useRef(false);
     const totalProfitRef = useRef(0.00);
     const currentMartingaleLevel = useRef(0);
@@ -45,7 +46,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTradeStatus, isBotRunning,
         accountType, realToken, demoToken,
         takeProfit, stopLoss,
-        isStudying, setIsStudying, setStudyTicksCount,
         setSignals
     } = stateAndSetters;
 
@@ -53,14 +53,14 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
     const [currentConfidence, setCurrentConfidence] = useState(0);
 
-    // Watchdog para evitar travamentos
+    // Watchdog de Trava
     useEffect(() => {
         const interval = setInterval(() => {
             if (isBotRunning && isTradeLockedRef.current && pendingContracts.current.size === 0) {
                 isTradeLockedRef.current = false;
                 setTradeStatus('IDLE');
             }
-        }, 5000);
+        }, 4000);
         return () => clearInterval(interval);
     }, [isBotRunning, setTradeStatus]);
 
@@ -79,18 +79,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
             return { ...prev, [symbol]: newHistory };
         });
-
-        if (isStudying && symbol === asset) {
-            setStudyTicksCount((c: number) => {
-                const next = c + 1;
-                if (next >= 2) {
-                    setIsStudying(false);
-                    return 0;
-                }
-                return next;
-            });
-        }
-    }, [asset, isStudying, setIsStudying, setStudyTicksCount, setLastDigits, setLastTickEpoch, setMultiAssetDigits]);
+    }, [asset, setLastDigits, setLastTickEpoch, setMultiAssetDigits]);
 
     const stopBot = useCallback((reason: string) => {
         setIsBotRunning(false);
@@ -115,15 +104,21 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, [setTotalProfit, setWins, setLosses, setSignals, setTradeStatus]);
 
     const toggleBot = useCallback(() => {
-        if (!isConnected) return;
-        if (isBotRunning) stopBot("Sessão Finalizada");
-        else { 
+        if (!isConnected) {
+            toast.error("Conecte seu Token antes de iniciar.");
+            addLog("Erro: Bot não iniciado (Sem Conexão)", "ERROR");
+            return;
+        }
+
+        if (isBotRunning) {
+            stopBot("Sessão Finalizada pelo usuário.");
+        } else { 
             setIsBotRunning(true); 
             resetOperations();
-            setIsStudying(true);
-            setAiThought("Protocolo Quantum: ONLINE");
+            setAiThought("Varredura Quântica Ativa...");
+            addLog("Bot Iniciado - Buscando oportunidades...", "INFO");
         }
-    }, [isConnected, isBotRunning, stopBot, resetOperations]);
+    }, [isConnected, isBotRunning, stopBot, resetOperations, addLog]);
 
     const handleContractResult = useCallback((contract: any) => {
         const savedData = pendingContracts.current.get(contract.contract_id);
@@ -140,24 +135,23 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setLosses((prev: number) => prev + 1);
                 currentMartingaleLevel.current += 1;
                 accumulatedLossRef.current += buyPrice;
-                addLog(`LOSS: Iniciando Recuperação de $${accumulatedLossRef.current.toFixed(2)}`, 'ERROR');
-                setAiThought(`Gale Nível ${currentMartingaleLevel.current}`);
+                addLog(`LOSS: Iniciando Recuperação Total ($${accumulatedLossRef.current.toFixed(2)})`, 'ERROR');
+                setAiThought(`Recuperação: Gale Nível ${currentMartingaleLevel.current}`);
             } else {
                 setWins((prev: number) => prev + 1);
                 currentMartingaleLevel.current = 0;
                 accumulatedLossRef.current = 0;
-                setAiThought("Quantum Link Sincronizado");
+                setAiThought("Meta em processamento...");
             }
 
             updateSignalResult(savedData.signalId, isLoss ? 'LOSS' : 'WIN', profitValue, savedData.stake, exitDigit);
             pendingContracts.current.delete(contract.contract_id);
             
-            // Liberação de Trava
             isTradeLockedRef.current = false;
             setTradeStatus('IDLE'); 
 
-            if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot(`Meta batida!`);
-            else if (totalProfitRef.current <= -Math.abs(parseFloat(stopLoss))) stopBot(`Stop Loss.`);
+            if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot(`Meta batida! Lucro: $${totalProfitRef.current.toFixed(2)}`);
+            else if (totalProfitRef.current <= -Math.abs(parseFloat(stopLoss))) stopBot(`Stop Loss atingido.`);
         }
     }, [setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, setTradeStatus, addLog]);
 
@@ -168,7 +162,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 if (data.msg_type === 'buy' || data.echo_req?.msg_type === 'buy') {
                     isTradeLockedRef.current = false;
                     setTradeStatus('IDLE');
-                    addLog(`Erro: ${data.error.message}`, 'ERROR');
+                    addLog(`Erro Corretora: ${data.error.message}`, 'ERROR');
                 }
                 return;
             }
@@ -178,6 +172,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setIsConnecting(false);
                 setStatus({ message: `Online`, color: 'bg-green-500' });
                 if (data.authorize?.balance !== undefined) setAccountBalance(parseFloat(data.authorize.balance));
+                
+                // Inscrição em todos os ativos para o scanner
+                SCANNER_ASSETS.forEach(symbol => {
+                    sendMessageRef.current({ ticks: symbol, subscribe: 1 });
+                });
                 sendMessageRef.current({ balance: 1, subscribe: 1 });
             } else if (data?.msg_type === 'balance') {
                 if (data.balance?.balance !== undefined) setAccountBalance(parseFloat(data.balance.balance));
@@ -209,7 +208,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
     const executeBuy = useCallback((strategyName: string, signalId: string, symbol: string, barrier: number) => {
-        if (!isConnected || isStudying || isTradeLockedRef.current) return;
+        if (!isConnected || isTradeLockedRef.current) return;
         
         isTradeLockedRef.current = true;
         setTradeStatus('ACTIVE');
@@ -217,14 +216,13 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const baseStake = parseFloat(initialStake) || 0.35;
         let currentStake = baseStake;
 
-        // GALE 12x PARA RECUPERAÇÃO TOTAL NO DIGIT DIFF
         if (currentMartingaleLevel.current > 0) {
+            // Gale 12x para Digit Diff (Recuperação Real)
             currentStake = accumulatedLossRef.current * 12; 
-            addLog(`Aplicando Gale: $${currentStake.toFixed(2)}`, 'TRADE');
+            addLog(`Gale de Recuperação: $${currentStake.toFixed(2)}`, 'TRADE');
         }
         
-        // Limite de segurança no Stop Loss
-        const maxStake = Math.abs(parseFloat(stopLoss));
+        const maxStake = Math.abs(parseFloat(stopLoss)) || 100;
         if (currentStake > maxStake) currentStake = maxStake;
 
         const params = { 
@@ -239,25 +237,25 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
         
         sendMessage({ buy: 1, price: currentStake, parameters: params, passthrough: { signalId, strategyName } });
-    }, [isConnected, initialStake, sendMessage, setTradeStatus, isStudying, stopLoss, addLog]);
+    }, [isConnected, initialStake, sendMessage, setTradeStatus, stopLoss, addLog]);
 
     useEffect(() => {
-        if (!isBotRunning || isStudying) return;
+        if (!isBotRunning) return;
 
         const checkAndTrade = () => {
             if (isTradeLockedRef.current) return;
 
             for (const symbol of SCANNER_ASSETS) {
                 const digits = multiAssetDigits[symbol] || [];
-                if (digits.length >= 2) {
+                if (digits.length >= 1) { // Entrada Imediata no último dígito
                     const lastDigit = digits[0];
                     const sId = addSignal({ 
-                        strategy: 'Quantum Scalper', 
+                        strategy: 'Quantum Core', 
                         signal: 'DIFF' as any, 
                         details: `Neural Link: ${symbol}`, 
                         winRate: `91%` 
                     });
-                    executeBuy('Quantum Scalper', sId, symbol, lastDigit);
+                    executeBuy('Quantum Core', sId, symbol, lastDigit);
                     break;
                 }
             }
@@ -265,7 +263,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         const timer = setInterval(checkAndTrade, 200);
         return () => clearInterval(timer);
-    }, [isBotRunning, isStudying, multiAssetDigits, addSignal, executeBuy]);
+    }, [isBotRunning, multiAssetDigits, addSignal, executeBuy]);
 
     const selectAI = useCallback((ia: any) => { setSelectedAIInfo(ia); setAppFlow('operating'); }, []);
     const exitToSelection = useCallback(() => { stopBot("Fim"); setAppFlow('selection'); }, [stopBot]);
