@@ -30,11 +30,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const activeTrades = useRef<Set<string>>(new Set());
     const totalProfitRef = useRef(0.00);
-    const martingaleLevel = useRef(0);
-    const lastContractType = useRef<ContractType | null>(null);
-    const lastTradedAsset = useRef<string | null>(null);
-    
-    const pendingContracts = useRef<Map<string, any>>(new Map());
+    const pendingContracts = useRef<Map<number, any>>(new Map());
     const reconnectAttemptsRef = useRef(0);
     const sendMessageRef = useRef<(payload: any) => void>(() => {});
 
@@ -46,7 +42,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         multiAssetDigits, setMultiAssetDigits,
         setTradeStatus, isBotRunning, setActiveStrategy, activeStrategy,
         accountType, realToken, demoToken,
-        takeProfit, stopLoss, martingaleFactor,
+        takeProfit, stopLoss,
         isStudying, setIsStudying, setStudyTicksCount,
         setSignals
     } = stateAndSetters;
@@ -55,29 +51,22 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
     const [currentConfidence, setCurrentConfidence] = useState(0);
 
-    // Watchdog para evitar travamentos
+    // Watchdog mais agressivo para destravar trades
     useEffect(() => {
         const interval = setInterval(() => {
             if (isBotRunning && activeTrades.current.size > 0) {
-                setAiThought("Quantum Link: Verificando integridade...");
                 setTradeStatus('IDLE');
+                activeTrades.current.clear();
             }
-        }, 8000);
+        }, 5000);
         return () => clearInterval(interval);
     }, [isBotRunning, setTradeStatus]);
 
     const getMarketState = useCallback((symbol: string) => {
         const digits = multiAssetDigits[symbol] || [];
         if (digits.length < 10) return { confidence: 0, lastDigit: -1 };
-        
-        const lastDigit = digits[0];
-        // Probabilidade de NÃO repetir o mesmo dígito é de ~90.9%
-        const confidence = 91;
-
-        if (symbol === asset) setCurrentConfidence(confidence);
-        
-        return { confidence, lastDigit };
-    }, [multiAssetDigits, asset]);
+        return { confidence: 91, lastDigit: digits[0] };
+    }, [multiAssetDigits]);
 
     const fetchDerivHistory = useCallback((symbol: string) => {
         if (!sendMessageRef.current) return;
@@ -104,6 +93,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (symbol === asset) {
                 setLastDigits(newHistory);
                 setLastTickEpoch(tick.epoch);
+                setCurrentConfidence(91);
             }
             return { ...prev, [symbol]: newHistory };
         });
@@ -111,7 +101,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (isStudying && symbol === asset) {
             setStudyTicksCount((c: number) => {
                 const next = c + 1;
-                if (next >= 3) {
+                if (next >= 2) {
                     setIsStudying(false);
                     return 0;
                 }
@@ -144,7 +134,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setIsBotRunning(true); 
             resetOperations();
             setIsStudying(true);
-            setAiThought("Iniciando Protocolo Quantum...");
+            setAiThought("Protocolo Quantum: ONLINE");
         }
     }, [isConnected, isBotRunning, stopBot, resetOperations]);
 
@@ -164,18 +154,20 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             } else if (data?.msg_type === 'buy') {
                 if (data.buy) { 
                     const signalId = data.echo_req.passthrough?.signalId;
-                    if (signalId) {
-                        pendingContracts.current.set(data.buy.contract_id, {
+                    const contractId = data.buy.contract_id;
+                    if (signalId && contractId) {
+                        pendingContracts.current.set(contractId, {
                             signalId,
                             stake: data.echo_req.price,
                             symbol: data.echo_req.parameters.symbol
                         });
+                        // Inscreve para receber atualizações do contrato
+                        sendMessageRef.current({ proposal_open_contract: 1, contract_id: contractId, subscribe: 1 });
                     }
-                    setTradeStatus('ACTIVE'); 
                 }
             } else if (data?.msg_type === 'proposal_open_contract') {
                 const contract = data.proposal_open_contract;
-                if (contract?.is_sold) {
+                if (contract?.status !== 'open') {
                     const savedData = pendingContracts.current.get(contract.contract_id);
                     if (savedData) {
                         const isLoss = contract.status === 'lost';
@@ -185,13 +177,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         totalProfitRef.current += profitValue;
                         setTotalProfit(totalProfitRef.current);
 
-                        if (isLoss) {
-                            setLosses((prev: number) => prev + 1);
-                            setAiThought("Anomalia detectada. Recuperando...");
-                        } else {
-                            setWins((prev: number) => prev + 1);
-                            setAiThought("Lucro computado. Buscando próxima brecha...");
-                        }
+                        if (isLoss) setLosses((prev: number) => prev + 1);
+                        else setWins((prev: number) => prev + 1);
 
                         updateSignalResult(savedData.signalId, isLoss ? 'LOSS' : 'WIN', profitValue, savedData.stake, exitDigit);
                         activeTrades.current.delete(savedData.signalId);
@@ -226,17 +213,14 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
         
         activeTrades.current.add(signalId);
-        setTradeStatus('SENDING');
+        setTradeStatus('ACTIVE');
         sendMessage({ buy: 1, price: baseStake, parameters: params, passthrough: { signalId, strategyName } });
     }, [isConnected, initialStake, sendMessage, setTradeStatus, isStudying]);
 
     const calculateTradeSignals = useCallback((symbol: string) => {
         const digits = multiAssetDigits[symbol] || [];
         if (activeTrades.current.size > 0 || isStudying || digits.length < 5) return [];
-
         const { lastDigit } = getMarketState(symbol);
-        
-        // Aposta que o próximo dígito será DIFERENTE do último que saiu (90.9% de chance)
         return [{ type: 'DIFF', contract: 'DIGITDIFF', barrier: lastDigit, name: 'Quantum Scalper', confidence: 91, symbol }];
     }, [multiAssetDigits, isStudying, getMarketState]);
 
@@ -245,18 +229,16 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         
         for (const symbol of SCANNER_ASSETS) {
             const signalsFound = calculateTradeSignals(symbol);
-            if (signalsFound.length > 0) {
-                if (activeTrades.current.size === 0) {
-                    const signal = signalsFound[0];
-                    const sId = addSignal({ 
-                        strategy: signal.name, 
-                        signal: signal.type as any, 
-                        details: `Diferente de ${signal.barrier}`, 
-                        winRate: `${signal.confidence}%` 
-                    });
-                    executeBuy(signal.contract, signal.name, sId, symbol, signal.barrier);
-                    break;
-                }
+            if (signalsFound.length > 0 && activeTrades.current.size === 0) {
+                const signal = signalsFound[0];
+                const sId = addSignal({ 
+                    strategy: signal.name, 
+                    signal: signal.type as any, 
+                    details: `Analisando: ${symbol}`, 
+                    winRate: `${signal.confidence}%` 
+                });
+                executeBuy(signal.contract, signal.name, sId, symbol, signal.barrier);
+                break;
             }
         }
     }, [isBotRunning, calculateTradeSignals, addSignal, executeBuy, isStudying]);
