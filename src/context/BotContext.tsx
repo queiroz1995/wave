@@ -62,6 +62,20 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
     const [currentConfidence, setCurrentConfidence] = useState(0);
 
+    // Watchdog para evitar travamentos
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (isBotRunning && activeTrades.current.size > 0) {
+                // Se uma operação demorar mais de 15 segundos, limpamos para não travar o bot
+                setAiThought("Watchdog: Verificando integridade dos sinais...");
+                if (activeTrades.current.size > 0) {
+                    setTradeStatus('IDLE');
+                }
+            }
+        }, 15000);
+        return () => clearInterval(interval);
+    }, [isBotRunning, setTradeStatus]);
+
     const calculateEntropy = (digits: number[]) => {
         if (digits.length < 20) return 1;
         const counts = new Array(10).fill(0);
@@ -81,7 +95,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const topDigits = [...digitStats].sort((a, b) => b.count - a.count).slice(0, 5).map(d => d.digit);
 
         const evensCount = digits.slice(0, 100).filter(d => d % 2 === 0).length;
-        const evensPercentage = evensCount; // Em 100 ticks, o count é a própria %
+        const evensPercentage = evensCount; 
         
         const bias = Math.abs(50 - evensPercentage) / 100;
         const entropy = calculateEntropy(digits);
@@ -95,7 +109,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         else recVirtual = 1;
 
         const recDirection = evensPercentage > 50 ? 'FAVOR' : 'AGAINST';
-        const isStable = entropy < 0.88 && bias < 0.25;
+        const isStable = entropy < 0.90 && bias < 0.30;
 
         if (symbol === asset) setCurrentConfidence(Math.min(99, confidence));
         
@@ -184,7 +198,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setVirtualLossStreak(0);
         setVirtualTradePending(null);
         setTradeStatus('IDLE');
-        setAiThought("Bot Parado.");
+        setAiThought(`Sessão Encerrada: ${reason}`);
         addLog(reason, 'INFO');
     }, [setIsBotRunning, addLog, setTradeStatus]);
 
@@ -199,19 +213,22 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setVirtualLossStreak(0);
         setVirtualTradePending(null);
         setTradeStatus('IDLE');
-        addLog("Resetado.", "INFO");
+        addLog("Operações Reiniciadas.", "INFO");
     }, [setTotalProfit, setWins, setLosses, setSignals, setVirtualLossStreak, addLog, setTradeStatus]);
 
     const toggleBot = useCallback(() => {
-        if (!isConnected) return;
-        if (isBotRunning) stopBot("Sniper Parado");
+        if (!isConnected) {
+            addLog("Conecte-se antes de iniciar.", "ERROR");
+            return;
+        }
+        if (isBotRunning) stopBot("Sniper Parado Manualmente");
         else { 
             setIsBotRunning(true); 
             resetOperations();
             setIsStudying(true);
             setAiThought("Varrendo ativos por manipulação...");
         }
-    }, [isConnected, isBotRunning, stopBot, resetOperations]);
+    }, [isConnected, isBotRunning, stopBot, resetOperations, addLog]);
 
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
         const data = event.payload;
@@ -238,6 +255,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     }
                     setTradeStatus('ACTIVE'); 
                     sendMessageRef.current({ proposal_open_contract: 1, contract_id: data.buy.contract_id, subscribe: 1 });
+                } else if (data.error) {
+                    setTradeStatus('IDLE');
+                    addLog(`Erro na compra: ${data.error.message}`, "ERROR");
                 }
             } else if (data?.msg_type === 'proposal_open_contract') {
                 const contract = data.proposal_open_contract;
@@ -278,13 +298,16 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         pendingContracts.current.delete(contract.contract_id);
                         setTradeStatus('IDLE'); 
 
-                        if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot(`Meta batida!`);
-                        else if (totalProfitRef.current <= -Math.abs(parseFloat(stopLoss))) stopBot(`Stop Loss atingido.`);
+                        const tp = parseFloat(takeProfit);
+                        const sl = parseFloat(stopLoss);
+
+                        if (totalProfitRef.current >= tp) stopBot(`Meta batida! (+$${totalProfitRef.current.toFixed(2)})`);
+                        else if (totalProfitRef.current <= -Math.abs(sl)) stopBot(`Stop Loss atingido. (-$${Math.abs(totalProfitRef.current).toFixed(2)})`);
                     }
                 }
             }
         }
-    }, [processTickData, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, getMarketState, activeStrategy]);
+    }, [processTickData, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, getMarketState, activeStrategy, addLog]);
 
     const ws = useTradingWebSocketManager({ isConnected, status, setIsConnected, setStatus, setAccountBalance, onMessage: handleWebSocketMessage, reconnectAttemptsRef });
     const { sendMessage, connect, disconnect } = ws;
