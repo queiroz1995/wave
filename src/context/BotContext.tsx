@@ -27,11 +27,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [aiThought, setAiThought] = useState("Sincronizando I.A...");
     const [isConnecting, setIsConnecting] = useState(false);
 
-    // Refs para controle ultra-rápido (Ignora o delay do ciclo React)
+    // Refs para controle ultra-rápido
     const isTradeLockedRef = useRef(false);
     const activeTrades = useRef<Set<string>>(new Set());
     const totalProfitRef = useRef(0.00);
     const currentMartingaleLevel = useRef(0);
+    const accumulatedLossInStreak = useRef(0); // Rastreia o total perdido na sequência atual
     const pendingContracts = useRef<Map<number, any>>(new Map());
     const reconnectAttemptsRef = useRef(0);
     const sendMessageRef = useRef<(payload: any) => void>(() => {});
@@ -53,11 +54,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
     const [currentConfidence, setCurrentConfidence] = useState(0);
 
-    // Watchdog de segurança
     useEffect(() => {
         const interval = setInterval(() => {
             if (isBotRunning && isTradeLockedRef.current) {
-                // Se o contrato sumir ou travar, libera após 8s
                 isTradeLockedRef.current = false;
                 setTradeStatus('IDLE');
             }
@@ -113,6 +112,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isTradeLockedRef.current = false;
         activeTrades.current.clear();
         currentMartingaleLevel.current = 0;
+        accumulatedLossInStreak.current = 0;
         setTradeStatus('IDLE');
         setAiThought(`Sessão Finalizada.`);
         addLog(reason, 'INFO');
@@ -121,6 +121,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const resetOperations = useCallback(() => {
         totalProfitRef.current = 0;
         currentMartingaleLevel.current = 0;
+        accumulatedLossInStreak.current = 0;
         isTradeLockedRef.current = false;
         setTotalProfit(0);
         setWins(0);
@@ -153,16 +154,20 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (isLoss) {
                 setLosses((prev: number) => prev + 1);
                 currentMartingaleLevel.current += 1;
+                // Adiciona o valor da stake perdida ao acumulado do streak
+                accumulatedLossInStreak.current += Math.abs(parseFloat(contract.buy_price));
+                setAiThought(`Recuperação Iniciada: -$${accumulatedLossInStreak.current.toFixed(2)}`);
             } else {
                 setWins((prev: number) => prev + 1);
                 currentMartingaleLevel.current = 0;
+                accumulatedLossInStreak.current = 0; // Reset na vitória
+                setAiThought("Meta em andamento...");
             }
 
             updateSignalResult(savedData.signalId, isLoss ? 'LOSS' : 'WIN', profitValue, savedData.stake, exitDigit);
             activeTrades.current.delete(savedData.signalId);
             pendingContracts.current.delete(contract.contract_id);
             
-            // LIBERAÇÃO IMEDIATA (Ref)
             isTradeLockedRef.current = false;
             setTradeStatus('IDLE'); 
 
@@ -194,7 +199,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             stake: data.echo_req.price,
                             symbol: data.echo_req.parameters.symbol
                         });
-                        // Ativa monitoramento imediato
                         sendMessageRef.current({ proposal_open_contract: 1, contract_id: contractId, subscribe: 1 });
                     }
                 }
@@ -214,15 +218,21 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const executeBuy = useCallback((strategyName: string, signalId: string, symbol: string, barrier: number) => {
         if (!isConnected || isStudying || isTradeLockedRef.current) return;
         
-        isTradeLockedRef.current = true; // Trava imediata
+        isTradeLockedRef.current = true;
         setTradeStatus('ACTIVE');
 
         const baseStake = parseFloat(initialStake) || 0.35;
+        const targetProfitPerTrade = baseStake * 0.09; // Lucro esperado por entrada no Differ
         let currentStake = baseStake;
 
         if (currentMartingaleLevel.current > 0) {
-            const factor = parseFloat(martingaleFactor) || 11.5;
-            currentStake = baseStake * Math.pow(factor, currentMartingaleLevel.current);
+            // CÁLCULO DE RECUPERAÇÃO TOTAL:
+            // Stake = (Total Perdido + Lucro Alvo) / Payout (0.09)
+            currentStake = (accumulatedLossInStreak.current + targetProfitPerTrade) / 0.0909;
+            
+            // Segurança: Se o Gale for absurdamente alto, limita ao Stop Loss para evitar quebra imediata
+            const maxSafeStake = Math.abs(parseFloat(stopLoss));
+            if (currentStake > maxSafeStake) currentStake = maxSafeStake;
         }
         
         const params: any = { 
@@ -238,16 +248,14 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         
         activeTrades.current.add(signalId);
         sendMessage({ buy: 1, price: currentStake, parameters: params, passthrough: { signalId, strategyName } });
-    }, [isConnected, initialStake, sendMessage, setTradeStatus, isStudying, martingaleFactor]);
+    }, [isConnected, initialStake, sendMessage, setTradeStatus, isStudying, stopLoss]);
 
-    // Loop de monitoramento contínuo
     useEffect(() => {
         if (!isBotRunning || isStudying) return;
 
         const checkAndTrade = () => {
             if (isTradeLockedRef.current) return;
 
-            // Varre todos os ativos buscando o sinal mais fresco
             for (const symbol of SCANNER_ASSETS) {
                 const digits = multiAssetDigits[symbol] || [];
                 if (digits.length >= 5) {
@@ -259,12 +267,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         winRate: `91%` 
                     });
                     executeBuy('Quantum Scalper', sId, symbol, lastDigit);
-                    break; // Sai do loop para processar este trade
+                    break;
                 }
             }
         };
 
-        const timer = setInterval(checkAndTrade, 100); // Checa a cada 100ms oportunidades
+        const timer = setInterval(checkAndTrade, 100);
         return () => clearInterval(timer);
     }, [isBotRunning, isStudying, multiAssetDigits, addSignal, executeBuy, getMarketState]);
 
