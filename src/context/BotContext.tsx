@@ -72,7 +72,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const getMarketState = useCallback((symbol: string) => {
         const digits = multiAssetDigits[symbol] || [];
-        if (digits.length < 50) return { confidence: 0, entropy: 1, recommendedVirtualLosses: 1, recommendedDirection: 'AGAINST', isStable: false, topDigits: [] };
+        if (digits.length < 50) return { confidence: 0, entropy: 1, recommendedVirtualLosses: 1, recommendedDirection: 'AGAINST', isStable: false, topDigits: [], evensPercentage: 50 };
         
         const counts = new Array(10).fill(0);
         digits.slice(0, 100).forEach(d => counts[d]++);
@@ -80,25 +80,26 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const digitStats = counts.map((count, digit) => ({ digit, count }));
         const topDigits = [...digitStats].sort((a, b) => b.count - a.count).slice(0, 5).map(d => d.digit);
 
-        const evens = digits.slice(0, 50).filter(d => d % 2 === 0).length;
-        const odds = 50 - evens;
-        const bias = Math.abs(evens - odds) / 50;
+        const evensCount = digits.slice(0, 100).filter(d => d % 2 === 0).length;
+        const evensPercentage = evensCount; // Em 100 ticks, o count é a própria %
+        
+        const bias = Math.abs(50 - evensPercentage) / 100;
         const entropy = calculateEntropy(digits);
-        const confidence = Math.floor((70 + (bias * 30)) * (1.2 - (entropy * 0.2)));
+        const confidence = Math.floor((70 + (bias * 60)) * (1.2 - (entropy * 0.2)));
         
         let recVirtual = 1;
         if (entropy > 0.96) recVirtual = 4;
         else if (entropy > 0.92) recVirtual = 3;
         else if (entropy > 0.86) recVirtual = 2;
-        else if (bias > 0.18) recVirtual = 0;
+        else if (bias > 0.15) recVirtual = 0;
         else recVirtual = 1;
 
-        const recDirection = bias > 0.22 ? 'FAVOR' : 'AGAINST';
+        const recDirection = evensPercentage > 50 ? 'FAVOR' : 'AGAINST';
         const isStable = entropy < 0.88 && bias < 0.25;
 
         if (symbol === asset) setCurrentConfidence(Math.min(99, confidence));
         
-        return { confidence, entropy, recommendedVirtualLosses: recVirtual, recommendedDirection: recDirection, isStable, topDigits };
+        return { confidence, entropy, recommendedVirtualLosses: recVirtual, recommendedDirection: recDirection, isStable, topDigits, evensPercentage };
     }, [multiAssetDigits, asset]);
 
     const fetchDerivHistory = useCallback((symbol: string) => {
@@ -253,20 +254,16 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         if (isLoss) {
                             setLosses((prev: number) => prev + 1);
                             
-                            // Se NÃO for a estratégia de Frequência, aplica Gale
                             if (activeStrategy !== 'frequencySniper') {
                                 martingaleLevel.current += 1;
-                                
                                 const { isStable } = getMarketState(savedData.symbol);
                                 if (!isStable) {
                                     isGalePausedForFilter.current = true;
                                     setVirtualLossStreak(0);
-                                    setAiThought("Ciclo instável detectado! Pausando Gale e ativando Filtro Virtual.");
-                                } else {
-                                    setAiThought("Mercado estável. Preparando Gale imediato.");
+                                    setAiThought("Ciclo instável detectado! Pausando Gale.");
                                 }
                             } else {
-                                setAiThought("Derrota no dígito. Mantendo stake fixa (Sem Gale).");
+                                setAiThought("Derrota no dígito. Mantendo stake fixa.");
                             }
                         } else {
                             setWins((prev: number) => prev + 1);
@@ -297,7 +294,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!isConnected || isStudying || activeTrades.current.size >= 10) return;
         const baseStake = parseFloat(initialStake) || 0.35;
         
-        // Aplica o multiplicador apenas se NÃO for Frequency Sniper
         let stakeToUse = baseStake;
         if (activeStrategy !== 'frequencySniper' && martingaleLevel.current > 0) {
             const mgFactor = parseFloat(martingaleFactor) || 2.1;
@@ -329,22 +325,36 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (isGalePausedForFilter.current && symbol === lastTradedAsset.current) return [];
 
-        const { topDigits, recommendedDirection } = getMarketState(symbol);
+        const { topDigits, evensPercentage } = getMarketState(symbol);
 
-        // Estratégia de Frequência (Novo)
+        // Inteligência Superior para Frequency Sniper
         if (activeStrategy === 'frequencySniper') {
-            return topDigits.map(digit => ({
+            let targetDigits = topDigits;
+            let strategyName = 'FREQ: TOP 5';
+
+            if (evensPercentage > 56) {
+                targetDigits = [0, 2, 4, 6, 8];
+                strategyName = 'FREQ: FULL EVENS';
+                if (symbol === asset) setAiThought("Dominância de Pares! Snipando bloco 0-2-4-6-8.");
+            } else if (evensPercentage < 44) {
+                targetDigits = [1, 3, 5, 7, 9];
+                strategyName = 'FREQ: FULL ODDS';
+                if (symbol === asset) setAiThought("Dominância de Ímpares! Snipando bloco 1-3-5-7-9.");
+            } else {
+                if (symbol === asset) setAiThought("Mercado Lateral. Snipando os 5 dígitos mais frequentes.");
+            }
+
+            return targetDigits.map(digit => ({
                 type: `MATCH_${digit}`,
                 contract: 'DIGITMATCH',
                 barrier: digit,
-                name: 'FREQ',
+                name: strategyName,
                 confidence: 90,
                 symbol
             }));
         }
 
-        // Estratégia WAVE original
-        const direction = isSmartModeActive ? recommendedDirection : entryDirection;
+        // WAVE original
         if (martingaleLevel.current > 0 && lastTradedAsset.current === symbol) {
             const contract = lastContractType.current || 'DIGITEVEN';
             return [{ type: contract === 'DIGITEVEN' ? 'EVEN' : 'ODD', contract, name: 'Recovery (Gale)', confidence: 99, symbol }];
@@ -358,7 +368,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         if (currentStreak >= consecutiveTarget) {
-            const targetType = direction === 'AGAINST' ? (firstParity ? 'ODD' : 'EVEN') : (firstParity ? 'EVEN' : 'ODD');
+            const targetType = firstParity ? 'ODD' : 'EVEN';
             return [{ 
                 type: targetType, 
                 contract: targetType === 'EVEN' ? 'DIGITEVEN' : 'DIGITODD', 
@@ -368,7 +378,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }];
         }
         return [];
-    }, [multiAssetDigits, consecutiveTarget, entryDirection, isStudying, isSmartModeActive, getMarketState, activeStrategy]);
+    }, [multiAssetDigits, consecutiveTarget, isStudying, getMarketState, activeStrategy, asset]);
 
     useEffect(() => {
         if (!isBotRunning || isStudying) return;
@@ -379,7 +389,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 const { recommendedVirtualLosses } = getMarketState(symbol);
                 const target = isSmartModeActive ? recommendedVirtualLosses : virtualTargetLosses;
                 
-                // Pega o primeiro sinal para verificar filtro virtual
                 const mainSignal = signalsFound[0];
                 const isRecovery = mainSignal.name.includes('Recovery');
                 const needsVirtual = target > 0 && virtualLossStreak < target;
