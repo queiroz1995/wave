@@ -3,7 +3,7 @@
 import React from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { StrategyAICard } from './StrategyAICard';
-import { Sparkles, Zap, Target } from 'lucide-react';
+import { Sparkles, Zap, Target, BarChart3 } from 'lucide-react';
 
 const strategies = [
     { 
@@ -14,6 +14,15 @@ const strategies = [
         color: "blue",
         description: "Inteligência Artificial de alta frequência focada em padrões de Par e Ímpar com taxa de confiança dinâmica.",
         compatibleModes: ['evenOdd'] 
+    },
+    { 
+        id: "frequencySniper", 
+        name: "NÚCLEO FREQUENCY", 
+        style: "Analista de Probabilidade", 
+        image: "https://images.unsplash.com/photo-1531746790731-6c087fecd05a?auto=format&fit=crop&q=80&w=600",
+        color: "orange",
+        description: "Identifica os 5 dígitos mais fortes do mercado e opera simultaneamente para capturar o maior valor de retorno.",
+        compatibleModes: ['digitMatch'] 
     }
 ];
 
@@ -27,12 +36,12 @@ export const AILandingPage = () => {
                     <Zap className="h-3 w-3" /> Rico Intelligence v2.0
                 </div>
                 <h1 className="text-4xl font-black uppercase tracking-tighter">Ative o Núcleo</h1>
-                <p className="text-sm text-muted-foreground font-medium">Selecione a I.A para iniciar as operações de paridade.</p>
+                <p className="text-sm text-muted-foreground font-medium">Selecione a I.A para iniciar as operações de inteligência.</p>
             </div>
 
-            <div className="flex justify-center max-w-4xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
                 {strategies.map((ia) => (
-                    <div key={ia.id} className="max-w-sm">
+                    <div key={ia.id} className="w-full">
                         <StrategyAICard 
                             id={ia.id}
                             name={ia.name}
