@@ -491,8 +491,24 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const processVoiceCommand = useCallback((command: string) => {
         const cleanCommand = command.toLowerCase().trim();
         
+        // Dicionários de sinônimos fonéticos para tolerância a erros de fala
+        const startKeywords = ['iniciar', 'começar', 'começa', 'ligar', 'liga', 'start', 'decolar', 'decola', 'play', 'rodar', 'roda', 'ativar', 'ativa', 'ligue', 'inicie', 'comece'];
+        const stopKeywords = ['parar', 'pausar', 'desligar', 'stop', 'brecar', 'pausa', 'desliga', 'para o bot', 'para bot', 'para tudo', 'breca', 'para aí', 'parou', 'pausou'];
+        const balanceKeywords = ['saldo', 'banca', 'balanço', 'dinheiro', 'quanto tenho', 'meu saldo', 'minha banca', 'salto', 'balanço'];
+        const profitKeywords = ['lucro', 'resultado', 'ganho', 'ganhos', 'quanto ganhei', 'lucros', 'luco', 'ganhei'];
+        const resetKeywords = ['limpar', 'reiniciar', 'reseta', 'resetar', 'limpa', 'reinicia', 'apagar', 'apaga', 'zerar', 'zera'];
+        const stakeKeywords = ['stake', 'entrada', 'aposta', 'valor'];
+        const metaKeywords = ['meta', 'take profit', 'objetivo', 'alvo'];
+        const stopLossKeywords = ['stop loss', 'stop', 'perda máxima', 'perda limite', 'limite de perda'];
+        const durationKeywords = ['tick', 'duração', 'tempo', 'segundos'];
+        const realKeywords = ['real', 'conta real', 'dinheiro real', 'reais'];
+        const demoKeywords = ['demo', 'treinamento', 'virtual', 'demonstração', 'fake', 'treino'];
+        const voiceOffKeywords = ['desativar voz', 'mutar voz', 'silenciar', 'desliga voz', 'muta voz'];
+        const voiceOnKeywords = ['ativar voz', 'falar', 'liga voz', 'ativa voz'];
+        const assetKeywords = ['volatilidade', 'mercado', 'ativo'];
+
         // 1. Iniciar / Parar
-        if (cleanCommand.includes('iniciar') || cleanCommand.includes('começar') || cleanCommand.includes('ligar') || cleanCommand.includes('start') || cleanCommand.includes('decolar') || cleanCommand.includes('play') || cleanCommand.includes('rodar')) {
+        if (startKeywords.some(kw => cleanCommand.includes(kw))) {
             if (!isBotRunning) {
                 toggleBot();
                 speak("Iniciando as operações agora.");
@@ -501,7 +517,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
             return;
         }
-        if (cleanCommand.includes('parar') || cleanCommand.includes('pausar') || cleanCommand.includes('desligar') || cleanCommand.includes('stop') || cleanCommand.includes('brecar') || cleanCommand.includes('pausa')) {
+        if (stopKeywords.some(kw => cleanCommand.includes(kw))) {
             if (isBotRunning) {
                 toggleBot();
                 speak("Operações pausadas com sucesso.");
@@ -512,7 +528,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         // 2. Consultas de Saldo e Lucro
-        if (cleanCommand.includes('saldo') || cleanCommand.includes('banca') || cleanCommand.includes('balanço') || cleanCommand.includes('dinheiro')) {
+        if (balanceKeywords.some(kw => cleanCommand.includes(kw))) {
             if (accountBalance !== null) {
                 speak(`Seu saldo atual é de ${accountBalance.toFixed(2)} dólares.`);
             } else {
@@ -520,20 +536,20 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
             return;
         }
-        if (cleanCommand.includes('lucro') || cleanCommand.includes('resultado') || cleanCommand.includes('ganho') || cleanCommand.includes('ganhos')) {
+        if (profitKeywords.some(kw => cleanCommand.includes(kw))) {
             speak(`Seu lucro nesta sessão é de ${totalProfitRef.current.toFixed(2)} dólares.`);
             return;
         }
 
         // 3. Limpar / Reiniciar
-        if (cleanCommand.includes('limpar') || cleanCommand.includes('reiniciar') || cleanCommand.includes('reseta') || cleanCommand.includes('resetar')) {
+        if (resetKeywords.some(kw => cleanCommand.includes(kw))) {
             resetOperations();
             speak("Histórico e lucros reiniciados.");
             return;
         }
 
         // 4. Mudar Entrada / Stake (Ex: "stake de 1.50", "entrada de 2 dólares")
-        if (cleanCommand.includes('stake') || cleanCommand.includes('entrada') || cleanCommand.includes('aposta') || cleanCommand.includes('valor')) {
+        if (stakeKeywords.some(kw => cleanCommand.includes(kw))) {
             const val = parseSpokenNumber(cleanCommand);
             if (val) {
                 setInitialStake(val);
@@ -546,7 +562,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         // 5. Mudar Meta / Take Profit (Ex: "meta de 5", "mudar meta para 10")
-        if (cleanCommand.includes('meta') || cleanCommand.includes('take profit') || cleanCommand.includes('objetivo') || cleanCommand.includes('alvo')) {
+        if (metaKeywords.some(kw => cleanCommand.includes(kw))) {
             const val = parseSpokenNumber(cleanCommand);
             if (val) {
                 setTakeProfit(val);
@@ -559,7 +575,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         // 6. Mudar Stop Loss (Ex: "stop de 20", "mudar stop para 50")
-        if (cleanCommand.includes('stop') || cleanCommand.includes('perda máxima') || cleanCommand.includes('perda limite')) {
+        if (stopLossKeywords.some(kw => cleanCommand.includes(kw))) {
             const val = parseSpokenNumber(cleanCommand);
             if (val) {
                 setStopLoss(val);
@@ -572,7 +588,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         // 7. Mudar Ticks / Duração (Ex: "duração de 5 ticks", "mudar ticks para 2")
-        if (cleanCommand.includes('tick') || cleanCommand.includes('duração') || cleanCommand.includes('tempo')) {
+        if (durationKeywords.some(kw => cleanCommand.includes(kw))) {
             const valStr = parseSpokenNumber(cleanCommand);
             if (valStr) {
                 const val = parseInt(valStr);
@@ -590,13 +606,13 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         // 8. Mudar Tipo de Conta (Ex: "mudar para conta real", "mudar para demo")
-        if (cleanCommand.includes('real') || cleanCommand.includes('dinheiro real')) {
+        if (realKeywords.some(kw => cleanCommand.includes(kw))) {
             setAccountType('real');
             speak("Conta alterada para Real.");
             toast.info("Conta alterada para REAL");
             return;
         }
-        if (cleanCommand.includes('demo') || cleanCommand.includes('treinamento') || cleanCommand.includes('virtual') || cleanCommand.includes('demonstração')) {
+        if (demoKeywords.some(kw => cleanCommand.includes(kw))) {
             setAccountType('demo');
             speak("Conta alterada para Demo.");
             toast.info("Conta alterada para DEMO");
@@ -604,28 +620,35 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         // 9. Compras Manuais por Voz (Ex: "comprar par", "entrar ímpar")
-        // Tolerância fonética para "par" (comumente transcrito como "para") e "ímpar" (comumente transcrito como "limpar")
-        const isParCommand = cleanCommand.includes('comprar par') || cleanCommand.includes('entrar par') || cleanCommand.includes('apostar par') || cleanCommand.includes('comprar para') || cleanCommand.includes('entrar para') || cleanCommand.includes('apostar para');
-        const isImparCommand = cleanCommand.includes('comprar ímpar') || cleanCommand.includes('entrar ímpar') || cleanCommand.includes('apostar ímpar') || cleanCommand.includes('comprar limpar') || cleanCommand.includes('entrar limpar') || cleanCommand.includes('apostar limpar') || cleanCommand.includes('comprar impar') || cleanCommand.includes('entrar impar') || cleanCommand.includes('apostar impar');
+        // Tolerância fonética expandida para "par" (para, pares, even, pau, pal, pago, pato) e "ímpar" (impar, limpar, limpa, ímpa, impa, odd, ipa, hipa)
+        const parPhonetics = ['par', 'para', 'pares', 'even', 'pau', 'pal', 'pari', 'pago', 'pato', 'pai', 'paz'];
+        const imparPhonetics = ['ímpar', 'impar', 'limpar', 'limpa', 'ímpa', 'impa', 'odd', 'ipa', 'hipa', 'hípica', 'infra', 'intima'];
 
-        if (isParCommand) {
-            manualBuy('DIGITEVEN', 'Voz');
-            speak("Comprando contrato Par.");
-            return;
-        }
-        if (isImparCommand) {
-            manualBuy('DIGITODD', 'Voz');
-            speak("Comprando contrato Ímpar.");
-            return;
+        const isBuyAction = cleanCommand.includes('comprar') || cleanCommand.includes('entrar') || cleanCommand.includes('apostar') || cleanCommand.includes('compra') || cleanCommand.includes('entra');
+
+        if (isBuyAction) {
+            const hasPar = parPhonetics.some(p => cleanCommand.includes(p));
+            const hasImpar = imparPhonetics.some(i => cleanCommand.includes(i));
+
+            if (hasPar && !hasImpar) {
+                manualBuy('DIGITEVEN', 'Voz');
+                speak("Comprando contrato Par.");
+                return;
+            }
+            if (hasImpar) {
+                manualBuy('DIGITODD', 'Voz');
+                speak("Comprando contrato Ímpar.");
+                return;
+            }
         }
 
         // 10. Ativar / Desativar Voz (Ex: "mutar voz", "ativar voz")
-        if (cleanCommand.includes('desativar voz') || cleanCommand.includes('mutar voz') || cleanCommand.includes('silenciar')) {
+        if (voiceOffKeywords.some(kw => cleanCommand.includes(kw))) {
             setIsVoiceEnabled(false);
             toast.info("Voz desativada.");
             return;
         }
-        if (cleanCommand.includes('ativar voz') || cleanCommand.includes('falar')) {
+        if (voiceOnKeywords.some(kw => cleanCommand.includes(kw))) {
             setIsVoiceEnabled(true);
             speak("Voz ativada com sucesso.");
             toast.info("Voz ativada.");
@@ -633,7 +656,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         // 11. Mudar Ativo / Mercado (Ex: "mudar mercado para volatilidade cem", "volatilidade 10")
-        if (cleanCommand.includes('volatilidade') || cleanCommand.includes('mercado') || cleanCommand.includes('ativo')) {
+        if (assetKeywords.some(kw => cleanCommand.includes(kw))) {
             const valStr = parseSpokenNumber(cleanCommand);
             if (valStr) {
                 const num = valStr;
