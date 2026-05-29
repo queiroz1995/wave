@@ -37,24 +37,46 @@
   }
 }
 
-@keyframes slow-pan {
-  0% { background-position: 0% 0%; }
-  100% { background-position: 100% 100%; }
+/* Animação da Grade em Movimento Infinito */
+@keyframes grid-scroll {
+  from { background-position: 0 0; }
+  to { background-position: 0 40px; }
 }
 
-@keyframes drift {
-  0% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(30px, -20px) scale(1.1); }
-  100% { transform: translate(0, 0) scale(1); }
+/* Animação de Varredura (Scanline) */
+@keyframes ai-scan {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
 }
 
-.animate-drift {
-  animation: drift 20s ease-in-out infinite;
+/* Animação de Pulsação de Cor */
+@keyframes aurora-pulse {
+  0%, 100% { opacity: 0.2; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.1); }
 }
 
-.bg-cyber-grid {
+.animate-grid-scroll {
+  animation: grid-scroll 2s linear infinite;
+}
+
+.animate-ai-scan {
+  animation: ai-scan 4s linear infinite;
+}
+
+.animate-aurora {
+  animation: aurora-pulse 10s ease-in-out infinite;
+}
+
+/* Efeito de Grade Cibernética */
+.bg-cyber-moving {
   background-image: 
-    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-  background-size: 50px 50px;
+    linear-gradient(to right, rgba(30, 64, 175, 0.1) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(30, 64, 175, 0.1) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.ai-scanline {
+  background: linear-gradient(to bottom, transparent, rgba(59, 130, 246, 0.2), transparent);
+  height: 100px;
+  width: 100%;
 }

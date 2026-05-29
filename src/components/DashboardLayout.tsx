@@ -18,29 +18,28 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : 0;
 
     return (
-        <div className="min-h-screen bg-[#020408] text-white selection:bg-primary/30 overflow-x-hidden relative">
+        <div className="min-h-screen bg-[#010204] text-white selection:bg-primary/30 overflow-x-hidden relative">
             
-            {/* --- PAINEL DE FUNDO TECNOLÓGICO --- */}
+            {/* --- PAINEL DE FUNDO DINÂMICO (MEXENDO) --- */}
             <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
-                {/* Efeito de Profundidade */}
-                <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent" />
                 
-                {/* Grade Técnica Estática e Elegante */}
-                <div className="absolute inset-0 bg-cyber-grid [mask-image:radial-gradient(ellipse_at_center,black,transparent_90%)] opacity-40" />
+                {/* Grade Cibernética em Movimento Infinito */}
+                <div className="absolute inset-0 bg-cyber-moving animate-grid-scroll opacity-40 [mask-image:radial-gradient(ellipse_at_center,black,transparent_90%)]" />
                 
-                {/* Luzes de Fundo Suaves (Auras) */}
-                <div className="absolute top-[-20%] left-[-10%] w-[70%] h-[70%] bg-primary/10 rounded-full blur-[120px] animate-drift" />
-                <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-blue-500/5 rounded-full blur-[120px] animate-drift [animation-delay:5s]" />
-                
-                {/* Linha de Horizonte Neon */}
-                <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
+                {/* Linha de Varredura IA (Scanline) que desce a tela */}
+                <div className="absolute top-0 left-0 w-full ai-scanline animate-ai-scan opacity-30" />
+
+                {/* Auras de Cor que Pulsam e se Movem */}
+                <div className="absolute top-[-10%] left-[-5%] w-[60%] h-[60%] bg-indigo-600/20 rounded-full blur-[120px] animate-aurora" />
+                <div className="absolute bottom-[-10%] right-[-5%] w-[50%] h-[50%] bg-blue-500/10 rounded-full blur-[120px] animate-aurora [animation-delay:5s]" />
+                <div className="absolute middle-0 left-1/2 -translate-x-1/2 w-px h-full bg-gradient-to-b from-transparent via-blue-500/10 to-transparent" />
             </div>
 
             <div className="relative z-10 flex flex-col items-center">
-                {/* Header Limpo e Profissional */}
+                {/* Header Profissional */}
                 <header className="w-full max-w-4xl flex justify-between items-center py-8 px-6">
                     <div className="flex items-center gap-3">
-                        <div className="p-2.5 bg-white/5 border border-white/10 rounded-xl shadow-xl">
+                        <div className="p-2.5 bg-white/5 border border-white/10 rounded-xl shadow-[0_0_15px_rgba(59,130,246,0.2)]">
                             <Zap className="h-5 w-5 text-primary fill-primary/10" />
                         </div>
                         <div>
@@ -48,8 +47,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                                 WAVE SNIPER
                             </h1>
                             <div className="flex items-center gap-1.5">
-                                <div className="h-1 w-1 rounded-full bg-primary animate-pulse" />
-                                <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-slate-500">System Ready</span>
+                                <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(59,130,246,1)]" />
+                                <span className="text-[8px] font-black uppercase tracking-[0.3em] text-slate-500">Neural Stream Active</span>
                             </div>
                         </div>
                     </div>
@@ -81,7 +80,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                         <Globe className="h-3 w-3" />
                         <Shield className="h-3 w-3" />
                     </div>
-                    <p className="text-[8px] font-bold uppercase tracking-[0.4em] text-slate-500">
+                    <p className="text-[8px] font-black uppercase tracking-[0.5em] text-slate-500">
                         Wave Intelligence v2.4
                     </p>
                 </footer>
