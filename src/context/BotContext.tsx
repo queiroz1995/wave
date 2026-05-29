@@ -28,7 +28,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [aiThought, setAiThought] = useState("Sincronizando I.A...");
     const [isConnecting, setIsConnecting] = useState(false);
 
-    // Controle de Memória Crítica
     const isTradeLockedRef = useRef(false);
     const lastTradeAttemptTime = useRef(0);
     const totalProfitRef = useRef(0.00);
@@ -47,20 +46,18 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTradeStatus, isBotRunning,
         accountType, realToken, demoToken,
         takeProfit, stopLoss,
-        setSignals
+        setSignals, consecutiveTarget, entryDirection
     } = stateAndSetters;
 
     const [isConnected, setIsConnected] = useState(false);
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
     const [currentConfidence, setCurrentConfidence] = useState(0);
 
-    // WATCHDOG DE SEGURANÇA: Destrava o bot se ele ficar preso por mais de 8 segundos
     useEffect(() => {
         const watchdog = setInterval(() => {
             if (isBotRunning && isTradeLockedRef.current) {
                 const now = Date.now();
                 if (now - lastTradeAttemptTime.current > 8000) {
-                    console.warn('[Watchdog] Operação travada detectada. Forçando reset...');
                     isTradeLockedRef.current = false;
                     setTradeStatus('IDLE');
                     addLog("Sistema: Recuperação de travamento executada.", "INFO");
@@ -82,7 +79,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (symbol === asset) {
                 setLastDigits(newHistory);
                 setLastTickEpoch(tick.epoch);
-                setCurrentConfidence(91);
             }
             return { ...prev, [symbol]: newHistory };
         });
@@ -117,11 +113,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         if (isBotRunning) {
-            stopBot("Sessão Finalizada pelo usuário.");
+            stopBot("Sessão Finalizada.");
         } else { 
             setIsBotRunning(true); 
             resetOperations();
-            setAiThought("Quantum Link: Sincronizando...");
+            setAiThought("Analisando fluxo de dados...");
             addLog("Bot Iniciado.", "INFO");
         }
     }, [isConnected, isBotRunning, stopBot, resetOperations, addLog]);
@@ -141,11 +137,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setLosses((prev: number) => prev + 1);
                 currentMartingaleLevel.current += 1;
                 accumulatedLossRef.current += buyPrice;
-                addLog(`LOSS: Iniciando Recuperação ($${accumulatedLossRef.current.toFixed(2)})`, 'ERROR');
+                addLog(`LOSS: Recuperação Nível ${currentMartingaleLevel.current}`, 'ERROR');
             } else {
                 setWins((prev: number) => prev + 1);
                 currentMartingaleLevel.current = 0;
                 accumulatedLossRef.current = 0;
+                addLog(`WIN: Operação Finalizada com Sucesso`, 'WIN');
             }
 
             updateSignalResult(savedData.signalId, isLoss ? 'LOSS' : 'WIN', profitValue, savedData.stake, exitDigit);
@@ -154,8 +151,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             isTradeLockedRef.current = false;
             setTradeStatus('IDLE'); 
 
-            if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot(`Meta batida!`);
-            else if (totalProfitRef.current <= -Math.abs(parseFloat(stopLoss))) stopBot(`Stop Loss.`);
+            if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot(`Meta batida! Lucro: $${totalProfitRef.current.toFixed(2)}`);
+            else if (totalProfitRef.current <= -Math.abs(parseFloat(stopLoss))) stopBot(`Stop Loss atingido.`);
         }
     }, [setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, setTradeStatus, addLog]);
 
@@ -163,8 +160,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const data = event.payload;
         if (event.type === 'message') {
             if (data?.error) {
-                // Se houver erro na compra, destrava imediatamente
-                if (data.msg_type === 'buy' || data.echo_req?.msg_type === 'buy') {
+                if (data.msg_type === 'buy') {
                     isTradeLockedRef.current = false;
                     setTradeStatus('IDLE');
                     addLog(`Erro Corretora: ${data.error.message}`, 'ERROR');
@@ -210,62 +206,95 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { sendMessage, connect, disconnect } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
-    const executeBuy = useCallback((strategyName: string, signalId: string, symbol: string, barrier: number) => {
+    const executeBuy = useCallback((strategyName: string, signalId: string, symbol: string, type: 'DIGITEVEN' | 'DIGITODD' | 'DIGITDIFF', barrier?: number) => {
         if (!isConnected || isTradeLockedRef.current) return;
         
         isTradeLockedRef.current = true;
-        lastTradeAttemptTime.current = Date.now(); // Marca o tempo da tentativa
+        lastTradeAttemptTime.current = Date.now();
         setTradeStatus('ACTIVE');
 
         const baseStake = parseFloat(initialStake) || 0.35;
         let currentStake = baseStake;
 
         if (currentMartingaleLevel.current > 0) {
-            currentStake = accumulatedLossRef.current * 12; 
+            currentStake = accumulatedLossRef.current * 2.1; // Fator clássico Wave
         }
         
-        const maxStake = Math.abs(parseFloat(stopLoss)) || 100;
-        if (currentStake > maxStake) currentStake = maxStake;
-
-        const params = { 
+        const params: any = { 
             amount: parseFloat(currentStake.toFixed(2)), 
             basis: 'stake', 
-            contract_type: 'DIGITDIFF', 
+            contract_type: type, 
             currency: 'USD', 
             duration: 1, 
             duration_unit: 't', 
-            symbol,
-            barrier
+            symbol
         };
         
+        if (type === 'DIGITDIFF' && barrier !== undefined) {
+            params.barrier = barrier;
+        }
+        
         sendMessage({ buy: 1, price: currentStake, parameters: params, passthrough: { signalId, strategyName } });
-    }, [isConnected, initialStake, sendMessage, setTradeStatus, stopLoss]);
+    }, [isConnected, initialStake, sendMessage, setTradeStatus]);
 
     useEffect(() => {
-        if (!isBotRunning) return;
+        if (!isBotRunning || !selectedAIInfo) return;
 
         const checkAndTrade = () => {
             if (isTradeLockedRef.current) return;
 
-            for (const symbol of SCANNER_ASSETS) {
-                const digits = multiAssetDigits[symbol] || [];
+            // ESTRATÉGIA QUANTUM (Digit Diff)
+            if (selectedAIInfo.id === 'quantum') {
+                const digits = multiAssetDigits[asset] || [];
                 if (digits.length >= 1) {
                     const lastDigit = digits[0];
+                    setAiThought(`Analisando probabilidade para dígito ${lastDigit}...`);
+                    setCurrentConfidence(91);
                     const sId = addSignal({ 
                         strategy: 'Quantum Core', 
                         signal: 'DIFF' as any, 
-                        details: `Neural Link: ${symbol}`, 
+                        details: `Evitando dígito ${lastDigit}`, 
                         winRate: `91%` 
                     });
-                    executeBuy('Quantum Core', sId, symbol, lastDigit);
-                    break;
+                    executeBuy('Quantum Core', sId, asset, 'DIGITDIFF', lastDigit);
+                }
+            } 
+            
+            // ESTRATÉGIA WAVE (Even/Odd Sequence)
+            else if (selectedAIInfo.id === 'trendSurfer') {
+                const digits = multiAssetDigits[asset] || [];
+                if (digits.length >= consecutiveTarget) {
+                    const recentDigits = digits.slice(0, consecutiveTarget);
+                    const allEven = recentDigits.every(d => d % 2 === 0);
+                    const allOdd = recentDigits.every(d => d % 2 !== 0);
+
+                    if (allEven || allOdd) {
+                        const sequenceType = allEven ? 'PARES' : 'ÍMPARES';
+                        const signal = entryDirection === 'AGAINST' 
+                            ? (allEven ? 'DIGITODD' : 'DIGITEVEN') 
+                            : (allEven ? 'DIGITEVEN' : 'DIGITODD');
+
+                        setAiThought(`Sequência de ${consecutiveTarget} ${sequenceType} detectada.`);
+                        setCurrentConfidence(85);
+                        
+                        const sId = addSignal({ 
+                            strategy: 'Núcleo Wave', 
+                            signal: (signal === 'DIGITEVEN' ? 'EVEN' : 'ODD') as any, 
+                            details: `Reversão após ${consecutiveTarget} ${sequenceType}`, 
+                            winRate: `85%` 
+                        });
+                        executeBuy('Núcleo Wave', sId, asset, signal as any);
+                    } else {
+                        setAiThought("Aguardando padrão de paridade...");
+                        setCurrentConfidence(40);
+                    }
                 }
             }
         };
 
-        const timer = setInterval(checkAndTrade, 200);
+        const timer = setInterval(checkAndTrade, 500);
         return () => clearInterval(timer);
-    }, [isBotRunning, multiAssetDigits, addSignal, executeBuy]);
+    }, [isBotRunning, selectedAIInfo, multiAssetDigits, asset, consecutiveTarget, entryDirection, addSignal, executeBuy]);
 
     const selectAI = useCallback((ia: any) => { setSelectedAIInfo(ia); setAppFlow('operating'); }, []);
     const exitToSelection = useCallback(() => { stopBot("Fim"); setAppFlow('selection'); }, [stopBot]);
