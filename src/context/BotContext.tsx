@@ -10,8 +10,16 @@ import { toast } from "sonner";
 const BotContext = createContext<any>(undefined);
 
 const SCANNER_ASSETS = [
-    '1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V',
-    'R_10', 'R_25', 'R_50', 'R_75', 'R_100'
+    { value: '1HZ10V', label: 'Volatility 10 (1s)' },
+    { value: '1HZ25V', label: 'Volatility 25 (1s)' },
+    { value: '1HZ50V', label: 'Volatility 50 (1s)' },
+    { value: '1HZ75V', label: 'Volatility 75 (1s)' },
+    { value: '1HZ100V', label: 'Volatility 100 (1s)' },
+    { value: 'R_10', label: 'Volatility 10' },
+    { value: 'R_25', label: 'Volatility 25' },
+    { value: 'R_50', label: 'Volatility 50' },
+    { value: 'R_75', label: 'Volatility 75' },
+    { value: 'R_100', label: 'Volatility 100' },
 ];
 
 export const useBotContext = () => {
@@ -31,6 +39,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [isListening, setIsListening] = useState(false);
+
+    // Estados globais para controle de modais por voz
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
 
     const activeTrades = useRef<Set<string>>(new Set());
     const totalProfitRef = useRef(0.00);
@@ -169,9 +181,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     useEffect(() => { 
         if (isConnected) {
-            SCANNER_ASSETS.forEach(symbol => {
-                sendMessageRef.current({ ticks: symbol, subscribe: 1 });
-                fetchDerivHistory(symbol);
+            SCANNER_ASSETS.forEach(item => {
+                sendMessageRef.current({ ticks: item.value, subscribe: 1 });
+                fetchDerivHistory(item.value);
             });
         }
     }, [isConnected, fetchDerivHistory]);
@@ -431,7 +443,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     useEffect(() => {
         if (!isBotRunning || isStudying) return;
         
-        for (const symbol of SCANNER_ASSETS) {
+        for (const symbol of SCANNER_ASSETS.map(a => a.value)) {
             const signal = calculateTradeSignal(symbol);
             if (signal) {
                 const { recommendedVirtualLosses } = getMarketState(symbol);
@@ -526,9 +538,70 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         for (const subCmd of subCommands) {
             let processed = false;
 
-            // 1. Configurar Repetições (Ex: "entra em par quando repetir 3 vezes")
+            // --- NOVOS COMANDOS SOLICITADOS ---
+
+            // 1. Dobrar Aposta ("dobra aposta", "dobrar")
+            if (!processed && (subCmd.includes('dobra aposta') || subCmd.includes('dobrar aposta') || subCmd.includes('dobra a entrada') || subCmd.includes('dobrar a entrada') || subCmd.includes('dobra'))) {
+                const current = parseFloat(initialStake) || 0.35;
+                const doubled = (current * 2).toFixed(2);
+                setInitialStake(doubled);
+                feedbacks.push(`aposta dobrada para ${doubled} dólares`);
+                toast.success(`Aposta Dobrada: $${doubled}`);
+                processed = true;
+            }
+
+            // 2. Mostrar Números Saindo ("mostra quais números tá saindo", "quais números", "números saindo")
+            if (!processed && (subCmd.includes('números tá saindo') || subCmd.includes('numeros ta saindo') || subCmd.includes('quais números') || subCmd.includes('quais numeros') || subCmd.includes('números saindo') || subCmd.includes('numeros saindo') || subCmd.includes('últimos números') || subCmd.includes('ultimos numeros'))) {
+                const last5 = lastDigits.slice(0, 5).reverse().join(', ');
+                if (last5) {
+                    feedbacks.push(`os últimos números que saíram são: ${last5}`);
+                } else {
+                    feedbacks.push("ainda não recebi dados de dígitos");
+                }
+                processed = true;
+            }
+
+            // 3. Qual Ativo ("qual ativo", "qual mercado", "ativo atual")
+            if (!processed && (subCmd.includes('qual ativo') || subCmd.includes('qual mercado') || subCmd.includes('ativo atual') || subCmd.includes('mercado atual'))) {
+                const currentAssetObj = SCANNER_ASSETS.find(a => a.value === asset);
+                const assetLabel = currentAssetObj ? currentAssetObj.label : asset;
+                feedbacks.push(`o ativo atual em operação é o ${assetLabel}`);
+                processed = true;
+            }
+
+            // 4. Abrir Planilha ("abre planilha", "abrir planilha", "mostra planilha")
+            if (!processed && (subCmd.includes('abre planilha') || subCmd.includes('abrir planilha') || subCmd.includes('mostra planilha') || subCmd.includes('mostrar planilha'))) {
+                setIsSettingsOpen(true);
+                feedbacks.push("planilha de gestão aberta");
+                toast.info("Planilha de Gestão Aberta");
+                processed = true;
+            }
+            // Fechar Planilha
+            if (!processed && (subCmd.includes('fecha planilha') || subCmd.includes('fechar planilha') || subCmd.includes('esconde planilha') || subCmd.includes('esconder planilha'))) {
+                setIsSettingsOpen(false);
+                feedbacks.push("planilha de gestão fechada");
+                processed = true;
+            }
+
+            // 5. Abrir Protocolo de Risco ("abre protocolo", "abrir protocolo", "protocolo de risco")
+            if (!processed && (subCmd.includes('abre protocolo') || subCmd.includes('abrir protocolo') || subCmd.includes('protocolo de risco') || subCmd.includes('protocolo de risco aberto') || subCmd.includes('abre risco') || subCmd.includes('abrir risco'))) {
+                setIsConfigModalOpen(true);
+                feedbacks.push("protocolo de risco aberto");
+                toast.info("Protocolo de Risco Aberto");
+                processed = true;
+            }
+            // Fechar Protocolo de Risco
+            if (!processed && (subCmd.includes('fecha protocolo') || subCmd.includes('fechar protocolo') || subCmd.includes('fecha risco') || subCmd.includes('fechar risco'))) {
+                setIsConfigModalOpen(false);
+                feedbacks.push("protocolo de risco fechado");
+                processed = true;
+            }
+
+            // --- FIM DOS NOVOS COMANDOS ---
+
+            // Configurar Repetições (Ex: "entra em par quando repetir 3 vezes")
             const isRepetitionRule = subCmd.includes('repetir') || subCmd.includes('repetição') || subCmd.includes('repeticoes') || subCmd.includes('sequência') || subCmd.includes('sequencia');
-            if (isRepetitionRule) {
+            if (!processed && isRepetitionRule) {
                 const valStr = parseSpokenNumber(subCmd);
                 if (valStr) {
                     const val = parseInt(valStr);
@@ -549,7 +622,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             }
 
-            // 2. Configurar Direção da Entrada
+            // Configurar Direção da Entrada
             if (!processed && (subCmd.includes('a favor') || subCmd.includes('seguir a tendência') || subCmd.includes('continuar a sequência'))) {
                 setEntryDirection('FAVOR');
                 setIsSmartModeActive(false);
@@ -565,7 +638,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 processed = true;
             }
 
-            // 3. Configurar Filtro Virtual
+            // Configurar Filtro Virtual
             if (!processed && (subCmd.includes('filtro virtual') || subCmd.includes('perda virtual') || subCmd.includes('perdas virtuais') || subCmd.includes('loss virtual'))) {
                 const valStr = parseSpokenNumber(subCmd);
                 if (valStr) {
@@ -578,7 +651,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             }
 
-            // 4. Reativar Modo Inteligente
+            // Reativar Modo Inteligente
             if (!processed && (subCmd.includes('modo inteligente') || subCmd.includes('ia decidir') || subCmd.includes('modo automático') || subCmd.includes('modo automatico'))) {
                 setIsSmartModeActive(true);
                 feedbacks.push("modo inteligente ativado");
@@ -586,7 +659,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 processed = true;
             }
 
-            // 5. Iniciar / Parar
+            // Iniciar / Parar / Pausar
             if (!processed && startKeywords.some(kw => subCmd.includes(kw))) {
                 if (!isConnected) {
                     feedbacks.push("não posso iniciar porque você não está conectado");
@@ -609,7 +682,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 processed = true;
             }
 
-            // 6. Consultas de Saldo e Lucro
+            // Consultas de Saldo e Lucro
             if (!processed && balanceKeywords.some(kw => subCmd.includes(kw))) {
                 if (accountBalance !== null) {
                     feedbacks.push(`seu saldo é de ${accountBalance.toFixed(2)} dólares`);
@@ -623,14 +696,14 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 processed = true;
             }
 
-            // 7. Limpar / Reiniciar
+            // Limpar / Reiniciar
             if (!processed && resetKeywords.some(kw => subCmd.includes(kw))) {
                 resetOperations();
                 feedbacks.push("histórico e lucros reiniciados");
                 processed = true;
             }
 
-            // 8. Mudar Entrada / Stake
+            // Mudar Entrada / Stake
             if (!processed && stakeKeywords.some(kw => subCmd.includes(kw))) {
                 const val = parseSpokenNumber(subCmd);
                 if (val) {
@@ -641,7 +714,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             }
 
-            // 9. Mudar Meta / Take Profit
+            // Mudar Meta / Take Profit
             if (!processed && metaKeywords.some(kw => subCmd.includes(kw))) {
                 const val = parseSpokenNumber(subCmd);
                 if (val) {
@@ -652,7 +725,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             }
 
-            // 10. Mudar Stop Loss
+            // Mudar Stop Loss
             if (!processed && stopLossKeywords.some(kw => subCmd.includes(kw))) {
                 const val = parseSpokenNumber(subCmd);
                 if (val) {
@@ -663,7 +736,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             }
 
-            // 11. Mudar Ticks / Duração
+            // Mudar Ticks / Duração
             if (!processed && durationKeywords.some(kw => subCmd.includes(kw))) {
                 const valStr = parseSpokenNumber(subCmd);
                 if (valStr) {
@@ -677,7 +750,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             }
 
-            // 12. Mudar Tipo de Conta
+            // Mudar Tipo de Conta
             if (!processed && realKeywords.some(kw => subCmd.includes(kw))) {
                 setAccountType('real');
                 feedbacks.push("conta alterada para real");
@@ -691,7 +764,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 processed = true;
             }
 
-            // 13. Compras Manuais por Voz
+            // Compras Manuais por Voz
             if (!processed && isBuyAction) {
                 const hasPar = parPhonetics.some(p => subCmd.includes(p));
                 const hasImpar = imparPhonetics.some(i => subCmd.includes(i));
@@ -706,7 +779,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             }
 
-            // 14. Ativar / Desativar Voz
+            // Ativar / Desativar Voz
             if (!processed && voiceOffKeywords.some(kw => subCmd.includes(kw))) {
                 setIsVoiceEnabled(false);
                 toast.info("Voz desativada.");
@@ -719,7 +792,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 processed = true;
             }
 
-            // 15. Mudar Ativo / Mercado
+            // Mudar Ativo / Mercado
             if (!processed && assetKeywords.some(kw => subCmd.includes(kw))) {
                 const valStr = parseSpokenNumber(subCmd);
                 if (valStr) {
@@ -755,7 +828,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else {
             speak("Desculpe, não entendi os comandos. Você pode dizer por exemplo: entrada de um dólar e meta de cinco.");
         }
-    }, [isConnected, isBotRunning, toggleBot, accountBalance, resetOperations, speak, setInitialStake, setTakeProfit, setStopLoss, setDuration, setAccountType, manualBuy, setIsVoiceEnabled, setAsset, setConsecutiveTarget, setEntryDirection, setVirtualTargetLosses, setIsSmartModeActive]);
+    }, [isConnected, isBotRunning, toggleBot, accountBalance, resetOperations, speak, setInitialStake, setTakeProfit, setStopLoss, setDuration, setAccountType, manualBuy, setIsVoiceEnabled, setAsset, setConsecutiveTarget, setEntryDirection, setVirtualTargetLosses, setIsSmartModeActive, initialStake, lastDigits, asset]);
 
     // Referência dinâmica para o processador de voz sempre ter o estado mais recente
     const processVoiceCommandRef = useRef(processVoiceCommand);
@@ -809,7 +882,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             
             // Se tiver alternativas, procura se alguma delas bate com palavras-chave importantes
             if (results.length > 1) {
-                const keywords = ['par', 'para', 'ímpar', 'impar', 'limpar', 'iniciar', 'parar', 'saldo', 'lucro', 'stake', 'entrada', 'meta', 'stop', 'repetir', 'repetição', 'sequência', 'contra', 'favor', 'filtro'];
+                const keywords = ['par', 'para', 'ímpar', 'impar', 'limpar', 'iniciar', 'parar', 'saldo', 'lucro', 'stake', 'entrada', 'meta', 'stop', 'repetir', 'repetição', 'sequência', 'contra', 'favor', 'filtro', 'dobra', 'planilha', 'protocolo', 'real', 'demo'];
                 for (let i = 0; i < results.length; i++) {
                     const altText = results[i].transcript.toLowerCase();
                     const hasKeyword = keywords.some(kw => altText.includes(kw));
@@ -875,8 +948,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const contextValue = useMemo(() => ({
         ...stateAndSetters, isConnected, isConnecting, status, handleConnect, handleDisconnect: disconnect, 
         toggleBot, resetOperations, appFlow, setAppFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, aiThought,
-        isVoiceEnabled, setIsVoiceEnabled, isSpeaking, speak, isListening, startListening, manualBuy
-    }), [stateAndSetters, isConnected, isConnecting, status, handleConnect, disconnect, toggleBot, resetOperations, appFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, aiThought, isVoiceEnabled, isSpeaking, speak, isListening, startListening, manualBuy]);
+        isVoiceEnabled, setIsVoiceEnabled, isSpeaking, speak, isListening, startListening, manualBuy,
+        isSettingsOpen, setIsSettingsOpen, isConfigModalOpen, setIsConfigModalOpen
+    }), [stateAndSetters, isConnected, isConnecting, status, handleConnect, disconnect, toggleBot, resetOperations, appFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, aiThought, isVoiceEnabled, isSpeaking, speak, isListening, startListening, manualBuy, isSettingsOpen, isConfigModalOpen]);
 
     return <BotContext.Provider value={contextValue}>{children}</BotContext.Provider>;
 };

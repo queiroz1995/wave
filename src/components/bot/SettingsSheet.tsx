@@ -12,14 +12,17 @@ import {
 import { Button } from "@/components/ui/button";
 import { Settings } from 'lucide-react';
 import { BankManagement } from '@/components/bot/BankManagement';
+import { useBotContext } from '@/context/BotContext';
 
 interface SettingsSheetProps {
     trigger?: React.ReactNode;
 }
 
 export const SettingsSheet = ({ trigger }: SettingsSheetProps) => {
+    const { isSettingsOpen, setIsSettingsOpen } = useBotContext();
+
     return (
-        <Sheet>
+        <Sheet open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
             <SheetTrigger asChild>
                 {trigger || (
                     <Button variant="outline" size="icon" className="flex-shrink-0">

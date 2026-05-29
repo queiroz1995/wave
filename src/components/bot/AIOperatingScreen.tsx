@@ -23,10 +23,10 @@ export const AIOperatingScreen = () => {
         aiThought,
         takeProfit,
         isVoiceEnabled, setIsVoiceEnabled, isSpeaking,
-        isListening, startListening
+        isListening, startListening,
+        isConfigModalOpen, setIsConfigModalOpen
     } = useBotContext();
 
-    const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
     const hasTriggeredGoalConfettiRef = useRef(false);
 
     // Resetar o gatilho de confete quando o lucro for zerado (ao reiniciar as operações)
