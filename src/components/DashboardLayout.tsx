@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { BarChart, Zap, Globe, Shield } from 'lucide-react';
+import { Zap, Globe, Shield } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
 import { Separator } from '@/components/ui/separator';
 import { ConnectionPanel } from './bot/ConnectionPanel';
@@ -18,13 +18,24 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : 0;
 
     return (
-        <div className="min-h-screen bg-[#05070a] text-white selection:bg-indigo-500/30 overflow-x-hidden">
-            {/* Background Futurista com Grade e Brilhos */}
-            <div className="fixed inset-0 z-0">
-                <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-indigo-600/20 rounded-full blur-[120px] opacity-50 -z-10" />
-                <div className="absolute -bottom-48 -right-48 w-96 h-96 bg-emerald-600/10 rounded-full blur-[100px] opacity-30 -z-10" />
+        <div className="min-h-screen bg-[#02040a] text-white selection:bg-indigo-500/30 overflow-x-hidden relative">
+            
+            {/* --- FUNDO ANIMADO --- */}
+            <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
+                {/* Grade em Movimento */}
+                <div className="absolute inset-0 bg-grid-moving animate-grid-move opacity-20 [mask-image:radial-gradient(ellipse_at_center,black,transparent_80%)]" />
+                
+                {/* Névoas de Cor Pulsantes */}
+                <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/20 rounded-full blur-[120px] animate-pulse-glow" />
+                <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-emerald-600/10 rounded-full blur-[120px] animate-pulse-glow [animation-delay:2s]" />
+                <div className="absolute top-[30%] right-[10%] w-[30%] h-[30%] bg-blue-500/10 rounded-full blur-[100px] animate-pulse-glow [animation-delay:4s]" />
+
+                {/* Partículas de Luz Flutuantes */}
+                <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-indigo-400 rounded-full blur-sm animate-float opacity-50" />
+                <div className="absolute top-1/2 right-1/3 w-3 h-3 bg-emerald-400 rounded-full blur-md animate-float [animation-delay:3s] opacity-30" />
+                <div className="absolute bottom-1/4 left-1/2 w-1 h-1 bg-white rounded-full blur-none animate-float [animation-delay:7s] opacity-60" />
             </div>
+            {/* --------------------- */}
 
             <div className="relative z-10 flex flex-col items-center">
                 {/* Header High-Tech */}
@@ -75,21 +86,16 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                         <ConnectionPanel />
                     </div>
 
-                    {/* Contêiner de Conteúdo Futurista */}
+                    {/* Contêiner de Conteúdo */}
                     <div className="relative w-full h-full min-h-[500px]">
-                        {/* Decorações Laterais de UI */}
-                        <div className="absolute -left-12 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-white/10 to-transparent hidden xl:block" />
-                        <div className="absolute -right-12 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-white/10 to-transparent hidden xl:block" />
-                        
-                        {/* Children Content */}
                         <div className="animate-in fade-in zoom-in-95 duration-700">
                             {children}
                         </div>
                     </div>
                 </main>
 
-                {/* Footer Minimalista High-Tech */}
-                <footer className="w-full py-10 flex flex-col items-center gap-6 border-t border-white/5 bg-slate-950/50 backdrop-blur-xl">
+                {/* Footer Minimalista */}
+                <footer className="w-full py-10 flex flex-col items-center gap-6 border-t border-white/5 bg-slate-950/20 backdrop-blur-xl">
                     <div className="flex gap-8 opacity-20">
                         <Globe className="h-4 w-4" />
                         <Shield className="h-4 w-4" />

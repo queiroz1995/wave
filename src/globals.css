@@ -4,26 +4,25 @@
 
 @layer base {
   :root {
-    /* Tema Light Futurista */
-    --background: 210 40% 98%;
-    --foreground: 222 47% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --background: 224 71% 4%;
+    --foreground: 213 31% 91%;
+    --card: 224 71% 4%;
+    --card-foreground: 213 31% 91%;
+    --popover: 224 71% 4%;
+    --popover-foreground: 215 20.2% 65.1%;
     --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 90%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 94%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 90%;
-    --accent-foreground: 222 47% 11%;
-    --destructive: 0 84.2% 60.2%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 222.2 47.4% 11.2%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 223 47% 11%;
+    --muted-foreground: 215.4 16.3% 56.9%;
+    --accent: 216 34% 17%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 85%;
-    --input: 214.3 31.8% 85%;
-    --ring: 217.2 91.2% 59.8%;
+    --border: 216 34% 17%;
+    --input: 216 34% 17%;
+    --ring: 224.3 76.3% 48%;
     --radius: 1rem;
   }
 }
@@ -34,44 +33,42 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-    /* Fundo claro com gradientes sutis de tecnologia */
-    background: 
-      radial-gradient(circle at 50% 0%, hsla(217, 91%, 60%, 0.1) 0%, transparent 50%),
-      linear-gradient(to bottom, #f8fafc, #e2e8f0);
-    min-height: 100vh;
+    overflow-x: hidden;
   }
 }
 
-@layer components {
-  .glass-panel {
-    /* Efeito de Vidro Branco Ultra Transparente */
-    @apply bg-white/30 backdrop-blur-2xl border border-white/50 shadow-[0_10px_40px_-15px_rgba(0,0,0,0.1)];
-  }
-  
-  /* Neon adaptado para fundo claro (mais saturação, menos brilho espalhado) */
-  .neon-border-blue { @apply border-blue-500/40 shadow-[0_0_15px_rgba(59,130,246,0.2)]; }
-  .neon-border-purple { @apply border-purple-500/40 shadow-[0_0_15px_rgba(168,85,247,0.2)]; }
-  .neon-border-cyan { @apply border-cyan-500/40 shadow-[0_0_15px_rgba(6,182,212,0.2)]; }
-  .neon-border-orange { @apply border-orange-500/40 shadow-[0_0_15px_rgba(249,115,22,0.2)]; }
-  .neon-border-red { @apply border-red-500/40 shadow-[0_0_15px_rgba(239,68,68,0.2)]; }
-  .neon-border-green { @apply border-green-500/40 shadow-[0_0_15px_rgba(34,197,94,0.2)]; }
-
-  .ai-scanline {
-    background: linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, 0.01) 50%);
-    background-size: 100% 4px;
-  }
+@keyframes grid-move {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(40px); }
 }
 
-@keyframes scan {
-  0% { top: 0; }
-  100% { top: 100%; }
+@keyframes float {
+  0%, 100% { transform: translateY(0) translateX(0); }
+  25% { transform: translateY(-20px) translateX(10px); }
+  50% { transform: translateY(-10px) translateX(20px); }
+  75% { transform: translateY(10px) translateX(-10px); }
 }
 
-@keyframes pulse-bright {
-  0%, 100% { opacity: 1; filter: brightness(1); }
-  50% { opacity: 0.8; filter: brightness(1.3); }
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.2); }
 }
 
-.animate-pulse-bright {
-  animation: pulse-bright 2s ease-in-out infinite;
+.animate-grid-move {
+  animation: grid-move 3s linear infinite;
+}
+
+.animate-float {
+  animation: float 15s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 8s ease-in-out infinite;
+}
+
+.bg-grid-moving {
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 40px 40px;
 }
