@@ -46,23 +46,23 @@ export const AIOperatingScreen = () => {
         switch (signal) {
             case 'EVEN': 
                 text = 'PAR'; 
-                baseColor = isVirtual ? 'bg-blue-500/10 text-blue-600 border-blue-500/20' : 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
+                baseColor = isVirtual ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
                 break;
             case 'ODD': 
                 text = 'ÍMPAR'; 
-                baseColor = isVirtual ? 'bg-blue-500/10 text-blue-600 border-blue-500/20' : 'bg-rose-500/10 text-rose-600 border-rose-500/20';
+                baseColor = isVirtual ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20';
                 break;
             case 'CALL': 
                 text = 'SOBE'; 
-                baseColor = isVirtual ? 'bg-blue-500/10 text-blue-600 border-blue-500/20' : 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
+                baseColor = isVirtual ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
                 break;
             case 'PUT': 
                 text = 'DESCE'; 
-                baseColor = isVirtual ? 'bg-blue-500/10 text-blue-600 border-blue-500/20' : 'bg-rose-500/10 text-rose-600 border-rose-500/20';
+                baseColor = isVirtual ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20';
                 break;
             default: 
                 text = signal; 
-                baseColor = 'bg-slate-500/10 text-slate-500 border-slate-500/20';
+                baseColor = 'bg-slate-500/10 text-slate-400 border-slate-500/20';
         }
 
         return { text: isVirtual ? `VIRTUAL: ${text}` : text, color: baseColor };
@@ -73,15 +73,15 @@ export const AIOperatingScreen = () => {
             
             {/* Status Bar Superior */}
             <div className="flex items-center justify-between px-2">
-                <div className="flex items-center gap-3 bg-slate-900/40 backdrop-blur-xl border border-white/10 p-1.5 pr-4 rounded-full shadow-2xl">
+                <div className="flex items-center gap-3 bg-slate-950/60 backdrop-blur-xl border border-white/10 p-1.5 pr-4 rounded-full shadow-2xl">
                     <div className={cn(
                         "h-8 w-8 rounded-full flex items-center justify-center transition-all duration-500",
-                        isBotRunning ? "bg-emerald-500/20 text-emerald-400" : "bg-slate-800 text-slate-500"
+                        isBotRunning ? "bg-emerald-500/20 text-emerald-400" : "bg-slate-800/50 text-slate-500"
                     )}>
                         <Activity className={cn("h-4 w-4", isBotRunning && "animate-pulse")} />
                     </div>
                     <div className="flex flex-col">
-                        <span className="text-[10px] font-black uppercase tracking-tighter leading-none text-slate-300">
+                        <span className="text-[10px] font-black uppercase tracking-tighter leading-none text-slate-400">
                             Status do Sistema
                         </span>
                         <span className={cn(
@@ -94,38 +94,38 @@ export const AIOperatingScreen = () => {
                 </div>
 
                 {isBotRunning && !isStudying && (
-                    <div className="flex items-center gap-2 bg-indigo-500/10 backdrop-blur-xl px-4 py-2 rounded-full border border-indigo-500/20 shadow-lg shadow-indigo-500/5">
-                        <Target className="h-3.5 w-3.5 text-indigo-400 animate-pulse" />
-                        <span className="text-xs font-black text-indigo-400 tracking-wider">{currentConfidence}% Precisão</span>
+                    <div className="flex items-center gap-2 bg-cyan-500/10 backdrop-blur-xl px-4 py-2 rounded-full border border-cyan-500/20 shadow-lg shadow-cyan-500/5">
+                        <Target className="h-3.5 w-3.5 text-cyan-400 animate-pulse" />
+                        <span className="text-xs font-black text-cyan-400 tracking-wider">{currentConfidence}% Precisão</span>
                     </div>
                 )}
             </div>
 
             {/* Painel Central - Estética "Cyber-Luxury" */}
-            <Card className="relative overflow-hidden bg-slate-950 border-white/5 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.5)] rounded-[3.5rem]">
+            <Card className="relative overflow-hidden bg-slate-950/60 backdrop-blur-xl border border-white/10 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.6)] rounded-[2.5rem] transition-all duration-500 hover:border-cyan-500/20">
                 {/* Efeitos de Fundo Decorativos */}
-                <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/10 rounded-full blur-[80px] -mr-32 -mt-32" />
-                <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-600/5 rounded-full blur-[80px] -ml-32 -mb-32" />
+                <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/10 rounded-full blur-[80px] -mr-32 -mt-32" />
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-[80px] -ml-32 -mb-32" />
                 
-                <CardContent className="p-8 space-y-10 relative z-10">
+                <CardContent className="p-6 space-y-8 relative z-10">
                     {/* Header com Branding */}
                     <div className="flex justify-between items-center">
                         <div className="flex items-center gap-4">
                             <div className="relative group">
-                                <div className="absolute -inset-1.5 bg-gradient-to-tr from-indigo-600 to-emerald-500 rounded-[1.25rem] blur opacity-25 group-hover:opacity-50 transition duration-500" />
+                                <div className="absolute -inset-1.5 bg-gradient-to-tr from-cyan-500 to-indigo-500 rounded-[1.25rem] blur opacity-25 group-hover:opacity-50 transition duration-500" />
                                 <div className="h-16 w-16 bg-slate-900 rounded-[1.25rem] p-0.5 shadow-2xl border border-white/10 overflow-hidden">
                                     {selectedAIInfo?.image ? (
                                         <img src={selectedAIInfo.image} alt="" className="w-full h-full object-cover rounded-[1rem]" />
                                     ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-slate-800"><Bot className="h-7 w-7 text-indigo-400" /></div>
+                                        <div className="w-full h-full flex items-center justify-center bg-slate-800"><Bot className="h-7 w-7 text-cyan-400" /></div>
                                     )}
                                 </div>
                             </div>
                             <div>
                                 <div className="flex items-center gap-1.5">
                                     <h2 className="text-xl font-black text-white italic tracking-tighter">WAVE SNIPER</h2>
-                                    <div className="px-1.5 py-0.5 bg-indigo-500/20 rounded border border-indigo-500/30">
-                                        <span className="text-[8px] font-black text-indigo-400 uppercase">PRO</span>
+                                    <div className="px-1.5 py-0.5 bg-cyan-500/20 rounded border border-cyan-500/30">
+                                        <span className="text-[8px] font-black text-cyan-400 uppercase">PRO</span>
                                     </div>
                                 </div>
                                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em] mt-1">Neural Engine v2.4.0</p>
@@ -134,7 +134,7 @@ export const AIOperatingScreen = () => {
                         
                         <div className="flex items-center gap-2">
                             <SettingsSheet trigger={
-                                <Button variant="ghost" size="icon" className="h-11 w-11 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:scale-105 transition-all">
+                                <Button variant="ghost" size="icon" className="h-11 w-11 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 hover:scale-105 transition-all">
                                     <FileSpreadsheet className="h-4 w-4 text-slate-300" />
                                 </Button>
                             } />
@@ -145,7 +145,7 @@ export const AIOperatingScreen = () => {
                     </div>
 
                     {/* Display de Lucro Hero */}
-                    <div className="flex flex-col items-center py-6 relative">
+                    <div className="flex flex-col items-center py-4 relative">
                         <div className={cn(
                             "absolute inset-0 blur-[100px] opacity-20 -z-10 transition-all duration-1000",
                             isWin ? "bg-emerald-500" : "bg-rose-500"
@@ -157,10 +157,10 @@ export const AIOperatingScreen = () => {
                         </div>
                         
                         <div className={cn(
-                            "text-8xl font-black tracking-tighter leading-none transition-all duration-700 drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]",
+                            "text-7xl font-black tracking-tighter leading-none transition-all duration-700 drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]",
                             isWin ? "text-emerald-400" : "text-rose-400"
                         )}>
-                            <span className="text-4xl opacity-40 mr-1 font-medium font-sans">$</span>
+                            <span className="text-3xl opacity-40 mr-1 font-medium font-sans">$</span>
                             {totalProfit.toFixed(2)}
                         </div>
                     </div>
@@ -170,38 +170,38 @@ export const AIOperatingScreen = () => {
                         onClick={handleStartClick}
                         disabled={status.message.includes('Desconectado') || isPaused || isManipulationDetected}
                         className={cn(
-                            "group relative w-full h-24 rounded-[2.5rem] overflow-hidden transition-all duration-500 shadow-2xl active:scale-95",
+                            "group relative w-full h-20 rounded-[2rem] overflow-hidden transition-all duration-500 shadow-2xl active:scale-95",
                             isBotRunning 
                                 ? "bg-rose-600 hover:bg-rose-700 shadow-rose-900/20" 
-                                : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-900/40"
+                                : "bg-cyan-500 hover:bg-cyan-600 text-slate-950 shadow-cyan-500/20"
                         )}
                     >
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-shimmer" />
-                        <span className="relative flex items-center gap-3 text-2xl font-black uppercase tracking-[0.25em]">
+                        <span className="relative flex items-center gap-3 text-xl font-black uppercase tracking-[0.25em]">
                             {isBotRunning ? (
-                                <>PARAR<Power className="h-6 w-6" /></>
+                                <>PARAR<Power className="h-5 w-5" /></>
                             ) : (
-                                <>INICIAR<BrainCircuit className="h-6 w-6" /></>
+                                <>INICIAR<BrainCircuit className="h-5 w-5" /></>
                             )}
                         </span>
                     </Button>
 
                     {/* Wallet / Balance Section */}
-                    <div className="bg-white/5 border border-white/5 rounded-[2.5rem] p-7 flex items-center justify-between group hover:border-white/10 transition-colors">
-                        <div className="flex items-center gap-5">
+                    <div className="bg-slate-900/40 border border-white/5 rounded-[2rem] p-5 flex items-center justify-between group hover:border-white/10 transition-colors">
+                        <div className="flex items-center gap-4">
                             <div className={cn(
-                                "h-14 w-14 rounded-2xl flex items-center justify-center shadow-inner transition-colors duration-500",
-                                accountType === 'real' ? "bg-emerald-500/20 text-emerald-400" : "bg-indigo-500/20 text-indigo-400"
+                                "h-12 w-12 rounded-2xl flex items-center justify-center shadow-inner transition-colors duration-500",
+                                accountType === 'real' ? "bg-emerald-500/20 text-emerald-400" : "bg-cyan-500/20 text-cyan-400"
                             )}>
-                                <DollarSign className="h-7 w-7" />
+                                <DollarSign className="h-6 w-6" />
                             </div>
                             <div>
                                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">
                                     Banca {accountType === 'real' ? 'Real' : 'Treinamento'}
                                 </p>
                                 <div className="flex items-baseline gap-1">
-                                    <span className="text-sm font-bold text-slate-400">$</span>
-                                    <p className="text-3xl font-black text-white tracking-tighter leading-none">
+                                    <span className="text-xs font-bold text-slate-400">$</span>
+                                    <p className="text-2xl font-black text-white tracking-tighter leading-none">
                                         {accountBalance?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
                                     </p>
                                 </div>
@@ -210,10 +210,10 @@ export const AIOperatingScreen = () => {
                         <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-12 w-12 rounded-2xl bg-white/5 hover:bg-white/10 hover:rotate-180 transition-all duration-500" 
+                            className="h-10 w-10 rounded-xl bg-white/5 hover:bg-white/10 hover:rotate-180 transition-all duration-500" 
                             onClick={() => handleConnect(accountType, currentToken)}
                         >
-                            <RefreshCw className="h-5 w-5 text-slate-400" />
+                            <RefreshCw className="h-4 w-4 text-slate-400" />
                         </Button>
                     </div>
                 </CardContent>
@@ -222,52 +222,52 @@ export const AIOperatingScreen = () => {
             {/* AI Thought Stream */}
             {isBotRunning && (
                 <div className="relative group">
-                    <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 to-emerald-500 rounded-[2rem] blur opacity-10 group-hover:opacity-20 transition" />
-                    <div className="relative bg-slate-900/80 backdrop-blur-xl rounded-[2rem] p-5 flex items-start gap-4 border border-white/10 shadow-2xl">
-                        <div className="mt-1 h-2 w-2 rounded-full bg-indigo-500 animate-ping" />
+                    <div className="absolute -inset-0.5 bg-gradient-to-r from-cyan-500 to-indigo-500 rounded-[2rem] blur opacity-10 group-hover:opacity-20 transition" />
+                    <div className="relative bg-slate-950/60 backdrop-blur-xl rounded-[2rem] p-5 flex items-start gap-4 border border-white/10 shadow-2xl">
+                        <div className="mt-1 h-2 w-2 rounded-full bg-cyan-400 animate-ping" />
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-2">
-                                <MessageSquare className="h-3 w-3 text-indigo-400" />
-                                <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Fluxo_Cognitivo</span>
+                                <MessageSquare className="h-3 w-3 text-cyan-400" />
+                                <span className="text-[9px] font-black text-cyan-400 uppercase tracking-widest">Fluxo_Cognitivo</span>
                             </div>
                             <p className="text-[13px] font-medium text-slate-200 leading-relaxed italic">
                                 "{aiThought}"
-                                <span className="inline-block w-1.5 h-3 bg-indigo-500 ml-1 animate-pulse" />
+                                <span className="inline-block w-1.5 h-3 bg-cyan-400 ml-1 animate-pulse" />
                             </p>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Monitor de Sinais - Versão White */}
-            <div className="bg-white/95 backdrop-blur-3xl border border-slate-200 rounded-[3rem] p-7 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)]">
-                <div className="flex items-center justify-between mb-6 px-1">
+            {/* Monitor de Sinais - Versão Dark Integrada */}
+            <div className="bg-slate-950/60 backdrop-blur-xl border border-white/10 rounded-[2.5rem] p-6 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)]">
+                <div className="flex items-center justify-between mb-5 px-1">
                     <div className="flex items-center gap-2">
                         <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
-                        <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Feed de Operações</span>
+                        <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Feed de Operações</span>
                     </div>
-                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-slate-100 hover:bg-slate-200" onClick={resetOperations}>
+                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5" onClick={resetOperations}>
                         <RotateCcw className="h-4 w-4 text-slate-400" />
                     </Button>
                 </div>
                 
                 <ScrollArea className="h-52 pr-4">
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                         {signals.length > 0 ? signals.map((s: any) => {
                             const label = getSignalLabel(s.signal, s.strategy);
                             const hasFinished = typeof s.profit === 'number';
                             
                             return (
-                                <div key={s.id} className="group relative flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl border border-slate-100 transition-all duration-300">
+                                <div key={s.id} className="group relative flex items-center justify-between p-3.5 bg-slate-900/40 hover:bg-slate-900/80 rounded-2xl border border-white/5 transition-all duration-300">
                                     <div className="flex items-center gap-4">
-                                        <span className="text-[10px] font-mono text-slate-400 group-hover:text-slate-500 transition-colors">{s.timestamp}</span>
+                                        <span className="text-[10px] font-mono text-slate-500 group-hover:text-slate-400 transition-colors">{s.timestamp}</span>
                                         <div className={cn("px-3 py-1 rounded-lg text-[10px] font-black uppercase border transition-all duration-300", label.color)}>
                                             {label.text}
                                         </div>
                                     </div>
                                     <div className={cn(
                                         "text-base font-black tracking-tighter", 
-                                        !hasFinished ? "text-indigo-600 animate-pulse" : (s.result === 'WIN' ? "text-emerald-600" : "text-rose-600")
+                                        !hasFinished ? "text-cyan-400 animate-pulse" : (s.result === 'WIN' ? "text-emerald-400" : "text-rose-400")
                                     )}>
                                         {hasFinished ? (
                                             <span className="flex items-center gap-1">
@@ -280,10 +280,10 @@ export const AIOperatingScreen = () => {
                             );
                         }) : (
                             <div className="py-16 text-center">
-                                <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-slate-100 mb-3 border border-slate-200">
-                                    <Target className="h-5 w-5 text-slate-300" />
+                                <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-white/5 mb-3 border border-white/5">
+                                    <Target className="h-5 w-5 text-slate-500" />
                                 </div>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] italic">Aguardando gatilhos neurais...</p>
+                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] italic">Aguardando gatilhos neurais...</p>
                             </div>
                         )}
                     </div>
