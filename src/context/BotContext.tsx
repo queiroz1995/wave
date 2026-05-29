@@ -64,6 +64,32 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
     const [currentConfidence, setCurrentConfidence] = useState(0);
 
+    // Função para encontrar a melhor voz feminina em português (estilo Siri/Alexa)
+    const getBestFemalePtVoice = useCallback(() => {
+        if (!('speechSynthesis' in window)) return null;
+        const voices = window.speechSynthesis.getVoices();
+        
+        // Filtra apenas vozes em português
+        const ptVoices = voices.filter(voice => 
+            voice.lang.includes('pt-BR') || 
+            voice.lang.includes('pt_BR') || 
+            voice.lang.includes('pt-PT')
+        );
+
+        if (ptVoices.length === 0) return null;
+
+        // Prioridade de vozes femininas de alta qualidade (Google, Microsoft Online, Siri, Luciana, Francisca, Maria)
+        const preferredKeywords = ['google', 'siri', 'luciana', 'francisca', 'maria', 'natural', 'online', 'female', 'mulher'];
+        
+        for (const keyword of preferredKeywords) {
+            const found = ptVoices.find(voice => voice.name.toLowerCase().includes(keyword));
+            if (found) return found;
+        }
+
+        // Retorna a primeira voz em português disponível caso não ache as preferidas
+        return ptVoices[0];
+    }, []);
+
     // Função para a assistente de voz falar
     const speak = useCallback((text: string) => {
         if (!isVoiceEnabled || !('speechSynthesis' in window)) return;
@@ -73,14 +99,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = 'pt-BR';
-        utterance.rate = 1.1; // Velocidade levemente mais rápida e natural
-        utterance.pitch = 1.0;
+        utterance.rate = 1.0;  // Velocidade perfeita para clareza e naturalidade
+        utterance.pitch = 1.15; // Tom levemente mais agudo para soar mais feminino e cristalino (estilo Alexa)
 
-        // Tenta encontrar uma voz em português de melhor qualidade
-        const voices = window.speechSynthesis.getVoices();
-        const ptVoice = voices.find(voice => voice.lang.includes('pt-BR') || voice.lang.includes('pt_BR'));
-        if (ptVoice) {
-            utterance.voice = ptVoice;
+        const bestVoice = getBestFemalePtVoice();
+        if (bestVoice) {
+            utterance.voice = bestVoice;
         }
 
         utterance.onstart = () => setIsSpeaking(true);
@@ -88,14 +112,19 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         utterance.onerror = () => setIsSpeaking(false);
 
         window.speechSynthesis.speak(utterance);
-    }, [isVoiceEnabled]);
+    }, [isVoiceEnabled, getBestFemalePtVoice]);
 
-    // Carrega vozes inicialmente para garantir compatibilidade com Chrome/Safari
+    // Garante que as vozes sejam carregadas corretamente em todos os navegadores
     useEffect(() => {
         if ('speechSynthesis' in window) {
             window.speechSynthesis.getVoices();
+            if (window.speechSynthesis.onvoiceschanged !== undefined) {
+                window.speechSynthesis.onvoiceschanged = () => {
+                    getBestFemalePtVoice();
+                };
+            }
         }
-    }, []);
+    }, [getBestFemalePtVoice]);
 
     const calculateEntropy = (digits: number[]) => {
         if (digits.length < 20) return 1;
