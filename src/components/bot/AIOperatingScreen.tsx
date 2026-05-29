@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit } from 'lucide-react';
+import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, Volume2, VolumeX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
@@ -19,10 +19,10 @@ export const AIOperatingScreen = () => {
         handleConnect, accountType, realToken, demoToken,
         isPaused, isManipulationDetected,
         isStudying, studyTicksCount,
-        isSoundEnabled, setIsSoundEnabled,
         currentConfidence,
         aiThought,
-        takeProfit
+        takeProfit,
+        isVoiceEnabled, setIsVoiceEnabled, isSpeaking
     } = useBotContext();
 
     const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
@@ -189,6 +189,20 @@ export const AIOperatingScreen = () => {
                         </div>
                         
                         <div className="flex items-center gap-1.5">
+                            {/* Botão de Voz Siri/Alexa */}
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className={cn(
+                                    "h-9 w-9 rounded-xl border transition-all",
+                                    isVoiceEnabled 
+                                        ? "bg-cyan-500/10 border-cyan-500/20 text-cyan-400 hover:bg-cyan-500/20" 
+                                        : "bg-white/5 border-white/10 text-slate-400 hover:bg-white/10"
+                                )}
+                                onClick={() => setIsVoiceEnabled(!isVoiceEnabled)}
+                            >
+                                {isVoiceEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                            </Button>
                             <SettingsSheet trigger={
                                 <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
                                     <FileSpreadsheet className="h-3.5 w-3.5 text-slate-300" />
@@ -199,6 +213,34 @@ export const AIOperatingScreen = () => {
                             </Button>
                         </div>
                     </div>
+
+                    {/* Onda Sonora Estilo Siri/Alexa (Apenas quando o bot está ativo ou falando) */}
+                    {(isBotRunning || isSpeaking) && (
+                        <div className="flex items-center justify-center gap-1 h-6 my-2">
+                            {[...Array(9)].map((_, i) => {
+                                // Alturas e animações diferentes para cada barra da onda
+                                const delay = `${i * 0.15}s`;
+                                const duration = isSpeaking ? '0.6s' : '1.2s';
+                                return (
+                                    <div 
+                                        key={i}
+                                        className={cn(
+                                            "w-1 rounded-full transition-all bg-gradient-to-t",
+                                            isSpeaking 
+                                                ? "from-cyan-500 via-indigo-500 to-purple-500 shadow-[0_0_10px_rgba(34,211,238,0.5)]" 
+                                                : "from-cyan-500/40 to-cyan-400/60"
+                                        )}
+                                        style={{
+                                            height: isSpeaking ? '100%' : '30%',
+                                            animation: 'grid-scroll 1s ease-in-out infinite alternate',
+                                            animationDelay: delay,
+                                            animationDuration: duration
+                                        }}
+                                    />
+                                );
+                            })}
+                        </div>
+                    )}
 
                     {/* Display de Lucro Hero */}
                     <div className="flex flex-col items-center py-2 relative">

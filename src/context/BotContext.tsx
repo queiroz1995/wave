@@ -27,6 +27,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [selectedAIInfo, setSelectedAIInfo] = useState<any>(null);
     const [aiThought, setAiThought] = useState("Sincronizando I.A...");
     const [isConnecting, setIsConnecting] = useState(false);
+    const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+    const [isSpeaking, setIsSpeaking] = useState(false);
 
     const activeTrades = useRef<Set<string>>(new Set());
     const totalProfitRef = useRef(0.00);
@@ -34,7 +36,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const lastContractType = useRef<ContractType | null>(null);
     const lastTradedAsset = useRef<string | null>(null);
     
-    // Novo: Controla se o gale está pausado aguardando filtro virtual
     const isGalePausedForFilter = useRef(false);
 
     const pendingContracts = useRef<Map<string, any>>(new Map());
@@ -63,6 +64,39 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
     const [currentConfidence, setCurrentConfidence] = useState(0);
 
+    // Função para a assistente de voz falar
+    const speak = useCallback((text: string) => {
+        if (!isVoiceEnabled || !('speechSynthesis' in window)) return;
+        
+        // Cancela falas anteriores para não encavalar
+        window.speechSynthesis.cancel();
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'pt-BR';
+        utterance.rate = 1.1; // Velocidade levemente mais rápida e natural
+        utterance.pitch = 1.0;
+
+        // Tenta encontrar uma voz em português de melhor qualidade
+        const voices = window.speechSynthesis.getVoices();
+        const ptVoice = voices.find(voice => voice.lang.includes('pt-BR') || voice.lang.includes('pt_BR'));
+        if (ptVoice) {
+            utterance.voice = ptVoice;
+        }
+
+        utterance.onstart = () => setIsSpeaking(true);
+        utterance.onend = () => setIsSpeaking(false);
+        utterance.onerror = () => setIsSpeaking(false);
+
+        window.speechSynthesis.speak(utterance);
+    }, [isVoiceEnabled]);
+
+    // Carrega vozes inicialmente para garantir compatibilidade com Chrome/Safari
+    useEffect(() => {
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.getVoices();
+        }
+    }, []);
+
     const calculateEntropy = (digits: number[]) => {
         if (digits.length < 20) return 1;
         const counts = new Array(10).fill(0);
@@ -81,7 +115,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const entropy = calculateEntropy(digits);
         const confidence = Math.floor((70 + (bias * 30)) * (1.2 - (entropy * 0.2)));
         
-        // Decisão de Loss Virtual (0-4)
         let recVirtual = 1;
         if (entropy > 0.96) recVirtual = 4;
         else if (entropy > 0.92) recVirtual = 3;
@@ -89,10 +122,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         else if (bias > 0.18) recVirtual = 0;
         else recVirtual = 1;
 
-        // Decisão de Direção (Tendência vs Reversão)
         const recDirection = bias > 0.22 ? 'FAVOR' : 'AGAINST';
-        
-        // Um mercado é estável se a entropia não for extrema e não houver bias absurdo
         const isStable = entropy < 0.88 && bias < 0.25;
 
         if (symbol === asset) setCurrentConfidence(Math.min(99, confidence));
@@ -151,7 +181,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 
                 if (nextStreak >= target) {
                     setAiThought(`Proteção atingida em ${symbol}. Liberando Sniper!`);
-                    // Se estávamos aguardando filtro para o Gale, agora ele está liberado
+                    speak("Filtro de segurança concluído. Preparando entrada real.");
                     if (isGalePausedForFilter.current && symbol === lastTradedAsset.current) {
                         isGalePausedForFilter.current = false;
                     }
@@ -172,7 +202,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 return next;
             });
         }
-    }, [asset, getMarketState, isStudying, setIsStudying, setStudyTicksCount, virtualTradePending, virtualLossStreak, virtualTargetLosses, isSmartModeActive, updateSignalResult]);
+    }, [asset, getMarketState, isStudying, setIsStudying, setStudyTicksCount, virtualTradePending, virtualLossStreak, virtualTargetLosses, isSmartModeActive, updateSignalResult, speak]);
 
     const stopBot = useCallback((reason: string) => {
         setIsBotRunning(false);
@@ -184,7 +214,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTradeStatus('IDLE');
         setAiThought("Bot Parado.");
         addLog(reason, 'INFO');
-    }, [setIsBotRunning, addLog, setTradeStatus]);
+        speak("Operações finalizadas. " + reason);
+    }, [setIsBotRunning, addLog, setTradeStatus, speak]);
 
     const resetOperations = useCallback(() => {
         totalProfitRef.current = 0;
@@ -198,18 +229,21 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setVirtualTradePending(null);
         setTradeStatus('IDLE');
         addLog("Resetado.", "INFO");
-    }, [setTotalProfit, setWins, setLosses, setSignals, setVirtualLossStreak, addLog, setTradeStatus]);
+        speak("Histórico e lucros reiniciados.");
+    }, [setTotalProfit, setWins, setLosses, setSignals, setVirtualLossStreak, addLog, setTradeStatus, speak]);
 
     const toggleBot = useCallback(() => {
         if (!isConnected) return;
-        if (isBotRunning) stopBot("Sniper Parado");
-        else { 
+        if (isBotRunning) {
+            stopBot("Sniper Pausado");
+        } else { 
             setIsBotRunning(true); 
             resetOperations();
             setIsStudying(true);
             setAiThought("Varrendo ativos por manipulação...");
+            speak("Iniciando Wave Sniper. Analisando padrões de mercado.");
         }
-    }, [isConnected, isBotRunning, stopBot, resetOperations]);
+    }, [isConnected, isBotRunning, stopBot, resetOperations, speak]);
 
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
         const data = event.payload;
@@ -220,6 +254,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setStatus({ message: `Sincronizado`, color: 'bg-green-500' });
                 if (data.authorize?.balance !== undefined) setAccountBalance(parseFloat(data.authorize.balance));
                 sendMessageRef.current({ balance: 1, subscribe: 1 });
+                speak("Conexão estabelecida com sucesso.");
             } else if (data?.msg_type === 'balance') {
                 if (data.balance?.balance !== undefined) setAccountBalance(parseFloat(data.balance.balance));
             } else if (data?.msg_type === 'tick') {
@@ -253,14 +288,15 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             setLosses((prev: number) => prev + 1);
                             martingaleLevel.current += 1;
                             
-                            // ANÁLISE PÓS-LOSS: Mercado está bom para Gale?
                             const { isStable } = getMarketState(savedData.symbol);
                             if (!isStable) {
                                 isGalePausedForFilter.current = true;
-                                setVirtualLossStreak(0); // Reinicia para aguardar novos losses virtuais
+                                setVirtualLossStreak(0);
                                 setAiThought("Ciclo instável detectado! Pausando Gale e ativando Filtro Virtual.");
+                                speak("Operação perdida. Ciclo instável detectado, pausando recuperação para sua segurança.");
                             } else {
                                 setAiThought("Mercado estável. Preparando Gale imediato.");
+                                speak("Operação perdida. Aplicando recuperação.");
                             }
                         } else {
                             setWins((prev: number) => prev + 1);
@@ -268,6 +304,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             isGalePausedForFilter.current = false;
                             setVirtualLossStreak(0);
                             setAiThought("Operação Neutralizada com Sucesso.");
+                            speak(`Vitória! Mais ${profitValue.toFixed(2)} dólares.`);
                         }
 
                         updateSignalResult(savedData.signalId, isLoss ? 'LOSS' : 'WIN', profitValue, savedData.stake, exitDigit);
@@ -275,13 +312,18 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         pendingContracts.current.delete(contract.contract_id);
                         setTradeStatus('IDLE'); 
 
-                        if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot(`Meta batida!`);
-                        else if (totalProfitRef.current <= -Math.abs(parseFloat(stopLoss))) stopBot(`Stop Loss atingido.`);
+                        if (totalProfitRef.current >= parseFloat(takeProfit)) {
+                            stopBot(`Meta batida!`);
+                            speak("Excelente! Meta diária batida com sucesso. Parabéns!");
+                        } else if (totalProfitRef.current <= -Math.abs(parseFloat(stopLoss))) {
+                            stopBot(`Stop Loss atingido.`);
+                            speak("Atenção. Limite de perda atingido. Parando operações por segurança.");
+                        }
                     }
                 }
             }
         }
-    }, [processTickData, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, getMarketState]);
+    }, [processTickData, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, getMarketState, speak]);
 
     const ws = useTradingWebSocketManager({ isConnected, status, setIsConnected, setStatus, setAccountBalance, onMessage: handleWebSocketMessage, reconnectAttemptsRef });
     const { sendMessage, connect, disconnect } = ws;
@@ -291,7 +333,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const digits = multiAssetDigits[symbol] || [];
         if (activeTrades.current.size > 0 || isStudying || digits.length < 5) return null;
 
-        // Se o gale está pausado aguardando filtro virtual, não gera sinal de gale ainda
         if (isGalePausedForFilter.current && symbol === lastTradedAsset.current) return null;
 
         const { recommendedDirection } = getMarketState(symbol);
@@ -334,7 +375,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeTrades.current.add(signalId);
         setTradeStatus('SENDING');
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params, passthrough: { signalId, strategyName } });
-    }, [isConnected, initialStake, sendMessage, setTradeStatus, martingaleFactor, isStudying]);
+        
+        const contractLabel = contractType === 'DIGITEVEN' ? 'Par' : 'Ímpar';
+        speak(`Entrando em ${contractLabel} com ${stakeToUse.toFixed(2)} dólares.`);
+    }, [isConnected, initialStake, sendMessage, setTradeStatus, martingaleFactor, isStudying, speak]);
 
     useEffect(() => {
         if (!isBotRunning || isStudying) return;
@@ -345,7 +389,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 const { recommendedVirtualLosses } = getMarketState(symbol);
                 const target = isSmartModeActive ? recommendedVirtualLosses : virtualTargetLosses;
                 
-                // Se estamos em Gale mas pausados pelo filtro, ou se é entrada normal precisando de virtual
                 const isRecovery = signal.name.includes('Recovery');
                 const needsVirtual = target > 0 && virtualLossStreak < target;
                 
@@ -371,8 +414,17 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     }, [isBotRunning, calculateTradeSignal, addSignal, executeBuy, isStudying, virtualTradePending, virtualLossStreak, virtualTargetLosses, isSmartModeActive, getMarketState]);
 
-    const selectAI = useCallback((ia: any) => { setSelectedAIInfo(ia); setActiveStrategy(ia.id); setAppFlow('operating'); }, [setActiveStrategy]);
-    const exitToSelection = useCallback(() => { stopBot("Sessão Finalizada"); setAppFlow('selection'); }, [stopBot]);
+    const selectAI = useCallback((ia: any) => { 
+        setSelectedAIInfo(ia); 
+        setActiveStrategy(ia.id); 
+        setAppFlow('operating'); 
+        speak(`Núcleo ${ia.name} ativado. Pronto para decolar.`);
+    }, [setActiveStrategy, speak]);
+
+    const exitToSelection = useCallback(() => { 
+        stopBot("Sessão Finalizada"); 
+        setAppFlow('selection'); 
+    }, [stopBot]);
     
     const handleConnect = useCallback((targetType?: 'real' | 'demo', targetToken?: string) => {
         const type = targetType || accountType;
@@ -386,8 +438,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const contextValue = useMemo(() => ({
         ...stateAndSetters, isConnected, isConnecting, status, handleConnect, handleDisconnect: disconnect, 
-        toggleBot, resetOperations, appFlow, setAppFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, aiThought
-    }), [stateAndSetters, isConnected, isConnecting, status, handleConnect, disconnect, toggleBot, resetOperations, appFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, aiThought]);
+        toggleBot, resetOperations, appFlow, setAppFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, aiThought,
+        isVoiceEnabled, setIsVoiceEnabled, isSpeaking, speak
+    }), [stateAndSetters, isConnected, isConnecting, status, handleConnect, disconnect, toggleBot, resetOperations, appFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, aiThought, isVoiceEnabled, isSpeaking, speak]);
 
     return <BotContext.Provider value={contextValue}>{children}</BotContext.Provider>;
 };
