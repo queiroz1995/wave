@@ -51,12 +51,13 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const {
         addLog, setAccountBalance, setLastDigits, setIsBotRunning,
         setTotalProfit, setWins, setLosses,
-        asset, initialStake, addSignal, updateSignalResult,
+        asset, setAsset, initialStake, setInitialStake, addSignal, updateSignalResult,
         lastDigits, setLastTickEpoch, lastTickEpoch,
         multiAssetDigits, setMultiAssetDigits,
         setTradeStatus, isBotRunning, setActiveStrategy,
-        accountType, realToken, demoToken,
-        takeProfit, stopLoss, martingaleFactor,
+        accountType, setAccountType, realToken, demoToken,
+        takeProfit, setTakeProfit, stopLoss, setStopLoss, martingaleFactor,
+        setDuration, duration,
         setNeuralPredictions,
         isStudying, setIsStudying, setStudyTicksCount,
         virtualLossStreak, setVirtualLossStreak,
@@ -407,6 +408,22 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params, passthrough: { signalId, strategyName } });
     }, [isConnected, initialStake, sendMessage, setTradeStatus, martingaleFactor, isStudying]);
 
+    // Função para compra manual (usada por voz ou botões)
+    const manualBuy = useCallback((contractType: ContractType, source: string = 'Manual') => {
+        if (!isConnected) {
+            toast.error("Conecte-se primeiro.");
+            speak("Por favor, conecte-se à corretora antes de operar.");
+            return;
+        }
+        const sId = addSignal({ 
+            strategy: source, 
+            signal: contractType === 'DIGITEVEN' ? 'EVEN' : 'ODD', 
+            details: `Entrada manual via ${source}`, 
+            winRate: '100%' 
+        });
+        executeBuy(contractType, source, sId, asset);
+    }, [isConnected, addSignal, executeBuy, asset, speak]);
+
     useEffect(() => {
         if (!isBotRunning || isStudying) return;
         
@@ -441,10 +458,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     }, [isBotRunning, calculateTradeSignal, addSignal, executeBuy, isStudying, virtualTradePending, virtualLossStreak, virtualTargetLosses, isSmartModeActive, getMarketState]);
 
-    // Processador de comandos de voz interativos
+    // Processador de comandos de voz interativos (Atende a TODOS os comandos do bot)
     const processVoiceCommand = useCallback((command: string) => {
         const cleanCommand = command.toLowerCase().trim();
         
+        // 1. Iniciar / Parar
         if (cleanCommand.includes('iniciar') || cleanCommand.includes('começar') || cleanCommand.includes('ligar')) {
             if (!isBotRunning) {
                 toggleBot();
@@ -452,30 +470,172 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             } else {
                 speak("O sniper já está em execução.");
             }
-        } else if (cleanCommand.includes('parar') || cleanCommand.includes('pausar') || cleanCommand.includes('desligar')) {
+            return;
+        }
+        if (cleanCommand.includes('parar') || cleanCommand.includes('pausar') || cleanCommand.includes('desligar')) {
             if (isBotRunning) {
                 toggleBot();
                 speak("Operações pausadas com sucesso.");
             } else {
                 speak("O sniper já está parado.");
             }
-        } else if (cleanCommand.includes('saldo') || cleanCommand.includes('banca')) {
+            return;
+        }
+
+        // 2. Consultas de Saldo e Lucro
+        if (cleanCommand.includes('saldo') || cleanCommand.includes('banca')) {
             if (accountBalance !== null) {
                 speak(`Seu saldo atual é de ${accountBalance.toFixed(2)} dólares.`);
             } else {
                 speak("Não consegui obter seu saldo. Verifique se está conectado.");
             }
-        } else if (cleanCommand.includes('lucro') || cleanCommand.includes('resultado') || cleanCommand.includes('ganho')) {
+            return;
+        }
+        if (cleanCommand.includes('lucro') || cleanCommand.includes('resultado') || cleanCommand.includes('ganho')) {
             speak(`Seu lucro nesta sessão é de ${totalProfitRef.current.toFixed(2)} dólares.`);
-        } else if (cleanCommand.includes('limpar') || cleanCommand.includes('reiniciar')) {
+            return;
+        }
+
+        // 3. Limpar / Reiniciar
+        if (cleanCommand.includes('limpar') || cleanCommand.includes('reiniciar')) {
             resetOperations();
             speak("Histórico e lucros reiniciados.");
-        } else if (cleanCommand.includes('olá') || cleanCommand.includes('oi') || cleanCommand.includes('ajuda') || cleanCommand.includes('siri') || cleanCommand.includes('alexa')) {
-            speak("Olá! Eu sou a sua assistente Wave Sniper. Você pode me pedir para iniciar, parar, consultar o saldo ou o lucro da sessão.");
-        } else {
-            speak("Desculpe, não entendi o comando. Você pode dizer iniciar, parar, saldo ou lucro.");
+            return;
         }
-    }, [isBotRunning, toggleBot, accountBalance, resetOperations, speak]);
+
+        // 4. Mudar Entrada / Stake (Ex: "stake de 1.50", "entrada de 2 dólares")
+        if (cleanCommand.includes('stake') || cleanCommand.includes('entrada')) {
+            const match = cleanCommand.match(/\d+([,.]\d+)?/);
+            if (match) {
+                const val = match[0].replace(',', '.');
+                setInitialStake(val);
+                speak(`Entrada alterada para ${val} dólares.`);
+                toast.success(`Entrada alterada para $${val}`);
+            } else {
+                speak("Não entendi o valor da entrada. Diga por exemplo: entrada de zero ponto trinta e cinco.");
+            }
+            return;
+        }
+
+        // 5. Mudar Meta / Take Profit (Ex: "meta de 5", "mudar meta para 10")
+        if (cleanCommand.includes('meta') || cleanCommand.includes('take profit')) {
+            const match = cleanCommand.match(/\d+([,.]\d+)?/);
+            if (match) {
+                const val = match[0].replace(',', '.');
+                setTakeProfit(val);
+                speak(`Meta de lucro alterada para ${val} dólares.`);
+                toast.success(`Meta alterada para $${val}`);
+            } else {
+                speak("Não entendi o valor da meta.");
+            }
+            return;
+        }
+
+        // 6. Mudar Stop Loss (Ex: "stop de 20", "mudar stop para 50")
+        if (cleanCommand.includes('stop') || cleanCommand.includes('perda máxima')) {
+            const match = cleanCommand.match(/\d+([,.]\d+)?/);
+            if (match) {
+                const val = match[0].replace(',', '.');
+                setStopLoss(val);
+                speak(`Limite de perda alterado para ${val} dólares.`);
+                toast.success(`Stop Loss alterado para $${val}`);
+            } else {
+                speak("Não entendi o valor do stop.");
+            }
+            return;
+        }
+
+        // 7. Mudar Ticks / Duração (Ex: "duração de 5 ticks", "mudar ticks para 2")
+        if (cleanCommand.includes('tick') || cleanCommand.includes('duração')) {
+            const match = cleanCommand.match(/\d+/);
+            if (match) {
+                const val = parseInt(match[0]);
+                if (val >= 1 && val <= 10) {
+                    setDuration(val);
+                    speak(`Duração alterada para ${val} ticks.`);
+                    toast.success(`Duração alterada para ${val} Ticks`);
+                } else {
+                    speak("A duração deve ser entre 1 e 10 ticks.");
+                }
+            } else {
+                speak("Não entendi a duração.");
+            }
+            return;
+        }
+
+        // 8. Mudar Tipo de Conta (Ex: "mudar para conta real", "mudar para demo")
+        if (cleanCommand.includes('real')) {
+            setAccountType('real');
+            speak("Conta alterada para Real.");
+            toast.info("Conta alterada para REAL");
+            return;
+        }
+        if (cleanCommand.includes('demo') || cleanCommand.includes('treinamento')) {
+            setAccountType('demo');
+            speak("Conta alterada para Demo.");
+            toast.info("Conta alterada para DEMO");
+            return;
+        }
+
+        // 9. Compras Manuais por Voz (Ex: "comprar par", "entrar ímpar")
+        if (cleanCommand.includes('comprar par') || cleanCommand.includes('entrar par') || cleanCommand.includes('apostar par')) {
+            manualBuy('DIGITEVEN', 'Voz');
+            speak("Comprando contrato Par.");
+            return;
+        }
+        if (cleanCommand.includes('comprar ímpar') || cleanCommand.includes('entrar ímpar') || cleanCommand.includes('apostar ímpar')) {
+            manualBuy('DIGITODD', 'Voz');
+            speak("Comprando contrato Ímpar.");
+            return;
+        }
+
+        // 10. Ativar / Desativar Voz (Ex: "mutar voz", "ativar voz")
+        if (cleanCommand.includes('desativar voz') || cleanCommand.includes('mutar voz') || cleanCommand.includes('silenciar')) {
+            setIsVoiceEnabled(false);
+            toast.info("Voz desativada.");
+            return;
+        }
+        if (cleanCommand.includes('ativar voz') || cleanCommand.includes('falar')) {
+            setIsVoiceEnabled(true);
+            speak("Voz ativada com sucesso.");
+            toast.info("Voz ativada.");
+            return;
+        }
+
+        // 11. Mudar Ativo / Mercado (Ex: "mudar mercado para volatilidade cem", "volatilidade 10")
+        if (cleanCommand.includes('volatilidade') || cleanCommand.includes('mercado') || cleanCommand.includes('ativo')) {
+            const match = cleanCommand.match(/\d+/);
+            if (match) {
+                const num = match[0];
+                const assetMap: Record<string, string> = {
+                    '10': '1HZ10V',
+                    '25': '1HZ25V',
+                    '50': '1HZ50V',
+                    '75': '1HZ75V',
+                    '100': '1HZ100V'
+                };
+                const targetAsset = assetMap[num];
+                if (targetAsset) {
+                    setAsset(targetAsset);
+                    speak(`Mercado alterado para Volatilidade ${num}.`);
+                    toast.success(`Mercado alterado para Volatilidade ${num}`);
+                } else {
+                    speak(`Não encontrei o mercado de volatilidade ${num}.`);
+                }
+            } else {
+                speak("Não entendi qual mercado você deseja.");
+            }
+            return;
+        }
+
+        // 12. Saudação / Ajuda
+        if (cleanCommand.includes('olá') || cleanCommand.includes('oi') || cleanCommand.includes('ajuda') || cleanCommand.includes('siri') || cleanCommand.includes('alexa')) {
+            speak("Olá! Eu sou a sua assistente Wave Sniper. Você pode me pedir para iniciar, parar, mudar a entrada, meta, stop, ticks, mudar de mercado ou até comprar par e ímpar.");
+            return;
+        }
+
+        speak("Desculpe, não entendi o comando. Você pode dizer por exemplo: entrada de um dólar, meta de cinco, ou iniciar operações.");
+    }, [isBotRunning, toggleBot, accountBalance, resetOperations, speak, setInitialStake, setTakeProfit, setStopLoss, setDuration, setAccountType, manualBuy, setIsVoiceEnabled, setAsset]);
 
     // Função para iniciar o reconhecimento de voz permanente
     const startListening = useCallback(() => {
@@ -571,8 +731,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const contextValue = useMemo(() => ({
         ...stateAndSetters, isConnected, isConnecting, status, handleConnect, handleDisconnect: disconnect, 
         toggleBot, resetOperations, appFlow, setAppFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, aiThought,
-        isVoiceEnabled, setIsVoiceEnabled, isSpeaking, speak, isListening, startListening
-    }), [stateAndSetters, isConnected, isConnecting, status, handleConnect, disconnect, toggleBot, resetOperations, appFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, aiThought, isVoiceEnabled, isSpeaking, speak, isListening, startListening]);
+        isVoiceEnabled, setIsVoiceEnabled, isSpeaking, speak, isListening, startListening, manualBuy
+    }), [stateAndSetters, isConnected, isConnecting, status, handleConnect, disconnect, toggleBot, resetOperations, appFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, aiThought, isVoiceEnabled, isSpeaking, speak, isListening, startListening, manualBuy]);
 
     return <BotContext.Provider value={contextValue}>{children}</BotContext.Provider>;
 };
