@@ -69,23 +69,23 @@ export const AIOperatingScreen = () => {
     };
 
     return (
-        <div className="w-full max-w-md mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-1000 px-4 pb-12">
+        <div className="w-full max-w-md mx-auto space-y-4 animate-in fade-in slide-in-from-bottom-8 duration-1000 px-1 pb-6">
             
             {/* Status Bar Superior */}
-            <div className="flex items-center justify-between px-2">
-                <div className="flex items-center gap-3 bg-slate-950/60 backdrop-blur-xl border border-white/10 p-1.5 pr-4 rounded-full shadow-2xl">
+            <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2 bg-slate-950/60 backdrop-blur-xl p-1 pr-3 rounded-full border border-white/10">
                     <div className={cn(
-                        "h-8 w-8 rounded-full flex items-center justify-center transition-all duration-500",
+                        "h-6 w-6 rounded-full flex items-center justify-center transition-all duration-500",
                         isBotRunning ? "bg-emerald-500/20 text-emerald-400" : "bg-slate-800/50 text-slate-500"
                     )}>
-                        <Activity className={cn("h-4 w-4", isBotRunning && "animate-pulse")} />
+                        <Activity className={cn("h-3 w-3", isBotRunning && "animate-pulse")} />
                     </div>
                     <div className="flex flex-col">
-                        <span className="text-[10px] font-black uppercase tracking-tighter leading-none text-slate-400">
-                            Status do Sistema
+                        <span className="text-[8px] font-black uppercase tracking-tighter leading-none text-slate-400">
+                            Status
                         </span>
                         <span className={cn(
-                            "text-[10px] font-bold uppercase tracking-widest leading-none mt-0.5",
+                            "text-[8px] font-bold uppercase tracking-widest leading-none mt-0.5",
                             isBotRunning ? "text-emerald-400" : "text-slate-500"
                         )}>
                             {isBotRunning ? (isStudying ? "Sincronizando..." : "Sniper Online") : "Offline"}
@@ -94,73 +94,73 @@ export const AIOperatingScreen = () => {
                 </div>
 
                 {isBotRunning && !isStudying && (
-                    <div className="flex items-center gap-2 bg-cyan-500/10 backdrop-blur-xl px-4 py-2 rounded-full border border-cyan-500/20 shadow-lg shadow-cyan-500/5">
-                        <Target className="h-3.5 w-3.5 text-cyan-400 animate-pulse" />
-                        <span className="text-xs font-black text-cyan-400 tracking-wider">{currentConfidence}% Precisão</span>
+                    <div className="flex items-center gap-1.5 bg-cyan-500/10 backdrop-blur-xl px-3 py-1 rounded-full border border-cyan-500/20 shadow-lg shadow-cyan-500/5">
+                        <Target className="h-3 w-3 text-cyan-400 animate-pulse" />
+                        <span className="text-[9px] font-black text-cyan-400 tracking-wider">{currentConfidence}% Precisão</span>
                     </div>
                 )}
             </div>
 
             {/* Painel Central - Estética "Cyber-Luxury" */}
-            <Card className="relative overflow-hidden bg-slate-950/60 backdrop-blur-xl border border-white/10 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.6)] rounded-[2.5rem] transition-all duration-500 hover:border-cyan-500/20">
+            <Card className="relative overflow-hidden bg-slate-950/60 backdrop-blur-xl border border-white/10 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)] rounded-[2rem] transition-all duration-500 hover:border-cyan-500/20">
                 {/* Efeitos de Fundo Decorativos */}
-                <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/10 rounded-full blur-[80px] -mr-32 -mt-32" />
-                <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-[80px] -ml-32 -mb-32" />
+                <div className="absolute top-0 right-0 w-48 h-48 bg-cyan-500/10 rounded-full blur-[60px] -mr-24 -mt-24" />
+                <div className="absolute bottom-0 left-0 w-48 h-48 bg-emerald-500/5 rounded-full blur-[60px] -ml-24 -mb-24" />
                 
-                <CardContent className="p-6 space-y-8 relative z-10">
+                <CardContent className="p-4 sm:p-6 space-y-6 relative z-10">
                     {/* Header com Branding */}
                     <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3">
                             <div className="relative group">
-                                <div className="absolute -inset-1.5 bg-gradient-to-tr from-cyan-500 to-indigo-500 rounded-[1.25rem] blur opacity-25 group-hover:opacity-50 transition duration-500" />
-                                <div className="h-16 w-16 bg-slate-900 rounded-[1.25rem] p-0.5 shadow-2xl border border-white/10 overflow-hidden">
+                                <div className="absolute -inset-1 bg-gradient-to-tr from-cyan-500 to-indigo-500 rounded-xl blur opacity-25" />
+                                <div className="h-12 w-12 bg-slate-900 rounded-xl p-0.5 shadow-2xl border border-white/10 overflow-hidden">
                                     {selectedAIInfo?.image ? (
-                                        <img src={selectedAIInfo.image} alt="" className="w-full h-full object-cover rounded-[1rem]" />
+                                        <img src={selectedAIInfo.image} alt="" className="w-full h-full object-cover rounded-lg" />
                                     ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-slate-800"><Bot className="h-7 w-7 text-cyan-400" /></div>
+                                        <div className="w-full h-full flex items-center justify-center bg-slate-800"><Bot className="h-5 w-5 text-cyan-400" /></div>
                                     )}
                                 </div>
                             </div>
                             <div>
-                                <div className="flex items-center gap-1.5">
-                                    <h2 className="text-xl font-black text-white italic tracking-tighter">WAVE SNIPER</h2>
-                                    <div className="px-1.5 py-0.5 bg-cyan-500/20 rounded border border-cyan-500/30">
-                                        <span className="text-[8px] font-black text-cyan-400 uppercase">PRO</span>
+                                <div className="flex items-center gap-1">
+                                    <h2 className="text-base font-black text-white italic tracking-tighter">WAVE SNIPER</h2>
+                                    <div className="px-1 py-0.5 bg-cyan-500/20 rounded border border-cyan-500/30">
+                                        <span className="text-[7px] font-black text-cyan-400 uppercase">PRO</span>
                                     </div>
                                 </div>
-                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em] mt-1">Neural Engine v2.4.0</p>
+                                <p className="text-[8px] font-bold text-slate-500 uppercase tracking-[0.3em] mt-0.5">Neural Engine v2.4.0</p>
                             </div>
                         </div>
                         
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
                             <SettingsSheet trigger={
-                                <Button variant="ghost" size="icon" className="h-11 w-11 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 hover:scale-105 transition-all">
-                                    <FileSpreadsheet className="h-4 w-4 text-slate-300" />
+                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
+                                    <FileSpreadsheet className="h-3.5 w-3.5 text-slate-300" />
                                 </Button>
                             } />
-                            <Button variant="ghost" size="icon" className="h-11 w-11 rounded-2xl bg-rose-500/10 text-rose-500 border border-rose-500/20 hover:bg-rose-500/20 hover:scale-105 transition-all" onClick={exitToSelection}>
-                                <Power className="h-4 w-4" />
+                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20 hover:bg-rose-500/20 transition-all" onClick={exitToSelection}>
+                                <Power className="h-3.5 w-3.5" />
                             </Button>
                         </div>
                     </div>
 
                     {/* Display de Lucro Hero */}
-                    <div className="flex flex-col items-center py-4 relative">
+                    <div className="flex flex-col items-center py-2 relative">
                         <div className={cn(
-                            "absolute inset-0 blur-[100px] opacity-20 -z-10 transition-all duration-1000",
+                            "absolute inset-0 blur-[80px] opacity-20 -z-10 transition-all duration-1000",
                             isWin ? "bg-emerald-500" : "bg-rose-500"
                         )} />
                         
-                        <div className="flex items-center gap-2 mb-3">
+                        <div className="flex items-center gap-1.5 mb-1">
                             {isWin ? <TrendingUp className="h-3 w-3 text-emerald-400" /> : <TrendingDown className="h-3 w-3 text-rose-400" />}
-                            <span className="text-[11px] font-black text-slate-400 uppercase tracking-[0.4em]">Resultado da Sessão</span>
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.4em]">Resultado da Sessão</span>
                         </div>
                         
                         <div className={cn(
-                            "text-7xl font-black tracking-tighter leading-none transition-all duration-700 drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]",
+                            "text-5xl sm:text-6xl font-black tracking-tighter leading-none transition-all duration-700 drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]",
                             isWin ? "text-emerald-400" : "text-rose-400"
                         )}>
-                            <span className="text-3xl opacity-40 mr-1 font-medium font-sans">$</span>
+                            <span className="text-2xl opacity-40 mr-0.5 font-medium font-sans">$</span>
                             {totalProfit.toFixed(2)}
                         </div>
                     </div>
@@ -170,38 +170,38 @@ export const AIOperatingScreen = () => {
                         onClick={handleStartClick}
                         disabled={status.message.includes('Desconectado') || isPaused || isManipulationDetected}
                         className={cn(
-                            "group relative w-full h-20 rounded-[2rem] overflow-hidden transition-all duration-500 shadow-2xl active:scale-95",
+                            "group relative w-full h-16 rounded-2xl overflow-hidden transition-all duration-500 shadow-2xl active:scale-95",
                             isBotRunning 
                                 ? "bg-rose-600 hover:bg-rose-700 shadow-rose-900/20" 
                                 : "bg-cyan-500 hover:bg-cyan-600 text-slate-950 shadow-cyan-500/20"
                         )}
                     >
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-shimmer" />
-                        <span className="relative flex items-center gap-3 text-xl font-black uppercase tracking-[0.25em]">
+                        <span className="relative flex items-center gap-2 text-base font-black uppercase tracking-[0.2em]">
                             {isBotRunning ? (
-                                <>PARAR<Power className="h-5 w-5" /></>
+                                <>PARAR<Power className="h-4 w-4" /></>
                             ) : (
-                                <>INICIAR<BrainCircuit className="h-5 w-5" /></>
+                                <>INICIAR<BrainCircuit className="h-4 w-4" /></>
                             )}
                         </span>
                     </Button>
 
                     {/* Wallet / Balance Section */}
-                    <div className="bg-slate-900/40 border border-white/5 rounded-[2rem] p-5 flex items-center justify-between group hover:border-white/10 transition-colors">
-                        <div className="flex items-center gap-4">
+                    <div className="bg-slate-900/40 border border-white/5 rounded-2xl p-3.5 flex items-center justify-between group hover:border-white/10 transition-colors">
+                        <div className="flex items-center gap-3">
                             <div className={cn(
-                                "h-12 w-12 rounded-2xl flex items-center justify-center shadow-inner transition-colors duration-500",
+                                "h-10 w-10 rounded-xl flex items-center justify-center shadow-inner transition-colors duration-500",
                                 accountType === 'real' ? "bg-emerald-500/20 text-emerald-400" : "bg-cyan-500/20 text-cyan-400"
                             )}>
-                                <DollarSign className="h-6 w-6" />
+                                <DollarSign className="h-5 w-5" />
                             </div>
                             <div>
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">
+                                <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-0.5">
                                     Banca {accountType === 'real' ? 'Real' : 'Treinamento'}
                                 </p>
-                                <div className="flex items-baseline gap-1">
-                                    <span className="text-xs font-bold text-slate-400">$</span>
-                                    <p className="text-2xl font-black text-white tracking-tighter leading-none">
+                                <div className="flex items-baseline gap-0.5">
+                                    <span className="text-[10px] font-bold text-slate-400">$</span>
+                                    <p className="text-xl font-black text-white tracking-tighter leading-none">
                                         {accountBalance?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
                                     </p>
                                 </div>
@@ -210,10 +210,10 @@ export const AIOperatingScreen = () => {
                         <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-10 w-10 rounded-xl bg-white/5 hover:bg-white/10 hover:rotate-180 transition-all duration-500" 
+                            className="h-8 w-8 rounded-lg bg-white/5 hover:bg-white/10 hover:rotate-180 transition-all duration-500" 
                             onClick={() => handleConnect(accountType, currentToken)}
                         >
-                            <RefreshCw className="h-4 w-4 text-slate-400" />
+                            <RefreshCw className="h-3.5 w-3.5 text-slate-400" />
                         </Button>
                     </div>
                 </CardContent>
@@ -222,17 +222,17 @@ export const AIOperatingScreen = () => {
             {/* AI Thought Stream */}
             {isBotRunning && (
                 <div className="relative group">
-                    <div className="absolute -inset-0.5 bg-gradient-to-r from-cyan-500 to-indigo-500 rounded-[2rem] blur opacity-10 group-hover:opacity-20 transition" />
-                    <div className="relative bg-slate-950/60 backdrop-blur-xl rounded-[2rem] p-5 flex items-start gap-4 border border-white/10 shadow-2xl">
-                        <div className="mt-1 h-2 w-2 rounded-full bg-cyan-400 animate-ping" />
+                    <div className="absolute -inset-0.5 bg-gradient-to-r from-cyan-500 to-indigo-500 rounded-2xl blur opacity-10" />
+                    <div className="relative bg-slate-950/60 backdrop-blur-xl rounded-2xl p-4 flex items-start gap-3 border border-white/10 shadow-2xl">
+                        <div className="mt-1 h-1.5 w-1.5 rounded-full bg-cyan-400 animate-ping" />
                         <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-2">
+                            <div className="flex items-center gap-1.5 mb-1">
                                 <MessageSquare className="h-3 w-3 text-cyan-400" />
-                                <span className="text-[9px] font-black text-cyan-400 uppercase tracking-widest">Fluxo_Cognitivo</span>
+                                <span className="text-[8px] font-black text-cyan-400 uppercase tracking-widest">Fluxo_Cognitivo</span>
                             </div>
-                            <p className="text-[13px] font-medium text-slate-200 leading-relaxed italic">
+                            <p className="text-xs font-medium text-slate-200 leading-relaxed italic">
                                 "{aiThought}"
-                                <span className="inline-block w-1.5 h-3 bg-cyan-400 ml-1 animate-pulse" />
+                                <span className="inline-block w-1 h-2.5 bg-cyan-400 ml-1 animate-pulse" />
                             </p>
                         </div>
                     </div>
@@ -240,37 +240,37 @@ export const AIOperatingScreen = () => {
             )}
 
             {/* Monitor de Sinais - Versão Dark Integrada */}
-            <div className="bg-slate-950/60 backdrop-blur-xl border border-white/10 rounded-[2.5rem] p-6 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)]">
-                <div className="flex items-center justify-between mb-5 px-1">
-                    <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
-                        <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Feed de Operações</span>
+            <div className="bg-slate-950/60 backdrop-blur-xl border border-white/10 rounded-[2rem] p-4 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)]">
+                <div className="flex items-center justify-between mb-4 px-1">
+                    <div className="flex items-center gap-1.5">
+                        <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Feed de Operações</span>
                     </div>
-                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5" onClick={resetOperations}>
-                        <RotateCcw className="h-4 w-4 text-slate-400" />
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5" onClick={resetOperations}>
+                        <RotateCcw className="h-3.5 w-3.5 text-slate-400" />
                     </Button>
                 </div>
                 
-                <ScrollArea className="h-52 pr-4">
-                    <div className="space-y-3">
+                <ScrollArea className="h-44 pr-2">
+                    <div className="space-y-2">
                         {signals.length > 0 ? signals.map((s: any) => {
                             const label = getSignalLabel(s.signal, s.strategy);
                             const hasFinished = typeof s.profit === 'number';
                             
                             return (
-                                <div key={s.id} className="group relative flex items-center justify-between p-3.5 bg-slate-900/40 hover:bg-slate-900/80 rounded-2xl border border-white/5 transition-all duration-300">
-                                    <div className="flex items-center gap-4">
-                                        <span className="text-[10px] font-mono text-slate-500 group-hover:text-slate-400 transition-colors">{s.timestamp}</span>
-                                        <div className={cn("px-3 py-1 rounded-lg text-[10px] font-black uppercase border transition-all duration-300", label.color)}>
+                                <div key={s.id} className="group relative flex items-center justify-between p-2.5 bg-slate-900/40 hover:bg-slate-900/80 rounded-xl border border-white/5 transition-all duration-300">
+                                    <div className="flex items-center gap-2.5">
+                                        <span className="text-[9px] font-mono text-slate-500">{s.timestamp}</span>
+                                        <div className={cn("px-2 py-0.5 rounded text-[9px] font-black uppercase border transition-all duration-300", label.color)}>
                                             {label.text}
                                         </div>
                                     </div>
                                     <div className={cn(
-                                        "text-base font-black tracking-tighter", 
+                                        "text-sm font-black tracking-tighter", 
                                         !hasFinished ? "text-cyan-400 animate-pulse" : (s.result === 'WIN' ? "text-emerald-400" : "text-rose-400")
                                     )}>
                                         {hasFinished ? (
-                                            <span className="flex items-center gap-1">
+                                            <span className="flex items-center gap-0.5">
                                                 {s.profit > 0 ? '+' : ''}{s.profit.toFixed(2)}
                                                 {s.result === 'WIN' ? '⚡' : '💀'}
                                             </span>
@@ -279,11 +279,11 @@ export const AIOperatingScreen = () => {
                                 </div>
                             );
                         }) : (
-                            <div className="py-16 text-center">
-                                <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-white/5 mb-3 border border-white/5">
-                                    <Target className="h-5 w-5 text-slate-500" />
+                            <div className="py-12 text-center">
+                                <div className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-white/5 mb-2 border border-white/5">
+                                    <Target className="h-4 w-4 text-slate-500" />
                                 </div>
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] italic">Aguardando gatilhos neurais...</p>
+                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em] italic">Aguardando gatilhos neurais...</p>
                             </div>
                         )}
                     </div>
