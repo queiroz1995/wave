@@ -458,12 +458,41 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     }, [isBotRunning, calculateTradeSignal, addSignal, executeBuy, isStudying, virtualTradePending, virtualLossStreak, virtualTargetLosses, isSmartModeActive, getMarketState]);
 
+    // Função auxiliar para converter números falados em português para dígitos numéricos
+    const parseSpokenNumber = (text: string): string | null => {
+        const clean = text.toLowerCase().trim();
+        
+        // Dicionário de números falados comuns
+        const numberMap: Record<string, string> = {
+            'zero': '0', 'um': '1', 'dois': '2', 'tres': '3', 'três': '3',
+            'quatro': '4', 'cinco': '5', 'seis': '6', 'sete': '7', 'oito': '8',
+            'nove': '9', 'dez': '10', 'vinte': '20', 'trinta': '30', 'quarenta': '40',
+            'cinquenta': '50', 'cem': '100', 'meio': '0.5', 'metade': '0.5'
+        };
+
+        // Substitui palavras por números
+        let parsed = clean;
+        Object.entries(numberMap).forEach(([word, num]) => {
+            parsed = parsed.replace(new RegExp(`\\b${word}\\b`, 'g'), num);
+        });
+
+        // Trata "ponto" ou "vírgula" como separador decimal
+        parsed = parsed.replace(/\s*(ponto|vírgula|virgula)\s*/g, '.');
+        
+        // Remove espaços entre números (ex: "0 . 35" -> "0.35")
+        parsed = parsed.replace(/\s+/g, '');
+
+        // Extrai o primeiro número válido encontrado (inteiro ou decimal)
+        const match = parsed.match(/\d+(\.\d+)?/);
+        return match ? match[0] : null;
+    };
+
     // Processador de comandos de voz interativos (Atende a TODOS os comandos do bot)
     const processVoiceCommand = useCallback((command: string) => {
         const cleanCommand = command.toLowerCase().trim();
         
         // 1. Iniciar / Parar
-        if (cleanCommand.includes('iniciar') || cleanCommand.includes('começar') || cleanCommand.includes('ligar')) {
+        if (cleanCommand.includes('iniciar') || cleanCommand.includes('começar') || cleanCommand.includes('ligar') || cleanCommand.includes('start') || cleanCommand.includes('decolar') || cleanCommand.includes('play') || cleanCommand.includes('rodar')) {
             if (!isBotRunning) {
                 toggleBot();
                 speak("Iniciando as operações agora.");
@@ -472,7 +501,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
             return;
         }
-        if (cleanCommand.includes('parar') || cleanCommand.includes('pausar') || cleanCommand.includes('desligar')) {
+        if (cleanCommand.includes('parar') || cleanCommand.includes('pausar') || cleanCommand.includes('desligar') || cleanCommand.includes('stop') || cleanCommand.includes('brecar') || cleanCommand.includes('pausa')) {
             if (isBotRunning) {
                 toggleBot();
                 speak("Operações pausadas com sucesso.");
@@ -483,7 +512,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         // 2. Consultas de Saldo e Lucro
-        if (cleanCommand.includes('saldo') || cleanCommand.includes('banca')) {
+        if (cleanCommand.includes('saldo') || cleanCommand.includes('banca') || cleanCommand.includes('balanço') || cleanCommand.includes('dinheiro')) {
             if (accountBalance !== null) {
                 speak(`Seu saldo atual é de ${accountBalance.toFixed(2)} dólares.`);
             } else {
@@ -491,37 +520,35 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
             return;
         }
-        if (cleanCommand.includes('lucro') || cleanCommand.includes('resultado') || cleanCommand.includes('ganho')) {
+        if (cleanCommand.includes('lucro') || cleanCommand.includes('resultado') || cleanCommand.includes('ganho') || cleanCommand.includes('ganhos')) {
             speak(`Seu lucro nesta sessão é de ${totalProfitRef.current.toFixed(2)} dólares.`);
             return;
         }
 
         // 3. Limpar / Reiniciar
-        if (cleanCommand.includes('limpar') || cleanCommand.includes('reiniciar')) {
+        if (cleanCommand.includes('limpar') || cleanCommand.includes('reiniciar') || cleanCommand.includes('reseta') || cleanCommand.includes('resetar')) {
             resetOperations();
             speak("Histórico e lucros reiniciados.");
             return;
         }
 
         // 4. Mudar Entrada / Stake (Ex: "stake de 1.50", "entrada de 2 dólares")
-        if (cleanCommand.includes('stake') || cleanCommand.includes('entrada')) {
-            const match = cleanCommand.match(/\d+([,.]\d+)?/);
-            if (match) {
-                const val = match[0].replace(',', '.');
+        if (cleanCommand.includes('stake') || cleanCommand.includes('entrada') || cleanCommand.includes('aposta') || cleanCommand.includes('valor')) {
+            const val = parseSpokenNumber(cleanCommand);
+            if (val) {
                 setInitialStake(val);
                 speak(`Entrada alterada para ${val} dólares.`);
                 toast.success(`Entrada alterada para $${val}`);
             } else {
-                speak("Não entendi o valor da entrada. Diga por exemplo: entrada de zero ponto trinta e cinco.");
+                speak("Não entendi o valor da entrada.");
             }
             return;
         }
 
         // 5. Mudar Meta / Take Profit (Ex: "meta de 5", "mudar meta para 10")
-        if (cleanCommand.includes('meta') || cleanCommand.includes('take profit')) {
-            const match = cleanCommand.match(/\d+([,.]\d+)?/);
-            if (match) {
-                const val = match[0].replace(',', '.');
+        if (cleanCommand.includes('meta') || cleanCommand.includes('take profit') || cleanCommand.includes('objetivo') || cleanCommand.includes('alvo')) {
+            const val = parseSpokenNumber(cleanCommand);
+            if (val) {
                 setTakeProfit(val);
                 speak(`Meta de lucro alterada para ${val} dólares.`);
                 toast.success(`Meta alterada para $${val}`);
@@ -532,10 +559,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         // 6. Mudar Stop Loss (Ex: "stop de 20", "mudar stop para 50")
-        if (cleanCommand.includes('stop') || cleanCommand.includes('perda máxima')) {
-            const match = cleanCommand.match(/\d+([,.]\d+)?/);
-            if (match) {
-                const val = match[0].replace(',', '.');
+        if (cleanCommand.includes('stop') || cleanCommand.includes('perda máxima') || cleanCommand.includes('perda limite')) {
+            const val = parseSpokenNumber(cleanCommand);
+            if (val) {
                 setStopLoss(val);
                 speak(`Limite de perda alterado para ${val} dólares.`);
                 toast.success(`Stop Loss alterado para $${val}`);
@@ -546,10 +572,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         // 7. Mudar Ticks / Duração (Ex: "duração de 5 ticks", "mudar ticks para 2")
-        if (cleanCommand.includes('tick') || cleanCommand.includes('duração')) {
-            const match = cleanCommand.match(/\d+/);
-            if (match) {
-                const val = parseInt(match[0]);
+        if (cleanCommand.includes('tick') || cleanCommand.includes('duração') || cleanCommand.includes('tempo')) {
+            const valStr = parseSpokenNumber(cleanCommand);
+            if (valStr) {
+                const val = parseInt(valStr);
                 if (val >= 1 && val <= 10) {
                     setDuration(val);
                     speak(`Duração alterada para ${val} ticks.`);
@@ -564,13 +590,13 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         // 8. Mudar Tipo de Conta (Ex: "mudar para conta real", "mudar para demo")
-        if (cleanCommand.includes('real')) {
+        if (cleanCommand.includes('real') || cleanCommand.includes('dinheiro real')) {
             setAccountType('real');
             speak("Conta alterada para Real.");
             toast.info("Conta alterada para REAL");
             return;
         }
-        if (cleanCommand.includes('demo') || cleanCommand.includes('treinamento')) {
+        if (cleanCommand.includes('demo') || cleanCommand.includes('treinamento') || cleanCommand.includes('virtual') || cleanCommand.includes('demonstração')) {
             setAccountType('demo');
             speak("Conta alterada para Demo.");
             toast.info("Conta alterada para DEMO");
@@ -578,12 +604,16 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         // 9. Compras Manuais por Voz (Ex: "comprar par", "entrar ímpar")
-        if (cleanCommand.includes('comprar par') || cleanCommand.includes('entrar par') || cleanCommand.includes('apostar par')) {
+        // Tolerância fonética para "par" (comumente transcrito como "para") e "ímpar" (comumente transcrito como "limpar")
+        const isParCommand = cleanCommand.includes('comprar par') || cleanCommand.includes('entrar par') || cleanCommand.includes('apostar par') || cleanCommand.includes('comprar para') || cleanCommand.includes('entrar para') || cleanCommand.includes('apostar para');
+        const isImparCommand = cleanCommand.includes('comprar ímpar') || cleanCommand.includes('entrar ímpar') || cleanCommand.includes('apostar ímpar') || cleanCommand.includes('comprar limpar') || cleanCommand.includes('entrar limpar') || cleanCommand.includes('apostar limpar') || cleanCommand.includes('comprar impar') || cleanCommand.includes('entrar impar') || cleanCommand.includes('apostar impar');
+
+        if (isParCommand) {
             manualBuy('DIGITEVEN', 'Voz');
             speak("Comprando contrato Par.");
             return;
         }
-        if (cleanCommand.includes('comprar ímpar') || cleanCommand.includes('entrar ímpar') || cleanCommand.includes('apostar ímpar')) {
+        if (isImparCommand) {
             manualBuy('DIGITODD', 'Voz');
             speak("Comprando contrato Ímpar.");
             return;
@@ -604,9 +634,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         // 11. Mudar Ativo / Mercado (Ex: "mudar mercado para volatilidade cem", "volatilidade 10")
         if (cleanCommand.includes('volatilidade') || cleanCommand.includes('mercado') || cleanCommand.includes('ativo')) {
-            const match = cleanCommand.match(/\d+/);
-            if (match) {
-                const num = match[0];
+            const valStr = parseSpokenNumber(cleanCommand);
+            if (valStr) {
+                const num = valStr;
                 const assetMap: Record<string, string> = {
                     '10': '1HZ10V',
                     '25': '1HZ25V',
@@ -662,6 +692,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         recognition.lang = 'pt-BR';
         recognition.continuous = true; // Escuta contínua
         recognition.interimResults = false;
+        recognition.maxAlternatives = 3; // Analisa até 3 alternativas para máxima precisão!
 
         recognitionRef.current = recognition;
         shouldListenRef.current = true;
@@ -675,10 +706,27 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         recognition.onresult = (event: any) => {
             const resultIndex = event.resultIndex;
-            const text = event.results[resultIndex][0].transcript;
-            setAiThought(`Você disse: "${text}"`);
-            toast.success(`Comando reconhecido: "${text}"`, { id: "mic-status" });
-            processVoiceCommand(text);
+            const results = event.results[resultIndex];
+            
+            // Tenta encontrar o melhor comando analisando as alternativas de transcrição
+            let bestText = results[0].transcript;
+            
+            // Se tiver alternativas, procura se alguma delas bate com palavras-chave importantes
+            if (results.length > 1) {
+                const keywords = ['par', 'para', 'ímpar', 'impar', 'limpar', 'iniciar', 'parar', 'saldo', 'lucro', 'stake', 'entrada', 'meta', 'stop'];
+                for (let i = 0; i < results.length; i++) {
+                    const altText = results[i].transcript.toLowerCase();
+                    const hasKeyword = keywords.some(kw => altText.includes(kw));
+                    if (hasKeyword) {
+                        bestText = results[i].transcript;
+                        break;
+                    }
+                }
+            }
+
+            setAiThought(`Você disse: "${bestText}"`);
+            toast.success(`Comando reconhecido: "${bestText}"`, { id: "mic-status" });
+            processVoiceCommand(bestText);
         };
 
         recognition.onerror = (event: any) => {
