@@ -5,6 +5,7 @@ import { useBotState } from '../hooks/bot/useBotState';
 import { useBotPersistence } from '../hooks/bot/useBotPersistence';
 import { useTradingWebSocketManager } from '../hooks/bot/useTradingWebSocketManager';
 import { ContractType } from '@/types/bot';
+import { toast } from "sonner";
 
 const BotContext = createContext<any>(undefined);
 
@@ -400,8 +401,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeTrades.current.add(signalId);
         setTradeStatus('SENDING');
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params, passthrough: { signalId, strategyName } });
-        
-        // REMOVIDO: speak(...) automático de entrada para evitar spam de áudio
     }, [isConnected, initialStake, sendMessage, setTradeStatus, martingaleFactor, isStudying]);
 
     useEffect(() => {
@@ -477,9 +476,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Função para iniciar o reconhecimento de voz
     const startListening = useCallback(() => {
         if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+            toast.error("Seu navegador não suporta reconhecimento de voz. Use o Google Chrome ou Safari.");
             addLog("Reconhecimento de voz não suportado neste navegador.", "ERROR");
             return;
         }
+        
         const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
         const recognition = new SpeechRecognition();
         recognition.lang = 'pt-BR';
@@ -489,17 +490,24 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         recognition.onstart = () => {
             setIsListening(true);
             setAiThought("Ouvindo comando de voz...");
+            toast.info("Microfone ativado. Fale agora...", { id: "mic-status" });
         };
 
         recognition.onresult = (event: any) => {
             const text = event.results[0][0].transcript;
             setAiThought(`Você disse: "${text}"`);
+            toast.success(`Comando reconhecido: "${text}"`, { id: "mic-status" });
             processVoiceCommand(text);
         };
 
         recognition.onerror = (event: any) => {
             console.error("Speech recognition error", event);
             setIsListening(false);
+            if (event.error === 'not-allowed') {
+                toast.error("Permissão de microfone negada. Ative o microfone nas configurações do seu navegador.", { id: "mic-status" });
+            } else {
+                toast.error("Erro ao reconhecer voz. Tente falar novamente.", { id: "mic-status" });
+            }
         };
 
         recognition.onend = () => {
