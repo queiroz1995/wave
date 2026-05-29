@@ -77,7 +77,7 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                                 <Input 
                                     value={tempStake}
                                     onChange={(e) => setTempStake(e.target.value.replace(',', '.'))}
-                                    className="pl-8 h-11 rounded-xl font-bold text-xs bg-slate-900/40 border border-white/10 text-white focus-visible:ring-cyan-500/30 focus-visible:border-cyan-500/50"
+                                    className="pl-8 h-11 rounded-xl font-bold text-base bg-slate-900/40 border border-white/10 text-white focus-visible:ring-cyan-500/30 focus-visible:border-cyan-500/50"
                                 />
                             </div>
                         </div>
@@ -91,7 +91,7 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                                 <Input 
                                     value={tempMeta}
                                     onChange={(e) => setTempMeta(e.target.value.replace(',', '.'))}
-                                    className="pl-8 h-11 rounded-xl font-bold text-xs bg-slate-900/40 border border-white/10 text-white focus-visible:ring-emerald-500/30 focus-visible:border-emerald-500/50"
+                                    className="pl-8 h-11 rounded-xl font-bold text-base bg-slate-900/40 border border-white/10 text-white focus-visible:ring-emerald-500/30 focus-visible:border-emerald-500/50"
                                 />
                             </div>
                         </div>
@@ -106,7 +106,7 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                             <Input 
                                 value={tempStop}
                                 onChange={(e) => setTempStop(e.target.value.replace(',', '.'))}
-                                className="pl-8 h-11 rounded-xl font-bold text-xs bg-slate-900/40 border border-white/10 text-white focus-visible:ring-rose-500/30 focus-visible:border-rose-500/50"
+                                className="pl-8 h-11 rounded-xl font-bold text-base bg-slate-900/40 border border-white/10 text-white focus-visible:ring-rose-500/30 focus-visible:border-rose-500/50"
                             />
                         </div>
                     </div>
