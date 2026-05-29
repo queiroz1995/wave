@@ -253,7 +253,7 @@ export const AIOperatingScreen = () => {
                             </div>
                             <div>
                                 <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-0.5">
-                                    Saldo {accountType === 'real' ? 'Real' : 'Treinamento'}
+                                    Saldo
                                 </p>
                                 <div className="flex items-baseline gap-0.5">
                                     <span className="text-[10px] font-bold text-slate-400">$</span>
