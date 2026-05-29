@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
 import { SettingsSheet } from './SettingsSheet';
+import confetti from 'canvas-confetti';
 
 export const AIOperatingScreen = () => {
     const { 
@@ -24,6 +25,46 @@ export const AIOperatingScreen = () => {
     } = useBotContext();
 
     const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
+    const processedSignalsRef = useRef<Set<string>>(new Set());
+
+    // Efeito de confete ao obter lucro (WIN)
+    useEffect(() => {
+        if (signals && signals.length > 0) {
+            signals.forEach((s: any) => {
+                if (s.result === 'WIN' && typeof s.profit === 'number' && s.profit > 0) {
+                    if (!processedSignalsRef.current.has(s.id)) {
+                        processedSignalsRef.current.add(s.id);
+                        
+                        // Disparar efeito de confete premium/cyber
+                        const duration = 1.5 * 1000;
+                        const end = Date.now() + duration;
+
+                        const frame = () => {
+                            confetti({
+                                particleCount: 4,
+                                angle: 60,
+                                spread: 55,
+                                origin: { x: 0, y: 0.8 },
+                                colors: ['#22d3ee', '#34d399', '#818cf8']
+                            });
+                            confetti({
+                                particleCount: 4,
+                                angle: 120,
+                                spread: 55,
+                                origin: { x: 1, y: 0.8 },
+                                colors: ['#22d3ee', '#34d399', '#818cf8']
+                            });
+
+                            if (Date.now() < end) {
+                                requestAnimationFrame(frame);
+                            }
+                        };
+                        frame();
+                    }
+                }
+            });
+        }
+    }, [signals]);
 
     const isWin = totalProfit >= 0;
     const currentToken = accountType === 'real' ? realToken : demoToken;
@@ -197,7 +238,7 @@ export const AIOperatingScreen = () => {
                             </div>
                             <div>
                                 <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-0.5">
-                                    Banca {accountType === 'real' ? 'Real' : 'Treinamento'}
+                                    Saldo {accountType === 'real' ? 'Real' : 'Treinamento'}
                                 </p>
                                 <div className="flex items-baseline gap-0.5">
                                     <span className="text-[10px] font-bold text-slate-400">$</span>
