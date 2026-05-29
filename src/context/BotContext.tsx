@@ -34,6 +34,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const lastContractType = useRef<ContractType | null>(null);
     const lastTradedAsset = useRef<string | null>(null);
     
+    // Novo: Controla se o gale está pausado aguardando filtro virtual
+    const isGalePausedForFilter = useRef(false);
+
     const pendingContracts = useRef<Map<string, any>>(new Map());
     const reconnectAttemptsRef = useRef(0);
     const sendMessageRef = useRef<(payload: any) => void>(() => {});
@@ -70,7 +73,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const getMarketState = useCallback((symbol: string) => {
         const digits = multiAssetDigits[symbol] || [];
-        if (digits.length < 50) return { confidence: 0, entropy: 1, recommendedVirtualLosses: 1, recommendedDirection: 'AGAINST' };
+        if (digits.length < 50) return { confidence: 0, entropy: 1, recommendedVirtualLosses: 1, recommendedDirection: 'AGAINST', isStable: false };
         
         const evens = digits.slice(0, 50).filter(d => d % 2 === 0).length;
         const odds = 50 - evens;
@@ -88,10 +91,13 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         // Decisão de Direção (Tendência vs Reversão)
         const recDirection = bias > 0.22 ? 'FAVOR' : 'AGAINST';
+        
+        // Um mercado é estável se a entropia não for extrema e não houver bias absurdo
+        const isStable = entropy < 0.88 && bias < 0.25;
 
         if (symbol === asset) setCurrentConfidence(Math.min(99, confidence));
         
-        return { confidence, entropy, recommendedVirtualLosses: recVirtual, recommendedDirection: recDirection };
+        return { confidence, entropy, recommendedVirtualLosses: recVirtual, recommendedDirection: recDirection, isStable };
     }, [multiAssetDigits, asset]);
 
     const fetchDerivHistory = useCallback((symbol: string) => {
@@ -144,7 +150,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 const target = isSmartModeActive ? recommendedVirtualLosses : virtualTargetLosses;
                 
                 if (nextStreak >= target) {
-                    setAiThought(`Proteção de ${target} níveis atingida em ${symbol}. Pronto!`);
+                    setAiThought(`Proteção atingida em ${symbol}. Liberando Sniper!`);
+                    // Se estávamos aguardando filtro para o Gale, agora ele está liberado
+                    if (isGalePausedForFilter.current && symbol === lastTradedAsset.current) {
+                        isGalePausedForFilter.current = false;
+                    }
                 } else {
                     setAiThought(`Filtro Anti-Manipulação: +${target - nextStreak} Loss Virtual.`);
                 }
@@ -168,6 +178,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsBotRunning(false);
         activeTrades.current.clear();
         martingaleLevel.current = 0;
+        isGalePausedForFilter.current = false;
         setVirtualLossStreak(0);
         setVirtualTradePending(null);
         setTradeStatus('IDLE');
@@ -182,6 +193,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setLosses(0);
         setSignals([]);
         martingaleLevel.current = 0;
+        isGalePausedForFilter.current = false;
         setVirtualLossStreak(0);
         setVirtualTradePending(null);
         setTradeStatus('IDLE');
@@ -240,10 +252,20 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         if (isLoss) {
                             setLosses((prev: number) => prev + 1);
                             martingaleLevel.current += 1;
-                            setAiThought("Detectada variância. Entrando em modo defensivo.");
+                            
+                            // ANÁLISE PÓS-LOSS: Mercado está bom para Gale?
+                            const { isStable } = getMarketState(savedData.symbol);
+                            if (!isStable) {
+                                isGalePausedForFilter.current = true;
+                                setVirtualLossStreak(0); // Reinicia para aguardar novos losses virtuais
+                                setAiThought("Ciclo instável detectado! Pausando Gale e ativando Filtro Virtual.");
+                            } else {
+                                setAiThought("Mercado estável. Preparando Gale imediato.");
+                            }
                         } else {
                             setWins((prev: number) => prev + 1);
                             martingaleLevel.current = 0;
+                            isGalePausedForFilter.current = false;
                             setVirtualLossStreak(0);
                             setAiThought("Operação Neutralizada com Sucesso.");
                         }
@@ -259,7 +281,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             }
         }
-    }, [processTickData, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot]);
+    }, [processTickData, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, getMarketState]);
 
     const ws = useTradingWebSocketManager({ isConnected, status, setIsConnected, setStatus, setAccountBalance, onMessage: handleWebSocketMessage, reconnectAttemptsRef });
     const { sendMessage, connect, disconnect } = ws;
@@ -269,12 +291,15 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const digits = multiAssetDigits[symbol] || [];
         if (activeTrades.current.size > 0 || isStudying || digits.length < 5) return null;
 
+        // Se o gale está pausado aguardando filtro virtual, não gera sinal de gale ainda
+        if (isGalePausedForFilter.current && symbol === lastTradedAsset.current) return null;
+
         const { recommendedDirection } = getMarketState(symbol);
         const direction = isSmartModeActive ? recommendedDirection : entryDirection;
 
         if (martingaleLevel.current > 0 && lastTradedAsset.current === symbol) {
             const contract = lastContractType.current || 'DIGITEVEN';
-            return { type: contract === 'DIGITEVEN' ? 'EVEN' : 'ODD', contract, name: 'Recovery', confidence: 99, symbol };
+            return { type: contract === 'DIGITEVEN' ? 'EVEN' : 'ODD', contract, name: 'Recovery (Gale)', confidence: 99, symbol };
         }
 
         let currentStreak = 1;
@@ -320,11 +345,18 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 const { recommendedVirtualLosses } = getMarketState(symbol);
                 const target = isSmartModeActive ? recommendedVirtualLosses : virtualTargetLosses;
                 
+                // Se estamos em Gale mas pausados pelo filtro, ou se é entrada normal precisando de virtual
+                const isRecovery = signal.name.includes('Recovery');
                 const needsVirtual = target > 0 && virtualLossStreak < target;
                 
                 if (needsVirtual) {
                     if (!virtualTradePending) {
-                        const sId = addSignal({ strategy: `VIRTUAL (IA: ${target}L)`, signal: signal.type as any, details: `Filtro dinâmico em ${symbol}`, winRate: `${signal.confidence}%` });
+                        const sId = addSignal({ 
+                            strategy: isRecovery ? `VIRTUAL (RECOVERY FILTER)` : `VIRTUAL (IA: ${target}L)`, 
+                            signal: signal.type as any, 
+                            details: isRecovery ? `Limpando ciclo para Gale seguro` : `Filtro dinâmico em ${symbol}`, 
+                            winRate: `${signal.confidence}%` 
+                        });
                         setVirtualTradePending({ ...signal, signalId: sId, symbol });
                     }
                     break;
