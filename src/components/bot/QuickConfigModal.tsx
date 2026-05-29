@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DollarSign, Target, Play, Zap } from 'lucide-react';
+import { DollarSign, Target, Play, Zap, ShieldAlert } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
 
 interface QuickConfigModalProps {
@@ -50,56 +50,67 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[420px] rounded-[2.5rem] glass-panel border-none p-8 sm:p-10">
+            <DialogContent className="sm:max-w-[420px] rounded-[2.5rem] bg-slate-950/90 backdrop-blur-2xl border border-white/15 p-8 sm:p-10 shadow-[0_0_50px_rgba(34,211,238,0.15)] text-white">
                 <DialogHeader className="space-y-3">
-                    <div className="mx-auto bg-primary/10 p-3 rounded-2xl w-fit">
-                        <Zap className="h-6 w-6 text-primary fill-current" />
+                    <div className="mx-auto bg-cyan-500/10 p-3.5 rounded-2xl w-fit border border-cyan-500/20 shadow-[0_0_15px_rgba(34,211,238,0.1)]">
+                        <Zap className="h-6 w-6 text-cyan-400 fill-cyan-400/20" />
                     </div>
-                    <DialogTitle className="text-2xl font-black uppercase tracking-tighter text-center">Protocolo de Partida</DialogTitle>
-                    <p className="text-center text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">Gestão de Sessão</p>
+                    <DialogTitle className="text-2xl font-black uppercase tracking-tighter text-center text-white">
+                        Protocolo de Partida
+                    </DialogTitle>
+                    <p className="text-center text-[10px] font-black text-cyan-400 uppercase tracking-[0.3em]">
+                        Gestão de Sessão
+                    </p>
                 </DialogHeader>
                 
                 <div className="space-y-6 py-6">
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label className="text-[9px] font-black uppercase tracking-widest ml-1 opacity-60">Entrada ($)</Label>
+                            <Label className="text-[10px] font-black uppercase tracking-widest ml-1 text-slate-400">
+                                Entrada ($)
+                            </Label>
                             <div className="relative">
-                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-primary" />
+                                <DollarSign className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-cyan-400" />
                                 <Input 
                                     value={tempStake}
                                     onChange={(e) => setTempStake(e.target.value.replace(',', '.'))}
-                                    className="pl-9 h-11 rounded-xl font-bold text-sm bg-gray-50/50 border-none"
+                                    className="pl-10 h-12 rounded-xl font-bold text-sm bg-slate-900/80 border border-white/10 text-white focus-visible:ring-cyan-500/30 focus-visible:border-cyan-500/50"
                                 />
                             </div>
                         </div>
 
                         <div className="space-y-2">
-                            <Label className="text-[9px] font-black uppercase tracking-widest ml-1 opacity-60">Meta ($)</Label>
+                            <Label className="text-[10px] font-black uppercase tracking-widest ml-1 text-slate-400">
+                                Meta ($)
+                            </Label>
                             <div className="relative">
-                                <Target className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-green-500" />
+                                <Target className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-emerald-400" />
                                 <Input 
                                     value={tempMeta}
                                     onChange={(e) => setTempMeta(e.target.value.replace(',', '.'))}
-                                    className="pl-9 h-11 rounded-xl font-bold text-sm bg-gray-50/50 border-none"
+                                    className="pl-10 h-12 rounded-xl font-bold text-sm bg-slate-900/80 border border-white/10 text-white focus-visible:ring-emerald-500/30 focus-visible:border-emerald-500/50"
                                 />
                             </div>
                         </div>
                     </div>
 
                     <div className="space-y-2">
-                        <Label className="text-[9px] font-black uppercase tracking-widest ml-1 opacity-60">Stop Loss ($)</Label>
+                        <Label className="text-[10px] font-black uppercase tracking-widest ml-1 text-slate-400">
+                            Stop Loss ($)
+                        </Label>
                         <div className="relative">
-                            <Target className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-red-500" />
+                            <Target className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-rose-400" />
                             <Input 
                                 value={tempStop}
                                 onChange={(e) => setTempStop(e.target.value.replace(',', '.'))}
-                                className="pl-9 h-11 rounded-xl font-bold text-sm bg-gray-50/50 border-none"
+                                className="pl-10 h-12 rounded-xl font-bold text-sm bg-slate-900/80 border border-white/10 text-white focus-visible:ring-rose-500/30 focus-visible:border-rose-500/50"
                             />
                         </div>
                     </div>
 
-                    <div className="p-4 rounded-2xl bg-primary/5 border border-primary/10">
-                        <p className="text-[10px] font-bold text-primary text-center uppercase tracking-widest leading-relaxed">
+                    <div className="p-4 rounded-2xl bg-cyan-500/5 border border-cyan-500/10 flex items-start gap-3">
+                        <ShieldAlert className="h-5 w-5 text-cyan-400 shrink-0 mt-0.5" />
+                        <p className="text-[10px] font-bold text-cyan-300 uppercase tracking-wider leading-relaxed">
                             A I.A assumirá o controle total dos filtros de segurança e direção após a decolagem.
                         </p>
                     </div>
@@ -108,7 +119,7 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                 <DialogFooter>
                     <Button 
                         onClick={handleConfirm}
-                        className="w-full h-14 rounded-2xl text-base font-black uppercase tracking-[0.2em] bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20"
+                        className="w-full h-14 rounded-2xl text-base font-black uppercase tracking-[0.2em] bg-cyan-500 hover:bg-cyan-600 text-slate-950 shadow-xl shadow-cyan-500/20 transition-all duration-300 hover:scale-[1.02]"
                     >
                         <Play className="h-4 w-4 mr-2 fill-current" /> DECOLAR SISTEMA
                     </Button>
