@@ -510,260 +510,251 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const voiceOffKeywords = ['desativar voz', 'mutar voz', 'silenciar', 'desliga voz', 'muta voz'];
         const voiceOnKeywords = ['ativar voz', 'falar', 'liga voz', 'ativa voz'];
         const assetKeywords = ['volatilidade', 'mercado', 'ativo'];
-
-        // --- NOVAS REGRAS DINÂMICAS DE ESTRATÉGIA POR VOZ ---
-        
-        // 1. Configurar Repetições (Ex: "entra em par quando repetir 3 vezes", "espera 4 repetições")
-        const isRepetitionRule = cleanCommand.includes('repetir') || cleanCommand.includes('repetição') || cleanCommand.includes('repeticoes') || cleanCommand.includes('sequência') || cleanCommand.includes('sequencia');
-        if (isRepetitionRule) {
-            const valStr = parseSpokenNumber(cleanCommand);
-            if (valStr) {
-                const val = parseInt(valStr);
-                setConsecutiveTarget(val);
-                setIsSmartModeActive(false); // Desativa o modo inteligente para respeitar a regra manual do usuário
-
-                // Determina a direção da entrada com base no comando
-                let directionText = "contra a tendência (reversão)";
-                if (cleanCommand.includes('a favor') || cleanCommand.includes('seguir') || cleanCommand.includes('continuar')) {
-                    setEntryDirection('FAVOR');
-                    directionText = "a favor da tendência (continuação)";
-                } else {
-                    setEntryDirection('AGAINST');
-                }
-
-                speak(`Entendido! Configurei o bot para esperar uma sequência de ${val} repetições e entrar ${directionText}.`);
-                toast.success(`Regra de Voz: Sequência de ${val} repetições (${directionText === 'contra a tendência (reversão)' ? 'Contra' : 'A Favor'})`);
-                return;
-            }
-        }
-
-        // 2. Configurar Direção da Entrada (Ex: "entra a favor da tendência", "entra contra a repetição")
-        if (cleanCommand.includes('a favor') || cleanCommand.includes('seguir a tendência') || cleanCommand.includes('continuar a sequência')) {
-            setEntryDirection('FAVOR');
-            setIsSmartModeActive(false);
-            speak("Entendido! Agora o bot entrará a favor da tendência de repetição.");
-            toast.success("Regra de Voz: Entrar A Favor da Tendência");
-            return;
-        }
-        if (cleanCommand.includes('contra') || cleanCommand.includes('reversão') || cleanCommand.includes('quebrar a sequência') || cleanCommand.includes('quebrar a repetição')) {
-            setEntryDirection('AGAINST');
-            setIsSmartModeActive(false);
-            speak("Entendido! Agora o bot entrará contra a tendência, buscando a reversão.");
-            toast.success("Regra de Voz: Entrar Contra a Tendência (Reversão)");
-            return;
-        }
-
-        // 3. Configurar Filtro Virtual (Ex: "espera 2 perdas virtuais", "filtro virtual de 3")
-        if (cleanCommand.includes('filtro virtual') || cleanCommand.includes('perda virtual') || cleanCommand.includes('perdas virtuais') || cleanCommand.includes('loss virtual')) {
-            const valStr = parseSpokenNumber(cleanCommand);
-            if (valStr) {
-                const val = parseInt(valStr);
-                setVirtualTargetLosses(val);
-                setIsSmartModeActive(false);
-                speak(`Entendido! Configurei o filtro de segurança para aguardar ${val} perdas virtuais antes de operar.`);
-                toast.success(`Regra de Voz: Filtro Virtual de ${val} Losses`);
-            } else {
-                speak("Não entendi a quantidade de perdas virtuais.");
-            }
-            return;
-        }
-
-        // 4. Reativar Modo Inteligente (Ex: "modo inteligente", "deixa a ia decidir", "modo automático")
-        if (cleanCommand.includes('modo inteligente') || cleanCommand.includes('ia decidir') || cleanCommand.includes('modo automático') || cleanCommand.includes('modo automatico')) {
-            setIsSmartModeActive(true);
-            speak("Entendido! Reativei o modo inteligente. A inteligência artificial agora decidirá as melhores regras de repetição e filtros de segurança.");
-            toast.success("Regra de Voz: Modo Inteligente Ativado");
-            return;
-        }
-
-        // --- FIM DAS NOVAS REGRAS DINÂMICAS ---
-
-        // 1. Iniciar / Parar
-        if (startKeywords.some(kw => cleanCommand.includes(kw))) {
-            if (!isConnected) {
-                speak("Por favor, conecte-se à corretora antes de iniciar o robô.");
-                toast.error("Conecte-se primeiro.");
-                return;
-            }
-            if (!isBotRunning) {
-                toggleBot();
-                speak("Iniciando as operações agora.");
-            } else {
-                speak("O sniper já está em execução.");
-            }
-            return;
-        }
-        if (stopKeywords.some(kw => cleanCommand.includes(kw))) {
-            if (isBotRunning) {
-                toggleBot();
-                speak("Operações pausadas com sucesso.");
-            } else {
-                speak("O sniper já está parado.");
-            }
-            return;
-        }
-
-        // 2. Consultas de Saldo e Lucro
-        if (balanceKeywords.some(kw => cleanCommand.includes(kw))) {
-            if (accountBalance !== null) {
-                speak(`Seu saldo atual é de ${accountBalance.toFixed(2)} dólares.`);
-            } else {
-                speak("Não consegui obter seu saldo. Verifique se está conectado.");
-            }
-            return;
-        }
-        if (profitKeywords.some(kw => cleanCommand.includes(kw))) {
-            speak(`Seu lucro nesta sessão é de ${totalProfitRef.current.toFixed(2)} dólares.`);
-            return;
-        }
-
-        // 3. Limpar / Reiniciar
-        if (resetKeywords.some(kw => cleanCommand.includes(kw))) {
-            resetOperations();
-            speak("Histórico e lucros reiniciados.");
-            return;
-        }
-
-        // 4. Mudar Entrada / Stake (Ex: "stake de 1.50", "entrada de 2 dólares")
-        if (stakeKeywords.some(kw => cleanCommand.includes(kw))) {
-            const val = parseSpokenNumber(cleanCommand);
-            if (val) {
-                setInitialStake(val);
-                speak(`Entrada alterada para ${val} dólares.`);
-                toast.success(`Entrada alterada para $${val}`);
-            } else {
-                speak("Não entendi o valor da entrada.");
-            }
-            return;
-        }
-
-        // 5. Mudar Meta / Take Profit (Ex: "meta de 5", "mudar meta para 10")
-        if (metaKeywords.some(kw => cleanCommand.includes(kw))) {
-            const val = parseSpokenNumber(cleanCommand);
-            if (val) {
-                setTakeProfit(val);
-                speak(`Meta de lucro alterada para ${val} dólares.`);
-                toast.success(`Meta alterada para $${val}`);
-            } else {
-                speak("Não entendi o valor da meta.");
-            }
-            return;
-        }
-
-        // 6. Mudar Stop Loss (Ex: "stop de 20", "mudar stop para 50")
-        if (stopLossKeywords.some(kw => cleanCommand.includes(kw))) {
-            const val = parseSpokenNumber(cleanCommand);
-            if (val) {
-                setStopLoss(val);
-                speak(`Limite de perda alterado para ${val} dólares.`);
-                toast.success(`Stop Loss alterado para $${val}`);
-            } else {
-                speak("Não entendi o valor do stop.");
-            }
-            return;
-        }
-
-        // 7. Mudar Ticks / Duração (Ex: "duração de 5 ticks", "mudar ticks para 2")
-        if (durationKeywords.some(kw => cleanCommand.includes(kw))) {
-            const valStr = parseSpokenNumber(cleanCommand);
-            if (valStr) {
-                const val = parseInt(valStr);
-                if (val >= 1 && val <= 10) {
-                    setDuration(val);
-                    speak(`Duração alterada para ${val} ticks.`);
-                    toast.success(`Duração alterada para ${val} Ticks`);
-                } else {
-                    speak("A duração deve ser entre 1 e 10 ticks.");
-                }
-            } else {
-                speak("Não entendi a duração.");
-            }
-            return;
-        }
-
-        // 8. Mudar Tipo de Conta (Ex: "mudar para conta real", "mudar para demo")
-        if (realKeywords.some(kw => cleanCommand.includes(kw))) {
-            setAccountType('real');
-            speak("Conta alterada para Real.");
-            toast.info("Conta alterada para REAL");
-            return;
-        }
-        if (demoKeywords.some(kw => cleanCommand.includes(kw))) {
-            setAccountType('demo');
-            speak("Conta alterada para Demo.");
-            toast.info("Conta alterada para DEMO");
-            return;
-        }
-
-        // 9. Compras Manuais por Voz (Ex: "comprar par", "entrar ímpar")
-        // Tolerância fonética expandida para "par" (para, pares, even, pau, pal, pago, pato) e "ímpar" (impar, limpar, limpa, ímpa, impa, odd, ipa, hipa)
         const parPhonetics = ['par', 'para', 'pares', 'even', 'pau', 'pal', 'pari', 'pago', 'pato', 'pai', 'paz'];
         const imparPhonetics = ['ímpar', 'impar', 'limpar', 'limpa', 'ímpa', 'impa', 'odd', 'ipa', 'hipa', 'hípica', 'infra', 'intima'];
-
         const isBuyAction = cleanCommand.includes('comprar') || cleanCommand.includes('entrar') || cleanCommand.includes('apostar') || cleanCommand.includes('compra') || cleanCommand.includes('entra');
 
-        if (isBuyAction) {
-            const hasPar = parPhonetics.some(p => cleanCommand.includes(p));
-            const hasImpar = imparPhonetics.some(i => cleanCommand.includes(i));
+        // Divide a frase em múltiplos sub-comandos usando conectores comuns
+        const subCommands = cleanCommand
+            .split(/\b(?:e|depois|em seguida|também|tambem|mais|e depois)\b|[,;]/)
+            .map(cmd => cmd.trim())
+            .filter(cmd => cmd.length > 0);
 
-            if (hasPar && !hasImpar) {
-                manualBuy('DIGITEVEN', 'Voz');
-                speak("Comprando contrato Par.");
-                return;
-            }
-            if (hasImpar) {
-                manualBuy('DIGITODD', 'Voz');
-                speak("Comprando contrato Ímpar.");
-                return;
-            }
-        }
+        const feedbacks: string[] = [];
+        let processedAny = false;
 
-        // 10. Ativar / Desativar Voz (Ex: "mutar voz", "ativar voz")
-        if (voiceOffKeywords.some(kw => cleanCommand.includes(kw))) {
-            setIsVoiceEnabled(false);
-            toast.info("Voz desativada.");
-            return;
-        }
-        if (voiceOnKeywords.some(kw => cleanCommand.includes(kw))) {
-            setIsVoiceEnabled(true);
-            speak("Voz ativada com sucesso.");
-            toast.info("Voz ativada.");
-            return;
-        }
+        for (const subCmd of subCommands) {
+            let processed = false;
 
-        // 11. Mudar Ativo / Mercado (Ex: "mudar mercado para volatilidade cem", "volatilidade 10")
-        if (assetKeywords.some(kw => cleanCommand.includes(kw))) {
-            const valStr = parseSpokenNumber(cleanCommand);
-            if (valStr) {
-                const num = valStr;
-                const assetMap: Record<string, string> = {
-                    '10': '1HZ10V',
-                    '25': '1HZ25V',
-                    '50': '1HZ50V',
-                    '75': '1HZ75V',
-                    '100': '1HZ100V'
-                };
-                const targetAsset = assetMap[num];
-                if (targetAsset) {
-                    setAsset(targetAsset);
-                    speak(`Mercado alterado para Volatilidade ${num}.`);
-                    toast.success(`Mercado alterado para Volatilidade ${num}`);
-                } else {
-                    speak(`Não encontrei o mercado de volatilidade ${num}.`);
+            // 1. Configurar Repetições (Ex: "entra em par quando repetir 3 vezes")
+            const isRepetitionRule = subCmd.includes('repetir') || subCmd.includes('repetição') || subCmd.includes('repeticoes') || subCmd.includes('sequência') || subCmd.includes('sequencia');
+            if (isRepetitionRule) {
+                const valStr = parseSpokenNumber(subCmd);
+                if (valStr) {
+                    const val = parseInt(valStr);
+                    setConsecutiveTarget(val);
+                    setIsSmartModeActive(false);
+
+                    let directionText = "contra a tendência";
+                    if (subCmd.includes('a favor') || subCmd.includes('seguir') || subCmd.includes('continuar')) {
+                        setEntryDirection('FAVOR');
+                        directionText = "a favor da tendência";
+                    } else {
+                        setEntryDirection('AGAINST');
+                    }
+
+                    feedbacks.push(`repetições configuradas para ${val} ${directionText}`);
+                    toast.success(`Regra: ${val} repetições (${directionText})`);
+                    processed = true;
                 }
-            } else {
-                speak("Não encontrei esse mercado.");
             }
-            return;
+
+            // 2. Configurar Direção da Entrada
+            if (!processed && (subCmd.includes('a favor') || subCmd.includes('seguir a tendência') || subCmd.includes('continuar a sequência'))) {
+                setEntryDirection('FAVOR');
+                setIsSmartModeActive(false);
+                feedbacks.push("entradas configuradas a favor da tendência");
+                toast.success("Regra: A Favor");
+                processed = true;
+            }
+            if (!processed && (subCmd.includes('contra') || subCmd.includes('reversão') || subCmd.includes('quebrar a sequência') || subCmd.includes('quebrar a repetição'))) {
+                setEntryDirection('AGAINST');
+                setIsSmartModeActive(false);
+                feedbacks.push("entradas configuradas contra a tendência");
+                toast.success("Regra: Contra");
+                processed = true;
+            }
+
+            // 3. Configurar Filtro Virtual
+            if (!processed && (subCmd.includes('filtro virtual') || subCmd.includes('perda virtual') || subCmd.includes('perdas virtuais') || subCmd.includes('loss virtual'))) {
+                const valStr = parseSpokenNumber(subCmd);
+                if (valStr) {
+                    const val = parseInt(valStr);
+                    setVirtualTargetLosses(val);
+                    setIsSmartModeActive(false);
+                    feedbacks.push(`filtro virtual definido para ${val} perdas`);
+                    toast.success(`Filtro Virtual: ${val} Losses`);
+                    processed = true;
+                }
+            }
+
+            // 4. Reativar Modo Inteligente
+            if (!processed && (subCmd.includes('modo inteligente') || subCmd.includes('ia decidir') || subCmd.includes('modo automático') || subCmd.includes('modo automatico'))) {
+                setIsSmartModeActive(true);
+                feedbacks.push("modo inteligente ativado");
+                toast.success("Modo Inteligente Ativado");
+                processed = true;
+            }
+
+            // 5. Iniciar / Parar
+            if (!processed && startKeywords.some(kw => subCmd.includes(kw))) {
+                if (!isConnected) {
+                    feedbacks.push("não posso iniciar porque você não está conectado");
+                    toast.error("Conecte-se primeiro.");
+                } else if (!isBotRunning) {
+                    toggleBot();
+                    feedbacks.push("iniciando operações");
+                } else {
+                    feedbacks.push("o robô já está rodando");
+                }
+                processed = true;
+            }
+            if (!processed && stopKeywords.some(kw => subCmd.includes(kw))) {
+                if (isBotRunning) {
+                    toggleBot();
+                    feedbacks.push("operações pausadas");
+                } else {
+                    feedbacks.push("o robô já está parado");
+                }
+                processed = true;
+            }
+
+            // 6. Consultas de Saldo e Lucro
+            if (!processed && balanceKeywords.some(kw => subCmd.includes(kw))) {
+                if (accountBalance !== null) {
+                    feedbacks.push(`seu saldo é de ${accountBalance.toFixed(2)} dólares`);
+                } else {
+                    feedbacks.push("não consegui ler o saldo");
+                }
+                processed = true;
+            }
+            if (!processed && profitKeywords.some(kw => subCmd.includes(kw))) {
+                feedbacks.push(`seu lucro atual é de ${totalProfitRef.current.toFixed(2)} dólares`);
+                processed = true;
+            }
+
+            // 7. Limpar / Reiniciar
+            if (!processed && resetKeywords.some(kw => subCmd.includes(kw))) {
+                resetOperations();
+                feedbacks.push("histórico e lucros reiniciados");
+                processed = true;
+            }
+
+            // 8. Mudar Entrada / Stake
+            if (!processed && stakeKeywords.some(kw => subCmd.includes(kw))) {
+                const val = parseSpokenNumber(subCmd);
+                if (val) {
+                    setInitialStake(val);
+                    feedbacks.push(`entrada alterada para ${val} dólares`);
+                    toast.success(`Entrada: $${val}`);
+                    processed = true;
+                }
+            }
+
+            // 9. Mudar Meta / Take Profit
+            if (!processed && metaKeywords.some(kw => subCmd.includes(kw))) {
+                const val = parseSpokenNumber(subCmd);
+                if (val) {
+                    setTakeProfit(val);
+                    feedbacks.push(`meta definida em ${val} dólares`);
+                    toast.success(`Meta: $${val}`);
+                    processed = true;
+                }
+            }
+
+            // 10. Mudar Stop Loss
+            if (!processed && stopLossKeywords.some(kw => subCmd.includes(kw))) {
+                const val = parseSpokenNumber(subCmd);
+                if (val) {
+                    setStopLoss(val);
+                    feedbacks.push(`stop loss definido em ${val} dólares`);
+                    toast.success(`Stop Loss: $${val}`);
+                    processed = true;
+                }
+            }
+
+            // 11. Mudar Ticks / Duração
+            if (!processed && durationKeywords.some(kw => subCmd.includes(kw))) {
+                const valStr = parseSpokenNumber(subCmd);
+                if (valStr) {
+                    const val = parseInt(valStr);
+                    if (val >= 1 && val <= 10) {
+                        setDuration(val);
+                        feedbacks.push(`duração alterada para ${val} ticks`);
+                        toast.success(`Duração: ${val} Ticks`);
+                        processed = true;
+                    }
+                }
+            }
+
+            // 12. Mudar Tipo de Conta
+            if (!processed && realKeywords.some(kw => subCmd.includes(kw))) {
+                setAccountType('real');
+                feedbacks.push("conta alterada para real");
+                toast.info("Conta: REAL");
+                processed = true;
+            }
+            if (!processed && demoKeywords.some(kw => subCmd.includes(kw))) {
+                setAccountType('demo');
+                feedbacks.push("conta alterada para demo");
+                toast.info("Conta: DEMO");
+                processed = true;
+            }
+
+            // 13. Compras Manuais por Voz
+            if (!processed && isBuyAction) {
+                const hasPar = parPhonetics.some(p => subCmd.includes(p));
+                const hasImpar = imparPhonetics.some(i => subCmd.includes(i));
+                if (hasPar && !hasImpar) {
+                    manualBuy('DIGITEVEN', 'Voz');
+                    feedbacks.push("comprando par");
+                    processed = true;
+                } else if (hasImpar) {
+                    manualBuy('DIGITODD', 'Voz');
+                    feedbacks.push("comprando ímpar");
+                    processed = true;
+                }
+            }
+
+            // 14. Ativar / Desativar Voz
+            if (!processed && voiceOffKeywords.some(kw => subCmd.includes(kw))) {
+                setIsVoiceEnabled(false);
+                toast.info("Voz desativada.");
+                processed = true;
+            }
+            if (!processed && voiceOnKeywords.some(kw => subCmd.includes(kw))) {
+                setIsVoiceEnabled(true);
+                feedbacks.push("voz ativada");
+                toast.info("Voz ativada.");
+                processed = true;
+            }
+
+            // 15. Mudar Ativo / Mercado
+            if (!processed && assetKeywords.some(kw => subCmd.includes(kw))) {
+                const valStr = parseSpokenNumber(subCmd);
+                if (valStr) {
+                    const num = valStr;
+                    const assetMap: Record<string, string> = {
+                        '10': '1HZ10V',
+                        '25': '1HZ25V',
+                        '50': '1HZ50V',
+                        '75': '1HZ75V',
+                        '100': '1HZ100V'
+                    };
+                    const targetAsset = assetMap[num];
+                    if (targetAsset) {
+                        setAsset(targetAsset);
+                        feedbacks.push(`mercado alterado para volatilidade ${num}`);
+                        toast.success(`Mercado: Volatilidade ${num}`);
+                        processed = true;
+                    }
+                }
+            }
+
+            if (processed) {
+                processedAny = true;
+            }
         }
 
-        // 12. Saudação / Ajuda
-        if (cleanCommand.includes('olá') || cleanCommand.includes('oi') || cleanCommand.includes('ajuda') || cleanCommand.includes('siri') || cleanCommand.includes('alexa')) {
-            speak("Olá! Eu sou a sua assistente Wave Sniper. Você pode me pedir para iniciar, parar, mudar a entrada, meta, stop, ticks, mudar de mercado ou até comprar par e ímpar.");
-            return;
+        if (processedAny) {
+            // Combina todos os feedbacks em uma única frase natural
+            const finalSpeech = feedbacks.join(", e ").trim();
+            if (finalSpeech) {
+                speak("Entendido! " + finalSpeech + ".");
+            }
+        } else {
+            speak("Desculpe, não entendi os comandos. Você pode dizer por exemplo: entrada de um dólar e meta de cinco.");
         }
-
-        speak("Desculpe, não entendi o comando. Você pode dizer por exemplo: entrada de um dólar, meta de cinco, ou iniciar operações.");
     }, [isConnected, isBotRunning, toggleBot, accountBalance, resetOperations, speak, setInitialStake, setTakeProfit, setStopLoss, setDuration, setAccountType, manualBuy, setIsVoiceEnabled, setAsset, setConsecutiveTarget, setEntryDirection, setVirtualTargetLosses, setIsSmartModeActive]);
 
     // Referência dinâmica para o processador de voz sempre ter o estado mais recente
