@@ -21,50 +21,65 @@ export const AIOperatingScreen = () => {
         isStudying, studyTicksCount,
         isSoundEnabled, setIsSoundEnabled,
         currentConfidence,
-        aiThought
+        aiThought,
+        takeProfit
     } = useBotContext();
 
     const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
-    const processedSignalsRef = useRef<Set<string>>(new Set());
+    const hasTriggeredGoalConfettiRef = useRef(false);
 
-    // Efeito de confete ao obter lucro (WIN)
+    // Resetar o gatilho de confete quando o lucro for zerado (ao reiniciar as operações)
     useEffect(() => {
-        if (signals && signals.length > 0) {
-            signals.forEach((s: any) => {
-                if (s.result === 'WIN' && typeof s.profit === 'number' && s.profit > 0) {
-                    if (!processedSignalsRef.current.has(s.id)) {
-                        processedSignalsRef.current.add(s.id);
-                        
-                        // Disparar efeito de confete premium/cyber
-                        const duration = 1.5 * 1000;
-                        const end = Date.now() + duration;
-
-                        const frame = () => {
-                            confetti({
-                                particleCount: 4,
-                                angle: 60,
-                                spread: 55,
-                                origin: { x: 0, y: 0.8 },
-                                colors: ['#22d3ee', '#34d399', '#818cf8']
-                            });
-                            confetti({
-                                particleCount: 4,
-                                angle: 120,
-                                spread: 55,
-                                origin: { x: 1, y: 0.8 },
-                                colors: ['#22d3ee', '#34d399', '#818cf8']
-                            });
-
-                            if (Date.now() < end) {
-                                requestAnimationFrame(frame);
-                            }
-                        };
-                        frame();
-                    }
-                }
-            });
+        if (totalProfit === 0) {
+            hasTriggeredGoalConfettiRef.current = false;
         }
-    }, [signals]);
+    }, [totalProfit]);
+
+    // Efeito de confete premium ao atingir a meta (Take Profit)
+    useEffect(() => {
+        const targetProfit = parseFloat(takeProfit) || 0;
+        if (targetProfit > 0 && totalProfit >= targetProfit && !hasTriggeredGoalConfettiRef.current) {
+            hasTriggeredGoalConfettiRef.current = true;
+            
+            // Celebração Premium de Meta Batida (Várias explosões consecutivas)
+            const duration = 4 * 1000;
+            const end = Date.now() + duration;
+
+            const frame = () => {
+                // Explosão da esquerda
+                confetti({
+                    particleCount: 6,
+                    angle: 60,
+                    spread: 55,
+                    origin: { x: 0, y: 0.8 },
+                    colors: ['#22d3ee', '#34d399', '#818cf8', '#fbbf24']
+                });
+                // Explosão da direita
+                confetti({
+                    particleCount: 6,
+                    angle: 120,
+                    spread: 55,
+                    origin: { x: 1, y: 0.8 },
+                    colors: ['#22d3ee', '#34d399', '#818cf8', '#fbbf24']
+                });
+                // Explosão central aleatória
+                if (Math.random() > 0.7) {
+                    confetti({
+                        particleCount: 15,
+                        angle: 90,
+                        spread: 80,
+                        origin: { x: Math.random() * 0.4 + 0.3, y: 0.6 },
+                        colors: ['#a78bfa', '#f472b6', '#34d399']
+                    });
+                }
+
+                if (Date.now() < end) {
+                    requestAnimationFrame(frame);
+                }
+            };
+            frame();
+        }
+    }, [totalProfit, takeProfit]);
 
     const isWin = totalProfit >= 0;
     const currentToken = accountType === 'real' ? realToken : demoToken;
