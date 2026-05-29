@@ -18,91 +18,71 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : 0;
 
     return (
-        <div className="min-h-screen bg-[#02040a] text-white selection:bg-indigo-500/30 overflow-x-hidden relative">
+        <div className="min-h-screen bg-[#020408] text-white selection:bg-primary/30 overflow-x-hidden relative">
             
-            {/* --- FUNDO ANIMADO --- */}
+            {/* --- PAINEL DE FUNDO TECNOLÓGICO --- */}
             <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
-                {/* Grade em Movimento */}
-                <div className="absolute inset-0 bg-grid-moving animate-grid-move opacity-20 [mask-image:radial-gradient(ellipse_at_center,black,transparent_80%)]" />
+                {/* Efeito de Profundidade */}
+                <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent" />
                 
-                {/* Névoas de Cor Pulsantes */}
-                <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/20 rounded-full blur-[120px] animate-pulse-glow" />
-                <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-emerald-600/10 rounded-full blur-[120px] animate-pulse-glow [animation-delay:2s]" />
-                <div className="absolute top-[30%] right-[10%] w-[30%] h-[30%] bg-blue-500/10 rounded-full blur-[100px] animate-pulse-glow [animation-delay:4s]" />
-
-                {/* Partículas de Luz Flutuantes */}
-                <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-indigo-400 rounded-full blur-sm animate-float opacity-50" />
-                <div className="absolute top-1/2 right-1/3 w-3 h-3 bg-emerald-400 rounded-full blur-md animate-float [animation-delay:3s] opacity-30" />
-                <div className="absolute bottom-1/4 left-1/2 w-1 h-1 bg-white rounded-full blur-none animate-float [animation-delay:7s] opacity-60" />
+                {/* Grade Técnica Estática e Elegante */}
+                <div className="absolute inset-0 bg-cyber-grid [mask-image:radial-gradient(ellipse_at_center,black,transparent_90%)] opacity-40" />
+                
+                {/* Luzes de Fundo Suaves (Auras) */}
+                <div className="absolute top-[-20%] left-[-10%] w-[70%] h-[70%] bg-primary/10 rounded-full blur-[120px] animate-drift" />
+                <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-blue-500/5 rounded-full blur-[120px] animate-drift [animation-delay:5s]" />
+                
+                {/* Linha de Horizonte Neon */}
+                <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
             </div>
-            {/* --------------------- */}
 
             <div className="relative z-10 flex flex-col items-center">
-                {/* Header High-Tech */}
-                <header className="w-full max-w-4xl flex justify-between items-center py-8 px-6 mb-4">
-                    <div className="flex items-center gap-4">
-                        <div className="relative group">
-                            <div className="absolute -inset-2 bg-indigo-500/20 rounded-2xl blur-lg group-hover:bg-indigo-500/40 transition-all duration-500" />
-                            <div className="relative p-3 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl">
-                                <Zap className="h-6 w-6 text-indigo-400 fill-indigo-400/20" />
-                            </div>
+                {/* Header Limpo e Profissional */}
+                <header className="w-full max-w-4xl flex justify-between items-center py-8 px-6">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2.5 bg-white/5 border border-white/10 rounded-xl shadow-xl">
+                            <Zap className="h-5 w-5 text-primary fill-primary/10" />
                         </div>
                         <div>
-                            <h1 className="text-2xl font-black italic uppercase tracking-tighter bg-gradient-to-br from-white to-slate-400 bg-clip-text text-transparent">
+                            <h1 className="text-xl font-black uppercase tracking-tighter text-white">
                                 WAVE SNIPER
                             </h1>
-                            <div className="flex items-center gap-2">
-                                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,1)]" />
-                                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">Neural Link Active</span>
+                            <div className="flex items-center gap-1.5">
+                                <div className="h-1 w-1 rounded-full bg-primary animate-pulse" />
+                                <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-slate-500">System Ready</span>
                             </div>
                         </div>
                     </div>
 
-                    {/* Status Rápido (Desktop) */}
-                    <div className="hidden sm:flex items-center gap-8 bg-white/5 backdrop-blur-2xl border border-white/10 p-4 px-8 rounded-[2rem] shadow-2xl">
-                        <div className="text-center group">
-                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1 group-hover:text-indigo-400 transition-colors">Session Profit</p>
-                            <p className={cn(
-                                "text-lg font-black tracking-tighter",
-                                totalProfit >= 0 ? 'text-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,0.3)]' : 'text-rose-400'
-                            )}>
+                    <div className="flex items-center gap-6 px-6 py-3 bg-white/5 border border-white/5 rounded-2xl backdrop-blur-md">
+                        <div className="text-center">
+                            <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Profit</p>
+                            <p className={cn("text-sm font-black", totalProfit >= 0 ? 'text-primary' : 'text-rose-500')}>
                                 ${totalProfit.toFixed(2)}
                             </p>
                         </div>
-                        <Separator orientation="vertical" className="h-8 bg-white/10" />
-                        <div className="text-center group">
-                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1 group-hover:text-indigo-400 transition-colors">Efficiency</p>
-                            <p className="text-lg font-black text-white tracking-tighter">
-                                {winRate.toFixed(1)}%
-                            </p>
+                        <Separator orientation="vertical" className="h-6 bg-white/10" />
+                        <div className="text-center">
+                            <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">Win Rate</p>
+                            <p className="text-sm font-black text-white">{winRate.toFixed(1)}%</p>
                         </div>
                     </div>
                 </header>
                 
                 <main className="w-full max-w-4xl px-4 flex-grow flex flex-col gap-6 pb-20">
-                    {/* Connection Panel Integrado */}
-                    <div className="relative group">
-                        <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500/20 to-emerald-500/20 rounded-3xl blur opacity-0 group-hover:opacity-100 transition duration-1000" />
-                        <ConnectionPanel />
-                    </div>
-
-                    {/* Contêiner de Conteúdo */}
-                    <div className="relative w-full h-full min-h-[500px]">
-                        <div className="animate-in fade-in zoom-in-95 duration-700">
-                            {children}
-                        </div>
+                    <ConnectionPanel />
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                        {children}
                     </div>
                 </main>
 
-                {/* Footer Minimalista */}
-                <footer className="w-full py-10 flex flex-col items-center gap-6 border-t border-white/5 bg-slate-950/20 backdrop-blur-xl">
-                    <div className="flex gap-8 opacity-20">
-                        <Globe className="h-4 w-4" />
-                        <Shield className="h-4 w-4" />
-                        <Zap className="h-4 w-4" />
+                <footer className="w-full py-8 flex flex-col items-center gap-4 opacity-40">
+                    <div className="flex gap-6">
+                        <Globe className="h-3 w-3" />
+                        <Shield className="h-3 w-3" />
                     </div>
-                    <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.5em]">
-                        © 2024 WAVE INTELLIGENCE • SYSTEM V2.4
+                    <p className="text-[8px] font-bold uppercase tracking-[0.4em] text-slate-500">
+                        Wave Intelligence v2.4
                     </p>
                 </footer>
             </div>

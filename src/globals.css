@@ -37,38 +37,24 @@
   }
 }
 
-@keyframes grid-move {
-  0% { transform: translateY(0); }
-  100% { transform: translateY(40px); }
+@keyframes slow-pan {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 100% 100%; }
 }
 
-@keyframes float {
-  0%, 100% { transform: translateY(0) translateX(0); }
-  25% { transform: translateY(-20px) translateX(10px); }
-  50% { transform: translateY(-10px) translateX(20px); }
-  75% { transform: translateY(10px) translateX(-10px); }
+@keyframes drift {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(30px, -20px) scale(1.1); }
+  100% { transform: translate(0, 0) scale(1); }
 }
 
-@keyframes pulse-glow {
-  0%, 100% { opacity: 0.3; transform: scale(1); }
-  50% { opacity: 0.6; transform: scale(1.2); }
+.animate-drift {
+  animation: drift 20s ease-in-out infinite;
 }
 
-.animate-grid-move {
-  animation: grid-move 3s linear infinite;
-}
-
-.animate-float {
-  animation: float 15s ease-in-out infinite;
-}
-
-.animate-pulse-glow {
-  animation: pulse-glow 8s ease-in-out infinite;
-}
-
-.bg-grid-moving {
+.bg-cyber-grid {
   background-image: 
-    linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-  background-size: 40px 40px;
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 50px 50px;
 }
