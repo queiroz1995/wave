@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, Volume2, VolumeX } from 'lucide-react';
+import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, Volume2, VolumeX, Mic, MicOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
@@ -22,7 +22,8 @@ export const AIOperatingScreen = () => {
         currentConfidence,
         aiThought,
         takeProfit,
-        isVoiceEnabled, setIsVoiceEnabled, isSpeaking
+        isVoiceEnabled, setIsVoiceEnabled, isSpeaking,
+        isListening, startListening
     } = useBotContext();
 
     const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
@@ -189,6 +190,21 @@ export const AIOperatingScreen = () => {
                         </div>
                         
                         <div className="flex items-center gap-1.5">
+                            {/* Botão de Microfone Interativo */}
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className={cn(
+                                    "h-9 w-9 rounded-xl border transition-all",
+                                    isListening 
+                                        ? "bg-red-500/20 border-red-500/30 text-red-400 animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.4)]" 
+                                        : "bg-white/5 border-white/10 text-slate-400 hover:bg-white/10"
+                                )}
+                                onClick={startListening}
+                            >
+                                {isListening ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
+                            </Button>
+
                             {/* Botão de Voz Siri/Alexa */}
                             <Button 
                                 variant="ghost" 
@@ -215,12 +231,11 @@ export const AIOperatingScreen = () => {
                     </div>
 
                     {/* Onda Sonora Estilo Siri/Alexa (Apenas quando o bot está ativo ou falando) */}
-                    {(isBotRunning || isSpeaking) && (
+                    {(isBotRunning || isSpeaking || isListening) && (
                         <div className="flex items-center justify-center gap-1 h-6 my-2">
                             {[...Array(9)].map((_, i) => {
-                                // Alturas e animações diferentes para cada barra da onda
                                 const delay = `${i * 0.15}s`;
-                                const duration = isSpeaking ? '0.6s' : '1.2s';
+                                const duration = isSpeaking ? '0.6s' : isListening ? '0.4s' : '1.2s';
                                 return (
                                     <div 
                                         key={i}
@@ -228,10 +243,12 @@ export const AIOperatingScreen = () => {
                                             "w-1 rounded-full transition-all bg-gradient-to-t",
                                             isSpeaking 
                                                 ? "from-cyan-500 via-indigo-500 to-purple-500 shadow-[0_0_10px_rgba(34,211,238,0.5)]" 
-                                                : "from-cyan-500/40 to-cyan-400/60"
+                                                : isListening 
+                                                    ? "from-red-500 to-rose-400 shadow-[0_0_10px_rgba(239,68,68,0.5)]"
+                                                    : "from-cyan-500/40 to-cyan-400/60"
                                         )}
                                         style={{
-                                            height: isSpeaking ? '100%' : '30%',
+                                            height: isSpeaking || isListening ? '100%' : '30%',
                                             animation: 'grid-scroll 1s ease-in-out infinite alternate',
                                             animationDelay: delay,
                                             animationDuration: duration

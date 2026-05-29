@@ -29,6 +29,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [isConnecting, setIsConnecting] = useState(false);
     const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
     const [isSpeaking, setIsSpeaking] = useState(false);
+    const [isListening, setIsListening] = useState(false);
 
     const activeTrades = useRef<Set<string>>(new Set());
     const totalProfitRef = useRef(0.00);
@@ -57,7 +58,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         virtualTargetLosses, setVirtualTargetLosses,
         consecutiveTarget, entryDirection,
         isSmartModeActive, setIsSmartModeActive,
-        setSignals
+        setSignals, accountBalance
     } = stateAndSetters;
 
     const [isConnected, setIsConnected] = useState(false);
@@ -69,7 +70,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!('speechSynthesis' in window)) return null;
         const voices = window.speechSynthesis.getVoices();
         
-        // Filtra apenas vozes em português
         const ptVoices = voices.filter(voice => 
             voice.lang.includes('pt-BR') || 
             voice.lang.includes('pt_BR') || 
@@ -78,7 +78,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (ptVoices.length === 0) return null;
 
-        // Prioridade de vozes femininas de alta qualidade (Google, Microsoft Online, Siri, Luciana, Francisca, Maria)
         const preferredKeywords = ['google', 'siri', 'luciana', 'francisca', 'maria', 'natural', 'online', 'female', 'mulher'];
         
         for (const keyword of preferredKeywords) {
@@ -86,7 +85,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (found) return found;
         }
 
-        // Retorna a primeira voz em português disponível caso não ache as preferidas
         return ptVoices[0];
     }, []);
 
@@ -94,13 +92,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const speak = useCallback((text: string) => {
         if (!isVoiceEnabled || !('speechSynthesis' in window)) return;
         
-        // Cancela falas anteriores para não encavalar
         window.speechSynthesis.cancel();
 
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = 'pt-BR';
-        utterance.rate = 1.0;  // Velocidade perfeita para clareza e naturalidade
-        utterance.pitch = 1.15; // Tom levemente mais agudo para soar mais feminino e cristalino (estilo Alexa)
+        utterance.rate = 1.0;  
+        utterance.pitch = 1.15; 
 
         const bestVoice = getBestFemalePtVoice();
         if (bestVoice) {
@@ -210,7 +207,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 
                 if (nextStreak >= target) {
                     setAiThought(`Proteção atingida em ${symbol}. Liberando Sniper!`);
-                    speak("Filtro de segurança concluído. Preparando entrada real.");
                     if (isGalePausedForFilter.current && symbol === lastTradedAsset.current) {
                         isGalePausedForFilter.current = false;
                     }
@@ -231,7 +227,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 return next;
             });
         }
-    }, [asset, getMarketState, isStudying, setIsStudying, setStudyTicksCount, virtualTradePending, virtualLossStreak, virtualTargetLosses, isSmartModeActive, updateSignalResult, speak]);
+    }, [asset, getMarketState, isStudying, setIsStudying, setStudyTicksCount, virtualTradePending, virtualLossStreak, virtualTargetLosses, isSmartModeActive, updateSignalResult]);
 
     const stopBot = useCallback((reason: string) => {
         setIsBotRunning(false);
@@ -405,9 +401,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTradeStatus('SENDING');
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params, passthrough: { signalId, strategyName } });
         
-        const contractLabel = contractType === 'DIGITEVEN' ? 'Par' : 'Ímpar';
-        speak(`Entrando em ${contractLabel} com ${stakeToUse.toFixed(2)} dólares.`);
-    }, [isConnected, initialStake, sendMessage, setTradeStatus, martingaleFactor, isStudying, speak]);
+        // REMOVIDO: speak(...) automático de entrada para evitar spam de áudio
+    }, [isConnected, initialStake, sendMessage, setTradeStatus, martingaleFactor, isStudying]);
 
     useEffect(() => {
         if (!isBotRunning || isStudying) return;
@@ -443,6 +438,77 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     }, [isBotRunning, calculateTradeSignal, addSignal, executeBuy, isStudying, virtualTradePending, virtualLossStreak, virtualTargetLosses, isSmartModeActive, getMarketState]);
 
+    // Processador de comandos de voz interativos
+    const processVoiceCommand = useCallback((command: string) => {
+        const cleanCommand = command.toLowerCase().trim();
+        
+        if (cleanCommand.includes('iniciar') || cleanCommand.includes('começar') || cleanCommand.includes('ligar')) {
+            if (!isBotRunning) {
+                toggleBot();
+                speak("Iniciando as operações agora.");
+            } else {
+                speak("O sniper já está em execução.");
+            }
+        } else if (cleanCommand.includes('parar') || cleanCommand.includes('pausar') || cleanCommand.includes('desligar')) {
+            if (isBotRunning) {
+                toggleBot();
+                speak("Operações pausadas com sucesso.");
+            } else {
+                speak("O sniper já está parado.");
+            }
+        } else if (cleanCommand.includes('saldo') || cleanCommand.includes('banca')) {
+            if (accountBalance !== null) {
+                speak(`Seu saldo atual é de ${accountBalance.toFixed(2)} dólares.`);
+            } else {
+                speak("Não consegui obter seu saldo. Verifique se está conectado.");
+            }
+        } else if (cleanCommand.includes('lucro') || cleanCommand.includes('resultado') || cleanCommand.includes('ganho')) {
+            speak(`Seu lucro nesta sessão é de ${totalProfitRef.current.toFixed(2)} dólares.`);
+        } else if (cleanCommand.includes('limpar') || cleanCommand.includes('reiniciar')) {
+            resetOperations();
+            speak("Histórico e lucros reiniciados.");
+        } else if (cleanCommand.includes('olá') || cleanCommand.includes('oi') || cleanCommand.includes('ajuda') || cleanCommand.includes('siri') || cleanCommand.includes('alexa')) {
+            speak("Olá! Eu sou a sua assistente Wave Sniper. Você pode me pedir para iniciar, parar, consultar o saldo ou o lucro da sessão.");
+        } else {
+            speak("Desculpe, não entendi o comando. Você pode dizer iniciar, parar, saldo ou lucro.");
+        }
+    }, [isBotRunning, toggleBot, accountBalance, resetOperations, speak]);
+
+    // Função para iniciar o reconhecimento de voz
+    const startListening = useCallback(() => {
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+            addLog("Reconhecimento de voz não suportado neste navegador.", "ERROR");
+            return;
+        }
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'pt-BR';
+        recognition.continuous = false;
+        recognition.interimResults = false;
+
+        recognition.onstart = () => {
+            setIsListening(true);
+            setAiThought("Ouvindo comando de voz...");
+        };
+
+        recognition.onresult = (event: any) => {
+            const text = event.results[0][0].transcript;
+            setAiThought(`Você disse: "${text}"`);
+            processVoiceCommand(text);
+        };
+
+        recognition.onerror = (event: any) => {
+            console.error("Speech recognition error", event);
+            setIsListening(false);
+        };
+
+        recognition.onend = () => {
+            setIsListening(false);
+        };
+
+        recognition.start();
+    }, [processVoiceCommand, addLog]);
+
     const selectAI = useCallback((ia: any) => { 
         setSelectedAIInfo(ia); 
         setActiveStrategy(ia.id); 
@@ -468,8 +534,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const contextValue = useMemo(() => ({
         ...stateAndSetters, isConnected, isConnecting, status, handleConnect, handleDisconnect: disconnect, 
         toggleBot, resetOperations, appFlow, setAppFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, aiThought,
-        isVoiceEnabled, setIsVoiceEnabled, isSpeaking, speak
-    }), [stateAndSetters, isConnected, isConnecting, status, handleConnect, disconnect, toggleBot, resetOperations, appFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, aiThought, isVoiceEnabled, isSpeaking, speak]);
+        isVoiceEnabled, setIsVoiceEnabled, isSpeaking, speak, isListening, startListening
+    }), [stateAndSetters, isConnected, isConnecting, status, handleConnect, disconnect, toggleBot, resetOperations, appFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, aiThought, isVoiceEnabled, isSpeaking, speak, isListening, startListening]);
 
     return <BotContext.Provider value={contextValue}>{children}</BotContext.Provider>;
 };
