@@ -62,7 +62,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isStudying, setIsStudying, setStudyTicksCount,
         virtualLossStreak, setVirtualLossStreak,
         virtualTargetLosses, setVirtualTargetLosses,
-        consecutiveTarget, entryDirection,
+        consecutiveTarget, setConsecutiveTarget, entryDirection, setEntryDirection,
         isSmartModeActive, setIsSmartModeActive,
         setSignals, accountBalance
     } = stateAndSetters;
@@ -507,6 +507,73 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const voiceOnKeywords = ['ativar voz', 'falar', 'liga voz', 'ativa voz'];
         const assetKeywords = ['volatilidade', 'mercado', 'ativo'];
 
+        // --- NOVAS REGRAS DINÂMICAS DE ESTRATÉGIA POR VOZ ---
+        
+        // 1. Configurar Repetições (Ex: "entra em par quando repetir 3 vezes", "espera 4 repetições")
+        const isRepetitionRule = cleanCommand.includes('repetir') || cleanCommand.includes('repetição') || cleanCommand.includes('repeticoes') || cleanCommand.includes('sequência') || cleanCommand.includes('sequencia');
+        if (isRepetitionRule) {
+            const valStr = parseSpokenNumber(cleanCommand);
+            if (valStr) {
+                const val = parseInt(valStr);
+                setConsecutiveTarget(val);
+                setIsSmartModeActive(false); // Desativa o modo inteligente para respeitar a regra manual do usuário
+
+                // Determina a direção da entrada com base no comando
+                let directionText = "contra a tendência (reversão)";
+                if (cleanCommand.includes('a favor') || cleanCommand.includes('seguir') || cleanCommand.includes('continuar')) {
+                    setEntryDirection('FAVOR');
+                    directionText = "a favor da tendência (continuação)";
+                } else {
+                    setEntryDirection('AGAINST');
+                }
+
+                speak(`Entendido! Configurei o bot para esperar uma sequência de ${val} repetições e entrar ${directionText}.`);
+                toast.success(`Regra de Voz: Sequência de ${val} repetições (${directionText === 'contra a tendência (reversão)' ? 'Contra' : 'A Favor'})`);
+                return;
+            }
+        }
+
+        // 2. Configurar Direção da Entrada (Ex: "entra a favor da tendência", "entra contra a repetição")
+        if (cleanCommand.includes('a favor') || cleanCommand.includes('seguir a tendência') || cleanCommand.includes('continuar a sequência')) {
+            setEntryDirection('FAVOR');
+            setIsSmartModeActive(false);
+            speak("Entendido! Agora o bot entrará a favor da tendência de repetição.");
+            toast.success("Regra de Voz: Entrar A Favor da Tendência");
+            return;
+        }
+        if (cleanCommand.includes('contra') || cleanCommand.includes('reversão') || cleanCommand.includes('quebrar a sequência') || cleanCommand.includes('quebrar a repetição')) {
+            setEntryDirection('AGAINST');
+            setIsSmartModeActive(false);
+            speak("Entendido! Agora o bot entrará contra a tendência, buscando a reversão.");
+            toast.success("Regra de Voz: Entrar Contra a Tendência (Reversão)");
+            return;
+        }
+
+        // 3. Configurar Filtro Virtual (Ex: "espera 2 perdas virtuais", "filtro virtual de 3")
+        if (cleanCommand.includes('filtro virtual') || cleanCommand.includes('perda virtual') || cleanCommand.includes('perdas virtuais') || cleanCommand.includes('loss virtual')) {
+            const valStr = parseSpokenNumber(cleanCommand);
+            if (valStr) {
+                const val = parseInt(valStr);
+                setVirtualTargetLosses(val);
+                setIsSmartModeActive(false);
+                speak(`Entendido! Configurei o filtro de segurança para aguardar ${val} perdas virtuais antes de operar.`);
+                toast.success(`Regra de Voz: Filtro Virtual de ${val} Losses`);
+            } else {
+                speak("Não entendi a quantidade de perdas virtuais.");
+            }
+            return;
+        }
+
+        // 4. Reativar Modo Inteligente (Ex: "modo inteligente", "deixa a ia decidir", "modo automático")
+        if (cleanCommand.includes('modo inteligente') || cleanCommand.includes('ia decidir') || cleanCommand.includes('modo automático') || cleanCommand.includes('modo automatico')) {
+            setIsSmartModeActive(true);
+            speak("Entendido! Reativei o modo inteligente. A inteligência artificial agora decidirá as melhores regras de repetição e filtros de segurança.");
+            toast.success("Regra de Voz: Modo Inteligente Ativado");
+            return;
+        }
+
+        // --- FIM DAS NOVAS REGRAS DINÂMICAS ---
+
         // 1. Iniciar / Parar
         if (startKeywords.some(kw => cleanCommand.includes(kw))) {
             if (!isBotRunning) {
@@ -676,7 +743,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     speak(`Não encontrei o mercado de volatilidade ${num}.`);
                 }
             } else {
-                speak("Não entendi qual mercado você deseja.");
+                speak("Não encontrei esse mercado.");
             }
             return;
         }
@@ -688,7 +755,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         speak("Desculpe, não entendi o comando. Você pode dizer por exemplo: entrada de um dólar, meta de cinco, ou iniciar operações.");
-    }, [isBotRunning, toggleBot, accountBalance, resetOperations, speak, setInitialStake, setTakeProfit, setStopLoss, setDuration, setAccountType, manualBuy, setIsVoiceEnabled, setAsset]);
+    }, [isBotRunning, toggleBot, accountBalance, resetOperations, speak, setInitialStake, setTakeProfit, setStopLoss, setDuration, setAccountType, manualBuy, setIsVoiceEnabled, setAsset, setConsecutiveTarget, setEntryDirection, setVirtualTargetLosses, setIsSmartModeActive]);
 
     // Função para iniciar o reconhecimento de voz permanente
     const startListening = useCallback(() => {
@@ -736,7 +803,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             
             // Se tiver alternativas, procura se alguma delas bate com palavras-chave importantes
             if (results.length > 1) {
-                const keywords = ['par', 'para', 'ímpar', 'impar', 'limpar', 'iniciar', 'parar', 'saldo', 'lucro', 'stake', 'entrada', 'meta', 'stop'];
+                const keywords = ['par', 'para', 'ímpar', 'impar', 'limpar', 'iniciar', 'parar', 'saldo', 'lucro', 'stake', 'entrada', 'meta', 'stop', 'repetir', 'repetição', 'sequência', 'contra', 'favor', 'filtro'];
                 for (let i = 0; i < results.length; i++) {
                     const altText = results[i].transcript.toLowerCase();
                     const hasKeyword = keywords.some(kw => altText.includes(kw));
