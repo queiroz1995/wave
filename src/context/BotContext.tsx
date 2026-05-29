@@ -36,17 +36,21 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const pendingContracts = useRef<Map<number, any>>(new Map());
     const reconnectAttemptsRef = useRef(0);
     const sendMessageRef = useRef<(payload: any) => void>(() => {});
+    
+    // Rastreador de Loss Virtual por Ativo
+    const virtualStreaksRef = useRef<Record<string, number>>({});
 
     const {
         addLog, setAccountBalance, setLastDigits, setIsBotRunning,
         setTotalProfit, setWins, setLosses,
-        asset, initialStake, addSignal, updateSignalResult,
+        asset, setAsset, initialStake, addSignal, updateSignalResult,
         lastDigits, setLastTickEpoch, lastTickEpoch,
         multiAssetDigits, setMultiAssetDigits,
         setTradeStatus, isBotRunning,
         accountType, realToken, demoToken,
         takeProfit, stopLoss,
-        setSignals, consecutiveTarget, entryDirection
+        setSignals, consecutiveTarget, entryDirection,
+        virtualLossStreak, setVirtualLossStreak, virtualTargetLosses
     } = stateAndSetters;
 
     const [isConnected, setIsConnected] = useState(false);
@@ -89,22 +93,26 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isTradeLockedRef.current = false;
         currentMartingaleLevel.current = 0;
         accumulatedLossRef.current = 0;
+        setVirtualLossStreak(0);
+        virtualStreaksRef.current = {};
         setTradeStatus('IDLE');
         setAiThought(`Sessão Finalizada.`);
         addLog(reason, 'INFO');
-    }, [setIsBotRunning, addLog, setTradeStatus]);
+    }, [setIsBotRunning, addLog, setTradeStatus, setVirtualLossStreak]);
 
     const resetOperations = useCallback(() => {
         totalProfitRef.current = 0;
         currentMartingaleLevel.current = 0;
         accumulatedLossRef.current = 0;
         isTradeLockedRef.current = false;
+        setVirtualLossStreak(0);
+        virtualStreaksRef.current = {};
         setTotalProfit(0);
         setWins(0);
         setLosses(0);
         setSignals([]);
         setTradeStatus('IDLE');
-    }, [setTotalProfit, setWins, setLosses, setSignals, setTradeStatus]);
+    }, [setTotalProfit, setWins, setLosses, setSignals, setTradeStatus, setVirtualLossStreak]);
 
     const toggleBot = useCallback(() => {
         if (!isConnected) {
@@ -117,8 +125,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else { 
             setIsBotRunning(true); 
             resetOperations();
-            setAiThought("Analisando fluxo de dados...");
-            addLog("Bot Iniciado.", "INFO");
+            setAiThought("Scanner Multiativos Iniciado...");
+            addLog("Bot Iniciado - Scanner Ativo.", "INFO");
         }
     }, [isConnected, isBotRunning, stopBot, resetOperations, addLog]);
 
@@ -137,12 +145,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setLosses((prev: number) => prev + 1);
                 currentMartingaleLevel.current += 1;
                 accumulatedLossRef.current += buyPrice;
-                addLog(`LOSS: Recuperação Nível ${currentMartingaleLevel.current}`, 'ERROR');
+                addLog(`LOSS REAL: ${savedData.strategyName} - Recuperando...`, 'ERROR');
             } else {
                 setWins((prev: number) => prev + 1);
                 currentMartingaleLevel.current = 0;
                 accumulatedLossRef.current = 0;
-                addLog(`WIN: Operação Finalizada com Sucesso`, 'WIN');
+                addLog(`WIN REAL: ${savedData.strategyName} - Alvo Atingido`, 'WIN');
             }
 
             updateSignalResult(savedData.signalId, isLoss ? 'LOSS' : 'WIN', profitValue, savedData.stake, exitDigit);
@@ -189,6 +197,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         pendingContracts.current.set(contractId, {
                             signalId,
                             stake: data.echo_req.price,
+                            strategyName: data.echo_req.passthrough?.strategyName
                         });
                         sendMessageRef.current({ proposal_open_contract: 1, contract_id: contractId, subscribe: 1 });
                     }
@@ -217,7 +226,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         let currentStake = baseStake;
 
         if (currentMartingaleLevel.current > 0) {
-            currentStake = accumulatedLossRef.current * 2.1; // Fator clássico Wave
+            currentStake = accumulatedLossRef.current * 2.1; 
         }
         
         const params: any = { 
@@ -240,61 +249,64 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     useEffect(() => {
         if (!isBotRunning || !selectedAIInfo) return;
 
-        const checkAndTrade = () => {
+        const checkScanner = () => {
             if (isTradeLockedRef.current) return;
 
-            // ESTRATÉGIA QUANTUM (Digit Diff)
-            if (selectedAIInfo.id === 'quantum') {
-                const digits = multiAssetDigits[asset] || [];
-                if (digits.length >= 1) {
-                    const lastDigit = digits[0];
-                    setAiThought(`Analisando probabilidade para dígito ${lastDigit}...`);
-                    setCurrentConfidence(91);
-                    const sId = addSignal({ 
-                        strategy: 'Quantum Core', 
-                        signal: 'DIFF' as any, 
-                        details: `Evitando dígito ${lastDigit}`, 
-                        winRate: `91%` 
-                    });
-                    executeBuy('Quantum Core', sId, asset, 'DIGITDIFF', lastDigit);
-                }
-            } 
-            
-            // ESTRATÉGIA WAVE (Even/Odd Sequence)
-            else if (selectedAIInfo.id === 'trendSurfer') {
-                const digits = multiAssetDigits[asset] || [];
-                if (digits.length >= consecutiveTarget) {
-                    const recentDigits = digits.slice(0, consecutiveTarget);
-                    const allEven = recentDigits.every(d => d % 2 === 0);
-                    const allOdd = recentDigits.every(d => d % 2 !== 0);
+            let maxLossFound = 0;
+            let bestAsset = asset;
+            let bestSignal: any = null;
 
-                    if (allEven || allOdd) {
-                        const sequenceType = allEven ? 'PARES' : 'ÍMPARES';
-                        const signal = entryDirection === 'AGAINST' 
+            // SCANNER EM TODOS OS ATIVOS
+            SCANNER_ASSETS.forEach(sym => {
+                const digits = multiAssetDigits[sym] || [];
+                if (digits.length < consecutiveTarget) return;
+
+                const recentDigits = digits.slice(0, consecutiveTarget);
+                const allEven = recentDigits.every(d => d % 2 === 0);
+                const allOdd = recentDigits.every(d => d % 2 !== 0);
+
+                if (allEven || allOdd) {
+                    // Calculamos o streak (loss virtual)
+                    let streak = 0;
+                    for (let d of digits) {
+                        const isEven = d % 2 === 0;
+                        if ((allEven && isEven) || (allOdd && !isEven)) streak++;
+                        else break;
+                    }
+
+                    if (streak > maxLossFound) {
+                        maxLossFound = streak;
+                        bestAsset = sym;
+                        bestSignal = entryDirection === 'AGAINST' 
                             ? (allEven ? 'DIGITODD' : 'DIGITEVEN') 
                             : (allEven ? 'DIGITEVEN' : 'DIGITODD');
-
-                        setAiThought(`Sequência de ${consecutiveTarget} ${sequenceType} detectada.`);
-                        setCurrentConfidence(85);
-                        
-                        const sId = addSignal({ 
-                            strategy: 'Núcleo Wave', 
-                            signal: (signal === 'DIGITEVEN' ? 'EVEN' : 'ODD') as any, 
-                            details: `Reversão após ${consecutiveTarget} ${sequenceType}`, 
-                            winRate: `85%` 
-                        });
-                        executeBuy('Núcleo Wave', sId, asset, signal as any);
-                    } else {
-                        setAiThought("Aguardando padrão de paridade...");
-                        setCurrentConfidence(40);
                     }
                 }
+            });
+
+            setVirtualLossStreak(maxLossFound);
+            
+            if (maxLossFound >= virtualTargetLosses && bestSignal) {
+                setAiThought(`ALVO DETECTADO: ${bestAsset} com ${maxLossFound} Losses Virtuais!`);
+                setCurrentConfidence(95);
+                setAsset(bestAsset); // Muda para o ativo da oportunidade
+
+                const sId = addSignal({ 
+                    strategy: 'VIRTUAL WAVE', 
+                    signal: (bestSignal === 'DIGITEVEN' ? 'EVEN' : 'ODD') as any, 
+                    details: `Entrada Real em ${bestAsset} (LV: ${maxLossFound})`, 
+                    winRate: `95%` 
+                });
+                executeBuy('Quantum Wave', sId, bestAsset, bestSignal);
+            } else {
+                setAiThought(`Monitorando 10 Ativos... Maior LV: ${maxLossFound}/${virtualTargetLosses}`);
+                setCurrentConfidence(40 + (maxLossFound * 10));
             }
         };
 
-        const timer = setInterval(checkAndTrade, 500);
+        const timer = setInterval(checkScanner, 1000);
         return () => clearInterval(timer);
-    }, [isBotRunning, selectedAIInfo, multiAssetDigits, asset, consecutiveTarget, entryDirection, addSignal, executeBuy]);
+    }, [isBotRunning, selectedAIInfo, multiAssetDigits, asset, setAsset, consecutiveTarget, entryDirection, virtualTargetLosses, setVirtualLossStreak, addSignal, executeBuy]);
 
     const selectAI = useCallback((ia: any) => { setSelectedAIInfo(ia); setAppFlow('operating'); }, []);
     const exitToSelection = useCallback(() => { stopBot("Fim"); setAppFlow('selection'); }, [stopBot]);
