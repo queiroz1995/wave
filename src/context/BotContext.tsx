@@ -43,6 +43,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const pendingContracts = useRef<Map<string, any>>(new Map());
     const reconnectAttemptsRef = useRef(0);
     const sendMessageRef = useRef<(payload: any) => void>(() => {});
+    
+    // Refs para controle do microfone permanente
+    const recognitionRef = useRef<any>(null);
+    const shouldListenRef = useRef(false);
 
     const {
         addLog, setAccountBalance, setLastDigits, setIsBotRunning,
@@ -473,7 +477,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     }, [isBotRunning, toggleBot, accountBalance, resetOperations, speak]);
 
-    // Função para iniciar o reconhecimento de voz
+    // Função para iniciar o reconhecimento de voz permanente
     const startListening = useCallback(() => {
         if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
             toast.error("Seu navegador não suporta reconhecimento de voz. Use o Google Chrome ou Safari.");
@@ -481,20 +485,37 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return;
         }
         
+        // Se já estiver ativo, desliga o microfone permanente
+        if (shouldListenRef.current) {
+            shouldListenRef.current = false;
+            setIsListening(false);
+            if (recognitionRef.current) {
+                recognitionRef.current.stop();
+            }
+            toast.info("Microfone desativado.");
+            speak("Microfone desativado.");
+            return;
+        }
+
         const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
         const recognition = new SpeechRecognition();
         recognition.lang = 'pt-BR';
-        recognition.continuous = false;
+        recognition.continuous = true; // Escuta contínua
         recognition.interimResults = false;
+
+        recognitionRef.current = recognition;
+        shouldListenRef.current = true;
 
         recognition.onstart = () => {
             setIsListening(true);
-            setAiThought("Ouvindo comando de voz...");
-            toast.info("Microfone ativado. Fale agora...", { id: "mic-status" });
+            setAiThought("Microfone ativo permanente...");
+            toast.info("Microfone ativo permanente. Fale quando quiser!", { id: "mic-status" });
+            speak("Microfone ativado em modo permanente. Estou ouvindo.");
         };
 
         recognition.onresult = (event: any) => {
-            const text = event.results[0][0].transcript;
+            const resultIndex = event.resultIndex;
+            const text = event.results[resultIndex][0].transcript;
             setAiThought(`Você disse: "${text}"`);
             toast.success(`Comando reconhecido: "${text}"`, { id: "mic-status" });
             processVoiceCommand(text);
@@ -502,20 +523,28 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         recognition.onerror = (event: any) => {
             console.error("Speech recognition error", event);
-            setIsListening(false);
             if (event.error === 'not-allowed') {
+                shouldListenRef.current = false;
+                setIsListening(false);
                 toast.error("Permissão de microfone negada. Ative o microfone nas configurações do seu navegador.", { id: "mic-status" });
-            } else {
-                toast.error("Erro ao reconhecer voz. Tente falar novamente.", { id: "mic-status" });
             }
         };
 
         recognition.onend = () => {
-            setIsListening(false);
+            // Se o usuário não desligou manualmente, reinicia o microfone automaticamente
+            if (shouldListenRef.current) {
+                try {
+                    recognition.start();
+                } catch (e) {
+                    console.error("Erro ao reiniciar microfone permanente", e);
+                }
+            } else {
+                setIsListening(false);
+            }
         };
 
         recognition.start();
-    }, [processVoiceCommand, addLog]);
+    }, [processVoiceCommand, addLog, speak]);
 
     const selectAI = useCallback((ia: any) => { 
         setSelectedAIInfo(ia); 
