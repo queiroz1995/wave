@@ -37,9 +37,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const reconnectAttemptsRef = useRef(0);
     const sendMessageRef = useRef<(payload: any) => void>(() => {});
     
-    // Rastreador de Loss Virtual por Ativo
-    const virtualStreaksRef = useRef<Record<string, number>>({});
-
     const {
         addLog, setAccountBalance, setLastDigits, setIsBotRunning,
         setTotalProfit, setWins, setLosses,
@@ -56,21 +53,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [isConnected, setIsConnected] = useState(false);
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
     const [currentConfidence, setCurrentConfidence] = useState(0);
-
-    useEffect(() => {
-        const watchdog = setInterval(() => {
-            if (isBotRunning && isTradeLockedRef.current) {
-                const now = Date.now();
-                if (now - lastTradeAttemptTime.current > 8000) {
-                    isTradeLockedRef.current = false;
-                    setTradeStatus('IDLE');
-                    addLog("Sistema: Recuperação de travamento executada.", "INFO");
-                    setAiThought("Reiniciando Link de Dados...");
-                }
-            }
-        }, 2000);
-        return () => clearInterval(watchdog);
-    }, [isBotRunning, setTradeStatus, addLog]);
 
     const processTickData = useCallback((tick: { quote: string, epoch: number, symbol: string }) => {
         const symbol = tick.symbol;
@@ -94,7 +76,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         currentMartingaleLevel.current = 0;
         accumulatedLossRef.current = 0;
         setVirtualLossStreak(0);
-        virtualStreaksRef.current = {};
         setTradeStatus('IDLE');
         setAiThought(`Sessão Finalizada.`);
         addLog(reason, 'INFO');
@@ -106,7 +87,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         accumulatedLossRef.current = 0;
         isTradeLockedRef.current = false;
         setVirtualLossStreak(0);
-        virtualStreaksRef.current = {};
         setTotalProfit(0);
         setWins(0);
         setLosses(0);
@@ -145,12 +125,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setLosses((prev: number) => prev + 1);
                 currentMartingaleLevel.current += 1;
                 accumulatedLossRef.current += buyPrice;
-                addLog(`LOSS REAL: ${savedData.strategyName} - Recuperando...`, 'ERROR');
+                addLog(`LOSS REAL: ${savedData.strategyName}`, 'ERROR');
             } else {
                 setWins((prev: number) => prev + 1);
                 currentMartingaleLevel.current = 0;
                 accumulatedLossRef.current = 0;
-                addLog(`WIN REAL: ${savedData.strategyName} - Alvo Atingido`, 'WIN');
+                addLog(`WIN REAL: ${savedData.strategyName}`, 'WIN');
             }
 
             updateSignalResult(savedData.signalId, isLoss ? 'LOSS' : 'WIN', profitValue, savedData.stake, exitDigit);
@@ -159,7 +139,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             isTradeLockedRef.current = false;
             setTradeStatus('IDLE'); 
 
-            if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot(`Meta batida! Lucro: $${totalProfitRef.current.toFixed(2)}`);
+            if (totalProfitRef.current >= parseFloat(takeProfit)) stopBot(`Meta batida!`);
             else if (totalProfitRef.current <= -Math.abs(parseFloat(stopLoss))) stopBot(`Stop Loss atingido.`);
         }
     }, [setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, setTradeStatus, addLog]);
@@ -167,15 +147,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
         const data = event.payload;
         if (event.type === 'message') {
-            if (data?.error) {
-                if (data.msg_type === 'buy') {
-                    isTradeLockedRef.current = false;
-                    setTradeStatus('IDLE');
-                    addLog(`Erro Corretora: ${data.error.message}`, 'ERROR');
-                }
-                return;
-            }
-
             if (data?.msg_type === 'authorize') {
                 setIsConnected(true); 
                 setIsConnecting(false);
@@ -215,11 +186,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { sendMessage, connect, disconnect } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
-    const executeBuy = useCallback((strategyName: string, signalId: string, symbol: string, type: 'DIGITEVEN' | 'DIGITODD' | 'DIGITDIFF', barrier?: number) => {
+    const executeBuy = useCallback((strategyName: string, signalId: string, symbol: string, type: 'DIGITEVEN' | 'DIGITODD') => {
         if (!isConnected || isTradeLockedRef.current) return;
         
         isTradeLockedRef.current = true;
-        lastTradeAttemptTime.current = Date.now();
         setTradeStatus('ACTIVE');
 
         const baseStake = parseFloat(initialStake) || 0.35;
@@ -239,10 +209,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             symbol
         };
         
-        if (type === 'DIGITDIFF' && barrier !== undefined) {
-            params.barrier = barrier;
-        }
-        
         sendMessage({ buy: 1, price: currentStake, parameters: params, passthrough: { signalId, strategyName } });
     }, [isConnected, initialStake, sendMessage, setTradeStatus]);
 
@@ -256,7 +222,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             let bestAsset = asset;
             let bestSignal: any = null;
 
-            // SCANNER EM TODOS OS ATIVOS
             SCANNER_ASSETS.forEach(sym => {
                 const digits = multiAssetDigits[sym] || [];
                 if (digits.length < consecutiveTarget) return;
@@ -266,7 +231,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 const allOdd = recentDigits.every(d => d % 2 !== 0);
 
                 if (allEven || allOdd) {
-                    // Calculamos o streak (loss virtual)
                     let streak = 0;
                     for (let d of digits) {
                         const isEven = d % 2 === 0;
@@ -287,14 +251,14 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setVirtualLossStreak(maxLossFound);
             
             if (maxLossFound >= virtualTargetLosses && bestSignal) {
-                setAiThought(`ALVO DETECTADO: ${bestAsset} com ${maxLossFound} Losses Virtuais!`);
+                setAiThought(`ALVO DETECTADO EM ${bestAsset}!`);
                 setCurrentConfidence(95);
-                setAsset(bestAsset); // Muda para o ativo da oportunidade
+                setAsset(bestAsset);
 
                 const sId = addSignal({ 
-                    strategy: 'VIRTUAL WAVE', 
+                    strategy: 'QUANTUM WAVE', 
                     signal: (bestSignal === 'DIGITEVEN' ? 'EVEN' : 'ODD') as any, 
-                    details: `Entrada Real em ${bestAsset} (LV: ${maxLossFound})`, 
+                    details: `Entrada em ${bestAsset}`, 
                     winRate: `95%` 
                 });
                 executeBuy('Quantum Wave', sId, bestAsset, bestSignal);
