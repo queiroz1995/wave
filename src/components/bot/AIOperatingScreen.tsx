@@ -46,23 +46,23 @@ export const AIOperatingScreen = () => {
         switch (signal) {
             case 'EVEN': 
                 text = 'PAR'; 
-                baseColor = isVirtual ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+                baseColor = isVirtual ? 'bg-blue-500/10 text-blue-600 border-blue-500/20' : 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
                 break;
             case 'ODD': 
                 text = 'ÍMPAR'; 
-                baseColor = isVirtual ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+                baseColor = isVirtual ? 'bg-blue-500/10 text-blue-600 border-blue-500/20' : 'bg-rose-500/10 text-rose-600 border-rose-500/20';
                 break;
             case 'CALL': 
                 text = 'SOBE'; 
-                baseColor = isVirtual ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+                baseColor = isVirtual ? 'bg-blue-500/10 text-blue-600 border-blue-500/20' : 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
                 break;
             case 'PUT': 
                 text = 'DESCE'; 
-                baseColor = isVirtual ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+                baseColor = isVirtual ? 'bg-blue-500/10 text-blue-600 border-blue-500/20' : 'bg-rose-500/10 text-rose-600 border-rose-500/20';
                 break;
             default: 
                 text = signal; 
-                baseColor = 'bg-slate-500/10 text-slate-400 border-slate-500/20';
+                baseColor = 'bg-slate-500/10 text-slate-500 border-slate-500/20';
         }
 
         return { text: isVirtual ? `VIRTUAL: ${text}` : text, color: baseColor };
@@ -239,15 +239,15 @@ export const AIOperatingScreen = () => {
                 </div>
             )}
 
-            {/* Monitor de Sinais Premium */}
-            <div className="bg-slate-900/50 backdrop-blur-2xl border border-white/5 rounded-[3rem] p-7 shadow-2xl">
+            {/* Monitor de Sinais - Versão White */}
+            <div className="bg-white/95 backdrop-blur-3xl border border-slate-200 rounded-[3rem] p-7 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)]">
                 <div className="flex items-center justify-between mb-6 px-1">
                     <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
-                        <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Feed de Operações</span>
+                        <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
+                        <span className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Feed de Operações</span>
                     </div>
-                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-white/5 hover:bg-white/10" onClick={resetOperations}>
-                        <RotateCcw className="h-4 w-4 text-slate-500" />
+                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-slate-100 hover:bg-slate-200" onClick={resetOperations}>
+                        <RotateCcw className="h-4 w-4 text-slate-400" />
                     </Button>
                 </div>
                 
@@ -258,16 +258,16 @@ export const AIOperatingScreen = () => {
                             const hasFinished = typeof s.profit === 'number';
                             
                             return (
-                                <div key={s.id} className="group relative flex items-center justify-between p-4 bg-white/[0.02] hover:bg-white/[0.05] rounded-2xl border border-white/[0.02] transition-all duration-300">
+                                <div key={s.id} className="group relative flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl border border-slate-100 transition-all duration-300">
                                     <div className="flex items-center gap-4">
-                                        <span className="text-[10px] font-mono text-slate-600 group-hover:text-slate-400 transition-colors">{s.timestamp}</span>
+                                        <span className="text-[10px] font-mono text-slate-400 group-hover:text-slate-500 transition-colors">{s.timestamp}</span>
                                         <div className={cn("px-3 py-1 rounded-lg text-[10px] font-black uppercase border transition-all duration-300", label.color)}>
                                             {label.text}
                                         </div>
                                     </div>
                                     <div className={cn(
                                         "text-base font-black tracking-tighter", 
-                                        !hasFinished ? "text-indigo-400 animate-pulse" : (s.result === 'WIN' ? "text-emerald-400" : "text-rose-400")
+                                        !hasFinished ? "text-indigo-600 animate-pulse" : (s.result === 'WIN' ? "text-emerald-600" : "text-rose-600")
                                     )}>
                                         {hasFinished ? (
                                             <span className="flex items-center gap-1">
@@ -280,10 +280,10 @@ export const AIOperatingScreen = () => {
                             );
                         }) : (
                             <div className="py-16 text-center">
-                                <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-slate-800/50 mb-3 border border-white/5">
-                                    <Target className="h-5 w-5 text-slate-700" />
+                                <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-slate-100 mb-3 border border-slate-200">
+                                    <Target className="h-5 w-5 text-slate-300" />
                                 </div>
-                                <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.4em] italic">Aguardando gatilhos neurais...</p>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] italic">Aguardando gatilhos neurais...</p>
                             </div>
                         )}
                     </div>
