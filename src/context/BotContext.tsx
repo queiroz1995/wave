@@ -264,7 +264,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, [setTotalProfit, setWins, setLosses, setSignals, setVirtualLossStreak, addLog, setTradeStatus, speak]);
 
     const toggleBot = useCallback(() => {
-        if (!isConnected) return;
+        if (!isConnected) {
+            speak("Por favor, conecte-se à corretora antes de iniciar o robô.");
+            toast.error("Conecte-se primeiro.");
+            return;
+        }
         if (isBotRunning) {
             stopBot("Sniper Pausado");
         } else { 
@@ -282,7 +286,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (data?.msg_type === 'authorize') {
                 setIsConnected(true); 
                 setIsConnecting(false);
-                setStatus({ message: `Sincronizado`, color: 'bg-green-500' });
+                setStatus({ message: `Sincronizado`, color: 'bg-emerald-500' });
                 if (data.authorize?.balance !== undefined) setAccountBalance(parseFloat(data.authorize.balance));
                 sendMessageRef.current({ balance: 1, subscribe: 1 });
                 speak("Conexão estabelecida com sucesso.");
@@ -576,6 +580,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         // 1. Iniciar / Parar
         if (startKeywords.some(kw => cleanCommand.includes(kw))) {
+            if (!isConnected) {
+                speak("Por favor, conecte-se à corretora antes de iniciar o robô.");
+                toast.error("Conecte-se primeiro.");
+                return;
+            }
             if (!isBotRunning) {
                 toggleBot();
                 speak("Iniciando as operações agora.");
@@ -755,7 +764,13 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         speak("Desculpe, não entendi o comando. Você pode dizer por exemplo: entrada de um dólar, meta de cinco, ou iniciar operações.");
-    }, [isBotRunning, toggleBot, accountBalance, resetOperations, speak, setInitialStake, setTakeProfit, setStopLoss, setDuration, setAccountType, manualBuy, setIsVoiceEnabled, setAsset, setConsecutiveTarget, setEntryDirection, setVirtualTargetLosses, setIsSmartModeActive]);
+    }, [isConnected, isBotRunning, toggleBot, accountBalance, resetOperations, speak, setInitialStake, setTakeProfit, setStopLoss, setDuration, setAccountType, manualBuy, setIsVoiceEnabled, setAsset, setConsecutiveTarget, setEntryDirection, setVirtualTargetLosses, setIsSmartModeActive]);
+
+    // Referência dinâmica para o processador de voz sempre ter o estado mais recente
+    const processVoiceCommandRef = useRef(processVoiceCommand);
+    useEffect(() => {
+        processVoiceCommandRef.current = processVoiceCommand;
+    }, [processVoiceCommand]);
 
     // Função para iniciar o reconhecimento de voz permanente
     const startListening = useCallback(() => {
@@ -816,7 +831,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             setAiThought(`Você disse: "${bestText}"`);
             toast.success(`Comando reconhecido: "${bestText}"`, { id: "mic-status" });
-            processVoiceCommand(bestText);
+            processVoiceCommandRef.current(bestText);
         };
 
         recognition.onerror = (event: any) => {
@@ -842,7 +857,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
 
         recognition.start();
-    }, [processVoiceCommand, addLog, speak]);
+    }, [addLog, speak]);
 
     const selectAI = useCallback((ia: any) => { 
         setSelectedAIInfo(ia); 
