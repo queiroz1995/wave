@@ -80,7 +80,15 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         virtualTargetLosses, setVirtualTargetLosses,
         consecutiveTarget, setConsecutiveTarget, entryDirection, setEntryDirection,
         isSmartModeActive, setIsSmartModeActive,
-        setSignals, accountBalance, wins, losses
+        setSignals, accountBalance, wins, losses,
+        bankManagementInitialBankroll, setBankManagementInitialBankroll,
+        bankManagementDailyGoalPercent, setBankManagementDailyGoalPercent,
+        bankManagementDailyStopPercent, setBankManagementDailyStopPercent,
+        bankManagementCurrentDay, setBankManagementCurrentDay,
+        bankManagementActualBankroll, setBankManagementActualBankroll,
+        digitTradeMode, setDigitTradeMode,
+        digitPrediction, setDigitPrediction,
+        overUnderDirection, setOverUnderDirection
     } = stateAndSetters;
 
     const [isConnected, setIsConnected] = useState(false);
@@ -743,6 +751,218 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 processed = true;
             }
 
+            // --- NOVOS COMANDOS ADICIONADOS PARA COBRIR TODO O SISTEMA ---
+
+            // 12. Modalidades Analíticas (Trade Modes)
+            if (!processed && (subCmd.includes('modo par ou ímpar') || subCmd.includes('modo par ou impar') || subCmd.includes('apenas par ou impar') || subCmd.includes('apenas par ou ímpar'))) {
+                setDigitTradeMode('evenOdd');
+                feedbacks.push("modalidade analítica alterada para apenas par ou ímpar");
+                toast.success("Modalidade: Par/Ímpar");
+                processed = true;
+            }
+            if (!processed && (subCmd.includes('modo acima ou abaixo') || subCmd.includes('modo acima abaixo') || subCmd.includes('apenas acima ou abaixo') || subCmd.includes('apenas acima abaixo'))) {
+                setDigitTradeMode('overUnder');
+                feedbacks.push("modalidade analítica alterada para apenas acima ou abaixo");
+                toast.success("Modalidade: Acima/Abaixo");
+                processed = true;
+            }
+            if (!processed && (subCmd.includes('modo sobe ou desce') || subCmd.includes('modo sobe desce') || subCmd.includes('apenas sobe ou desce') || subCmd.includes('apenas sobe desce'))) {
+                setDigitTradeMode('riseFall');
+                feedbacks.push("modalidade analítica alterada para apenas sobe ou desce");
+                toast.success("Modalidade: Sobe/Desce");
+                processed = true;
+            }
+            if (!processed && (subCmd.includes('modo multimodal') || subCmd.includes('modo multi modal') || subCmd.includes('ia decidir modalidade') || subCmd.includes('ia decide modalidade'))) {
+                setDigitTradeMode('multimodal');
+                feedbacks.push("modalidade analítica alterada para multi-modal inteligente");
+                toast.success("Modalidade: Multi-Modal");
+                processed = true;
+            }
+
+            // 13. Direção de Over/Under (Acima/Abaixo)
+            if (!processed && (subCmd.includes('direção acima') || subCmd.includes('direcao acima') || subCmd.includes('apostar acima') || subCmd.includes('aposta acima'))) {
+                setOverUnderDirection('OVER');
+                feedbacks.push("direção de aposta configurada para acima");
+                toast.success("Direção: Acima (Over)");
+                processed = true;
+            }
+            if (!processed && (subCmd.includes('direção abaixo') || subCmd.includes('direcao abaixo') || subCmd.includes('apostar abaixo') || subCmd.includes('aposta abaixo'))) {
+                setOverUnderDirection('UNDER');
+                feedbacks.push("direção de aposta configurada para abaixo");
+                toast.success("Direção: Abaixo (Under)");
+                processed = true;
+            }
+
+            // 14. Barreira / Dígito Alvo de Over/Under
+            if (!processed && (subCmd.includes('barreira de') || subCmd.includes('barreira para') || subCmd.includes('dígito alvo de') || subCmd.includes('digito alvo de') || subCmd.includes('dígito alvo para') || subCmd.includes('digito alvo para'))) {
+                const valStr = parseSpokenNumber(subCmd);
+                if (valStr) {
+                    const val = parseInt(valStr);
+                    if (val >= 0 && val <= 9) {
+                        setDigitPrediction(val);
+                        feedbacks.push(`barreira de dígito configurada para ${val}`);
+                        toast.success(`Barreira: ${val}`);
+                        processed = true;
+                    }
+                }
+            }
+
+            // 15. Planilha de Gestão - Banca Inicial
+            if (!processed && (subCmd.includes('banca inicial da planilha') || subCmd.includes('banca inicial de') && subCmd.includes('planilha'))) {
+                const val = parseSpokenNumber(subCmd);
+                if (val) {
+                    setBankManagementInitialBankroll(val);
+                    feedbacks.push(`banca inicial da planilha configurada para ${val} dólares`);
+                    toast.success(`Planilha: Banca Inicial $${val}`);
+                    processed = true;
+                }
+            }
+
+            // 16. Planilha de Gestão - Meta Diária (%)
+            if (!processed && (subCmd.includes('meta diária de') || subCmd.includes('meta diaria de') || subCmd.includes('meta da planilha de'))) {
+                const val = parseSpokenNumber(subCmd);
+                if (val) {
+                    setBankManagementDailyGoalPercent(val);
+                    feedbacks.push(`meta diária da planilha configurada para ${val} por cento`);
+                    toast.success(`Planilha: Meta ${val}%`);
+                    processed = true;
+                }
+            }
+
+            // 17. Planilha de Gestão - Stop Diário (%)
+            if (!processed && (subCmd.includes('stop diário de') || subCmd.includes('stop diario de') || subCmd.includes('stop da planilha de'))) {
+                const val = parseSpokenNumber(subCmd);
+                if (val) {
+                    setBankManagementDailyStopPercent(val);
+                    feedbacks.push(`limite de stop da planilha configurado para ${val} por cento`);
+                    toast.success(`Planilha: Stop ${val}%`);
+                    processed = true;
+                }
+            }
+
+            // 18. Planilha de Gestão - Dia Atual
+            if (!processed && (subCmd.includes('mudar para o dia') || subCmd.includes('ir para o dia') || subCmd.includes('dia atual da planilha'))) {
+                const valStr = parseSpokenNumber(subCmd);
+                if (valStr) {
+                    const val = parseInt(valStr);
+                    setBankManagementCurrentDay(val);
+                    feedbacks.push(`dia atual da planilha alterado para dia ${val}`);
+                    toast.success(`Planilha: Dia ${val}`);
+                    processed = true;
+                }
+            }
+
+            // 19. Planilha de Gestão - Saldo Real da Banca
+            if (!processed && (subCmd.includes('saldo real da banca') || subCmd.includes('saldo da planilha de') || subCmd.includes('banca real de'))) {
+                const val = parseSpokenNumber(subCmd);
+                if (val) {
+                    setBankManagementActualBankroll(val);
+                    feedbacks.push(`saldo real da banca na planilha configurado para ${val} dólares`);
+                    toast.success(`Planilha: Saldo Real $${val}`);
+                    processed = true;
+                }
+            }
+
+            // 20. Planilha de Gestão - Ações Rápidas (Aplicar, Meta Batida, Stop Batido, Reset)
+            if (!processed && (subCmd.includes('aplicar meta da planilha') || subCmd.includes('aplicar meta') || subCmd.includes('aplica meta'))) {
+                // Lógica de handleApplyToBot integrada
+                const goalPercent = parseFloat(bankManagementDailyGoalPercent) / 100 || 0;
+                const stopPercent = parseFloat(bankManagementDailyStopPercent) / 100 || 0;
+                const startBankroll = parseFloat(bankManagementActualBankroll) || 0;
+                if (startBankroll > 0 && goalPercent > 0 && stopPercent > 0) {
+                    const goalValue = startBankroll * goalPercent;
+                    const stopValue = startBankroll * stopPercent;
+                    setTakeProfit(goalValue.toFixed(2));
+                    setStopLoss(stopValue.toFixed(2));
+                    feedbacks.push(`metas do dia ${bankManagementCurrentDay} aplicadas ao bot. Meta de ${goalValue.toFixed(2)} e stop de ${stopValue.toFixed(2)} dólares`);
+                    toast.success(`Metas do Dia ${bankManagementCurrentDay} Aplicadas!`);
+                } else {
+                    feedbacks.push("não foi possível aplicar as metas. Verifique os valores da planilha");
+                }
+                processed = true;
+            }
+
+            if (!processed && (subCmd.includes('bati a meta do dia') || subCmd.includes('meta do dia batida') || subCmd.includes('concluir dia da planilha'))) {
+                const goalPercent = parseFloat(bankManagementDailyGoalPercent) / 100 || 0;
+                const startBankroll = parseFloat(bankManagementActualBankroll) || 0;
+                if (startBankroll > 0 && goalPercent > 0) {
+                    const goalValue = startBankroll * goalPercent;
+                    const projectedEndBankroll = startBankroll + goalValue;
+                    setBankManagementActualBankroll(projectedEndBankroll.toFixed(2));
+                    const nextDay = bankManagementCurrentDay + 1;
+                    setBankManagementCurrentDay(nextDay);
+                    feedbacks.push(`parabéns! Dia ${bankManagementCurrentDay} concluído. Novo saldo de ${projectedEndBankroll.toFixed(2)} dólares. Preparando para o dia ${nextDay}`);
+                    toast.success(`Dia ${bankManagementCurrentDay} Concluído!`);
+                }
+                processed = true;
+            }
+
+            if (!processed && (subCmd.includes('estou no stop do dia') || subCmd.includes('bata o stop do dia') || subCmd.includes('stop do dia atingido'))) {
+                const stopPercent = parseFloat(bankManagementDailyStopPercent) / 100 || 0;
+                const startBankroll = parseFloat(bankManagementActualBankroll) || 0;
+                if (startBankroll > 0 && stopPercent > 0) {
+                    const stopValue = startBankroll * stopPercent;
+                    const newBankroll = startBankroll - stopValue;
+                    setBankManagementActualBankroll(newBankroll.toFixed(2));
+                    const nextDay = bankManagementCurrentDay + 1;
+                    setBankManagementCurrentDay(nextDay);
+                    feedbacks.push(`dia ${bankManagementCurrentDay} finalizado em stop. Novo saldo de ${newBankroll.toFixed(2)} dólares. Mantenha o foco para o dia ${nextDay}`);
+                    toast.info(`Dia ${bankManagementCurrentDay} em Stop.`);
+                }
+                processed = true;
+            }
+
+            if (!processed && (subCmd.includes('resetar plano de gestão') || subCmd.includes('resetar planilha') || subCmd.includes('reseta planilha'))) {
+                setBankManagementCurrentDay(1);
+                setBankManagementActualBankroll(bankManagementInitialBankroll);
+                feedbacks.push("gerenciamento de banca resetado para o dia 1");
+                toast.info("Planilha Resetada para o Dia 1");
+                processed = true;
+            }
+
+            // 21. Consultas de Configurações Atuais
+            if (!processed && (subCmd.includes('qual a meta configurada') || subCmd.includes('qual o objetivo de lucro') || subCmd.includes('qual a meta atual'))) {
+                feedbacks.push(`a meta de lucro atual está configurada em ${takeProfit} dólares`);
+                processed = true;
+            }
+            if (!processed && (subCmd.includes('qual o stop configurado') || subCmd.includes('qual o limite de perda') || subCmd.includes('qual o stop atual'))) {
+                feedbacks.push(`o limite de stop loss atual está configurado em ${stopLoss} dólares`);
+                processed = true;
+            }
+            if (!processed && (subCmd.includes('qual o valor da entrada') || subCmd.includes('qual a stake atual') || subCmd.includes('qual o valor do clique'))) {
+                feedbacks.push(`o valor da entrada inicial está configurado em ${initialStake} dólares`);
+                processed = true;
+            }
+            if (!processed && (subCmd.includes('qual a duração atual') || subCmd.includes('quantos ticks está configurado') || subCmd.includes('qual o tempo de operação'))) {
+                feedbacks.push(`a duração atual de cada operação é de ${duration} ticks`);
+                processed = true;
+            }
+            if (!processed && (subCmd.includes('qual o martingale atual') || subCmd.includes('como está a recuperação') || subCmd.includes('qual o fator de gale'))) {
+                if (isMartingaleActive) {
+                    feedbacks.push(`o martingale está ativado com fator de ${martingaleFactor} e limite de ${maxLevels} níveis de recuperação`);
+                } else {
+                    feedbacks.push("o martingale está desativado no momento");
+                }
+                processed = true;
+            }
+            if (!processed && (subCmd.includes('o soros está ativo') || subCmd.includes('como está o soros') || subCmd.includes('qual a configuração do soros'))) {
+                if (isSorosActive) {
+                    feedbacks.push(`o soros está ativado com ${sorosLevels} níveis e reinvestimento de ${sorosProfitPercentage} por cento do lucro`);
+                } else {
+                    feedbacks.push("o gerenciamento soros está desativado no momento");
+                }
+                processed = true;
+            }
+            if (!processed && (subCmd.includes('qual o modo de operação') || subCmd.includes('qual a modalidade atual') || subCmd.includes('como o bot está operando'))) {
+                let modeText = "";
+                if (digitTradeMode === 'evenOdd') modeText = "apenas par ou ímpar";
+                else if (digitTradeMode === 'overUnder') modeText = `apenas acima ou abaixo com barreira no dígito ${digitPrediction}`;
+                else if (digitTradeMode === 'riseFall') modeText = "apenas sobe ou desce";
+                else modeText = "multi-modal inteligente decidido pela inteligência artificial";
+                feedbacks.push(`o robô está operando no modo ${modeText}`);
+                processed = true;
+            }
+
             // --- FIM DOS NOVOS COMANDOS ---
 
             // Dobrar Aposta
@@ -1075,7 +1295,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 speak("Entendido! " + finalSpeech + ".");
             }
         }
-    }, [isConnected, isBotRunning, toggleBot, accountBalance, resetOperations, speak, setInitialStake, setTakeProfit, setStopLoss, setDuration, setAccountType, manualBuy, setIsVoiceEnabled, setAsset, setConsecutiveTarget, setEntryDirection, setVirtualTargetLosses, setIsSmartModeActive, initialStake, lastDigits, asset, setMartingaleFactor, setMaxLevels, setIsMartingaleActive, setIsSorosActive, setSorosLevels, setSorosProfitPercentage, wins, losses, getMarketState, handleConnect, realToken, demoToken]);
+    }, [isConnected, isBotRunning, toggleBot, accountBalance, resetOperations, speak, setInitialStake, setTakeProfit, setStopLoss, setDuration, setAccountType, manualBuy, setIsVoiceEnabled, setAsset, setConsecutiveTarget, setEntryDirection, setVirtualTargetLosses, setIsSmartModeActive, initialStake, lastDigits, asset, setMartingaleFactor, setMaxLevels, setIsMartingaleActive, setIsSorosActive, setSorosLevels, setSorosProfitPercentage, wins, losses, getMarketState, handleConnect, realToken, demoToken, bankManagementInitialBankroll, setBankManagementInitialBankroll, bankManagementDailyGoalPercent, setBankManagementDailyGoalPercent, bankManagementDailyStopPercent, setBankManagementDailyStopPercent, bankManagementCurrentDay, setBankManagementCurrentDay, bankManagementActualBankroll, setBankManagementActualBankroll, digitTradeMode, setDigitTradeMode, digitPrediction, setDigitPrediction, overUnderDirection, setOverUnderDirection, takeProfit, stopLoss, duration, martingaleFactor, maxLevels, isMartingaleActive, isSorosActive, sorosLevels, sorosProfitPercentage]);
 
     // Referência dinâmica para o processador de voz sempre ter o estado mais recente
     const processVoiceCommandRef = useRef(processVoiceCommand);
@@ -1129,7 +1349,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             
             // Se tiver alternativas, procura se alguma delas bate com palavras-chave importantes
             if (results.length > 1) {
-                const keywords = ['par', 'para', 'ímpar', 'impar', 'limpar', 'iniciar', 'parar', 'saldo', 'lucro', 'stake', 'entrada', 'meta', 'stop', 'repetir', 'repetição', 'sequência', 'contra', 'favor', 'filtro', 'dobra', 'planilha', 'protocolo', 'real', 'demo', 'gale', 'martingale', 'soros'];
+                const keywords = ['par', 'para', 'ímpar', 'impar', 'limpar', 'iniciar', 'parar', 'saldo', 'lucro', 'stake', 'entrada', 'meta', 'stop', 'repetir', 'repetição', 'sequência', 'contra', 'favor', 'filtro', 'dobra', 'planilha', 'protocolo', 'real', 'demo', 'gale', 'martingale', 'soros', 'acima', 'abaixo', 'sobe', 'desce', 'multimodal', 'barreira', 'dia', 'plano', 'aplicar', 'bati', 'concluir'];
                 for (let i = 0; i < results.length; i++) {
                     const altText = results[i].transcript.toLowerCase();
                     const hasKeyword = keywords.some(kw => altText.includes(kw));
