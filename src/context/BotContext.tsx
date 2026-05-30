@@ -51,6 +51,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const lastTradedAsset = useRef<string | null>(null);
     
     const isGalePausedForFilter = useRef(false);
+    const isManualSession = useRef(false); // Controla se a sessão atual foi iniciada manualmente
 
     const pendingContracts = useRef<Map<string, any>>(new Map());
     const reconnectAttemptsRef = useRef(0);
@@ -255,6 +256,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeTrades.current.clear();
         martingaleLevel.current = 0;
         isGalePausedForFilter.current = false;
+        isManualSession.current = false;
         setVirtualLossStreak(0);
         setVirtualTradePending(null);
         setTradeStatus('IDLE');
@@ -271,6 +273,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setSignals([]);
         martingaleLevel.current = 0;
         isGalePausedForFilter.current = false;
+        isManualSession.current = false;
         setVirtualLossStreak(0);
         setVirtualTradePending(null);
         setTradeStatus('IDLE');
@@ -338,15 +341,28 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             setLosses((prev: number) => prev + 1);
                             martingaleLevel.current += 1;
                             
-                            const { isStable } = getMarketState(savedData.symbol);
-                            if (!isStable) {
-                                isGalePausedForFilter.current = true;
-                                setVirtualLossStreak(0);
-                                setAiThought("Ciclo instável detectado! Pausando Gale e ativando Filtro Virtual.");
-                                speak("Operação perdida. Ciclo instável detectado, pausando recuperação para sua segurança.");
+                            // Se atingiu o limite máximo de gales configurado
+                            if (martingaleLevel.current > maxLevels) {
+                                martingaleLevel.current = 0;
+                                isGalePausedForFilter.current = false;
+                                if (isManualSession.current) {
+                                    isManualSession.current = false;
+                                    stopBot("Limite de Martingale atingido na operação manual.");
+                                } else {
+                                    addLog("Limite de Martingale atingido. Resetando para stake inicial.", "INFO");
+                                    speak("Limite de recuperação atingido. Resetando valor de entrada.");
+                                }
                             } else {
-                                setAiThought("Mercado estável. Preparando Gale imediato.");
-                                speak("Operação perdida. Aplicando recuperação.");
+                                const { isStable } = getMarketState(savedData.symbol);
+                                if (!isStable) {
+                                    isGalePausedForFilter.current = true;
+                                    setVirtualLossStreak(0);
+                                    setAiThought("Ciclo instável detectado! Pausando Gale e ativando Filtro Virtual.");
+                                    speak("Operação perdida. Ciclo instável detectado, pausando recuperação para sua segurança.");
+                                } else {
+                                    setAiThought("Mercado estável. Preparando Gale imediato.");
+                                    speak("Operação perdida. Aplicando recuperação.");
+                                }
                             }
                         } else {
                             setWins((prev: number) => prev + 1);
@@ -355,6 +371,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             setVirtualLossStreak(0);
                             setAiThought("Operação Neutralizada com Sucesso.");
                             speak(`Vitória! Mais ${profitValue.toFixed(2)} dólares.`);
+
+                            // Se era uma sessão manual, para o bot de forma inteligente após a vitória
+                            if (isManualSession.current) {
+                                isManualSession.current = false;
+                                stopBot("Operação manual finalizada com vitória.");
+                            }
                         }
 
                         updateSignalResult(savedData.signalId, isLoss ? 'LOSS' : 'WIN', profitValue, savedData.stake, exitDigit);
@@ -383,7 +405,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else if (event.type === 'close') {
             setIsConnecting(false);
         }
-    }, [processTickData, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, getMarketState, speak]);
+    }, [processTickData, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, getMarketState, speak, maxLevels]);
 
     const ws = useTradingWebSocketManager({ isConnected, status, setIsConnected, setStatus, setAccountBalance, onMessage: handleWebSocketMessage, reconnectAttemptsRef });
     const { sendMessage, connect, disconnect } = ws;
@@ -444,6 +466,15 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             speak("Por favor, conecte-se à corretora antes de operar.");
             return;
         }
+        
+        // Ativa a sessão manual inteligente
+        isManualSession.current = true;
+        if (!isBotRunning) {
+            setIsBotRunning(true);
+            setIsStudying(false); // Ignora o estudo inicial para entrada manual imediata
+            setAiThought("Entrada manual detectada. Monitorando recuperação inteligente...");
+        }
+
         const sId = addSignal({ 
             strategy: source, 
             signal: contractType === 'DIGITEVEN' ? 'EVEN' : 'ODD', 
@@ -451,7 +482,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             winRate: '100%' 
         });
         executeBuy(contractType, source, sId, asset);
-    }, [isConnected, addSignal, executeBuy, asset, speak]);
+    }, [isConnected, isBotRunning, setIsBotRunning, setIsStudying, setAiThought, addSignal, executeBuy, asset, speak]);
 
     useEffect(() => {
         if (!isBotRunning || isStudying) return;
