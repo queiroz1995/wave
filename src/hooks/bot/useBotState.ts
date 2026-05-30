@@ -35,6 +35,9 @@ const DEFAULTS = {
     bankManagementCurrentDay: 1,
     bankManagementActualBankroll: '20.00',
     isSmartModeActive: true,
+    isSorosActive: false,
+    sorosLevels: 2,
+    sorosProfitPercentage: 50,
 };
 
 const getInitialState = () => {
@@ -93,6 +96,11 @@ export const useBotState = () => {
     const [hybridWinsRequired, setHybridWinsRequired] = useState(initialState.hybridWinsRequired);
     const [isSmartModeActive, setIsSmartModeActive] = useState(initialState.isSmartModeActive);
     
+    // Soros State
+    const [isSorosActive, setIsSorosActive] = useState(initialState.isSorosActive);
+    const [sorosLevels, setSorosLevels] = useState(initialState.sorosLevels);
+    const [sorosProfitPercentage, setSorosProfitPercentage] = useState(initialState.sorosProfitPercentage);
+
     // Novo: Filtro de Segurança Pós-Loss
     const [isWaitingForRecoveryVirtual, setIsWaitingForRecoveryVirtual] = useState(false);
 
@@ -149,6 +157,7 @@ export const useBotState = () => {
         bankManagementDailyStopPercent, setBankManagementDailyStopPercent,
         bankManagementCurrentDay, setBankManagementCurrentDay,
         bankManagementActualBankroll, setBankManagementActualBankroll,
-        activeStrategy, setActiveStrategy, neuralPredictions, setNeuralPredictions
+        activeStrategy, setActiveStrategy, neuralPredictions, setNeuralPredictions,
+        isSorosActive, setIsSorosActive, sorosLevels, setSorosLevels, sorosProfitPercentage, setSorosProfitPercentage
     };
 };

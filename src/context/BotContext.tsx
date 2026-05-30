@@ -68,7 +68,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         multiAssetDigits, setMultiAssetDigits,
         setTradeStatus, isBotRunning, setActiveStrategy,
         accountType, setAccountType, realToken, demoToken,
-        takeProfit, setTakeProfit, stopLoss, setStopLoss, martingaleFactor,
+        takeProfit, setTakeProfit, stopLoss, setStopLoss, martingaleFactor, setMartingaleFactor,
+        maxLevels, setMaxLevels, isMartingaleActive, setIsMartingaleActive,
+        isSorosActive, setIsSorosActive, sorosLevels, setSorosLevels,
+        sorosProfitPercentage, setSorosProfitPercentage,
         setDuration, duration,
         setNeuralPredictions,
         isStudying, setIsStudying, setStudyTicksCount,
@@ -76,7 +79,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         virtualTargetLosses, setVirtualTargetLosses,
         consecutiveTarget, setConsecutiveTarget, entryDirection, setEntryDirection,
         isSmartModeActive, setIsSmartModeActive,
-        setSignals, accountBalance
+        setSignals, accountBalance, wins, losses
     } = stateAndSetters;
 
     const [isConnected, setIsConnected] = useState(false);
@@ -514,8 +517,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const profitKeywords = ['lucro', 'resultado', 'ganho', 'ganhos', 'quanto ganhei', 'lucros', 'luco', 'ganhei'];
         const resetKeywords = ['limpar', 'reiniciar', 'reseta', 'resetar', 'limpa', 'reinicia', 'apagar', 'apaga', 'zerar', 'zera'];
         const stakeKeywords = ['stake', 'entrada', 'aposta', 'valor'];
-        const metaKeywords = ['meta', 'take profit', 'objetivo', 'alvo'];
-        const stopLossKeywords = ['stop loss', 'stop', 'perda máxima', 'perda limite', 'limite de perda'];
+        const metaKeywords = ['meta', 'take profit', 'objetivo', 'alvo', 'se ganhar para', 'parar se ganhar'];
+        const stopLossKeywords = ['stop loss', 'stop', 'perda máxima', 'perda limite', 'limite de perda', 'se perder para', 'parar se perder'];
         const durationKeywords = ['tick', 'duração', 'tempo', 'segundos'];
         const realKeywords = ['real', 'conta real', 'dinheiro real', 'reais'];
         const demoKeywords = ['demo', 'treinamento', 'virtual', 'demonstração', 'fake', 'treino'];
@@ -538,9 +541,125 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         for (const subCmd of subCommands) {
             let processed = false;
 
-            // --- NOVOS COMANDOS SOLICITADOS ---
+            // --- NOVOS COMANDOS DE GESTÃO DE PERDAS E CONFIGURAÇÕES AVANÇADAS ---
 
-            // 1. Dobrar Aposta ("dobra aposta", "dobrar")
+            // 1. Fator Martingale (Ex: "fator martingale de 2.2", "multiplicador de 2.5")
+            if (!processed && (subCmd.includes('fator martingale') || subCmd.includes('multiplicador martingale') || subCmd.includes('multiplicador de gale') || subCmd.includes('fator de gale') || subCmd.includes('multiplicador de'))) {
+                const val = parseSpokenNumber(subCmd);
+                if (val) {
+                    setMartingaleFactor(val);
+                    feedbacks.push(`fator martingale configurado para ${val}`);
+                    toast.success(`Martingale: ${val}x`);
+                    processed = true;
+                }
+            }
+
+            // 2. Níveis Máximos de Martingale (Ex: "níveis de martingale de 5", "gale máximo de 3")
+            if (!processed && (subCmd.includes('níveis de martingale') || subCmd.includes('niveis de martingale') || subCmd.includes('gale máximo') || subCmd.includes('gale maximo') || subCmd.includes('limite de gale') || subCmd.includes('gales de'))) {
+                const valStr = parseSpokenNumber(subCmd);
+                if (valStr) {
+                    const val = parseInt(valStr);
+                    setMaxLevels(val);
+                    feedbacks.push(`limite de martingale definido para ${val} níveis`);
+                    toast.success(`Gale Máximo: ${val} níveis`);
+                    processed = true;
+                }
+            }
+
+            // 3. Ativar/Desativar Martingale (Ex: "desativar martingale", "sem gale", "ativar martingale")
+            if (!processed && (subCmd.includes('desativar martingale') || subCmd.includes('desativa martingale') || subCmd.includes('sem gale') || subCmd.includes('desliga gale') || subCmd.includes('desativar gale'))) {
+                setIsMartingaleActive(false);
+                feedbacks.push("martingale desativado");
+                toast.info("Martingale Desativado");
+                processed = true;
+            }
+            if (!processed && (subCmd.includes('ativar martingale') || subCmd.includes('ativa martingale') || subCmd.includes('com gale') || subCmd.includes('liga gale') || subCmd.includes('ativar gale'))) {
+                setIsMartingaleActive(true);
+                feedbacks.push("martingale ativado");
+                toast.info("Martingale Ativado");
+                processed = true;
+            }
+
+            // 4. Ativar/Desativar Soros (Ex: "ativar soros", "com soros", "desativar soros")
+            if (!processed && (subCmd.includes('ativar soros') || subCmd.includes('ativa soros') || subCmd.includes('com soros') || subCmd.includes('liga soros'))) {
+                setIsSorosActive(true);
+                feedbacks.push("gerenciamento soros ativado");
+                toast.info("Soros Ativado");
+                processed = true;
+            }
+            if (!processed && (subCmd.includes('desativar soros') || subCmd.includes('desativa soros') || subCmd.includes('sem soros') || subCmd.includes('desliga soros'))) {
+                setIsSorosActive(false);
+                feedbacks.push("gerenciamento soros desativado");
+                toast.info("Soros Desativado");
+                processed = true;
+            }
+
+            // 5. Níveis de Soros (Ex: "níveis de soros de 3", "soros de 2 níveis")
+            if (!processed && (subCmd.includes('níveis de soros') || subCmd.includes('niveis de soros') || subCmd.includes('nível de soros') || subCmd.includes('nivel de soros'))) {
+                const valStr = parseSpokenNumber(subCmd);
+                if (valStr) {
+                    const val = parseInt(valStr);
+                    setSorosLevels(val);
+                    feedbacks.push(`níveis de soros configurados para ${val}`);
+                    toast.success(`Níveis Soros: ${val}`);
+                    processed = true;
+                }
+            }
+
+            // 6. Porcentagem de Reinvestimento Soros (Ex: "reinvestir 80 por cento", "porcentagem de soros de 50")
+            if (!processed && (subCmd.includes('porcentagem de soros') || subCmd.includes('reinvestir') || subCmd.includes('por cento do lucro'))) {
+                const valStr = parseSpokenNumber(subCmd);
+                if (valStr) {
+                    const val = parseInt(valStr);
+                    setSorosProfitPercentage(val);
+                    feedbacks.push(`reinvestimento de soros definido para ${val} por cento`);
+                    toast.success(`Soros: Reinvestir ${val}%`);
+                    processed = true;
+                }
+            }
+
+            // 7. Quanto falta para a meta (Ex: "quanto falta para a meta", "distância da meta")
+            if (!processed && (subCmd.includes('quanto falta para a meta') || subCmd.includes('quanto falta pra meta') || subCmd.includes('distância da meta') || subCmd.includes('distancia da meta'))) {
+                const target = parseFloat(takeProfit) || 0;
+                const current = totalProfitRef.current;
+                if (target > 0) {
+                    const diff = target - current;
+                    if (diff <= 0) {
+                        feedbacks.push("sua meta já foi batida nesta sessão");
+                    } else {
+                        feedbacks.push(`faltam exatamente ${diff.toFixed(2)} dólares para atingir sua meta`);
+                    }
+                } else {
+                    feedbacks.push("nenhuma meta de lucro foi configurada ainda");
+                }
+                processed = true;
+            }
+
+            // 8. Histórico de hoje / Relatório (Ex: "como estão as operações", "histórico de hoje", "relatório")
+            if (!processed && (subCmd.includes('como estão as operações') || subCmd.includes('como estao as operacoes') || subCmd.includes('histórico de hoje') || subCmd.includes('historico de hoje') || subCmd.includes('relatório') || subCmd.includes('relatorio'))) {
+                const total = wins + losses;
+                const winRate = total > 0 ? ((wins / total) * 100).toFixed(1) : "0";
+                feedbacks.push(`atualmente temos ${wins} vitórias e ${losses} derrotas, com uma assertividade de ${winRate} por cento`);
+                processed = true;
+            }
+
+            // 9. Como está o mercado / Análise (Ex: "como está o mercado", "análise do mercado", "analise do mercado")
+            if (!processed && (subCmd.includes('como está o mercado') || subCmd.includes('como estao os graficos') || subCmd.includes('análise do mercado') || subCmd.includes('analise do mercado'))) {
+                const state = getMarketState(asset);
+                const stabilityText = state.isStable ? "estável e seguro" : "instável com alta oscilação";
+                feedbacks.push(`o mercado atual está ${stabilityText}, com taxa de confiança de ${state.confidence} por cento. Recomendo filtro de ${state.recommendedVirtualLosses} perdas virtuais`);
+                processed = true;
+            }
+
+            // 10. Ajuda Completa / Comandos (Ex: "ajuda completa", "quais são os comandos", "comandos de voz")
+            if (!processed && (subCmd.includes('ajuda completa') || subCmd.includes('quais são os comandos') || subCmd.includes('quais sao os comandos') || subCmd.includes('comandos de voz') || subCmd.includes('lista de comandos'))) {
+                feedbacks.push("você pode configurar entrada, meta, stop loss, fator martingale, níveis de gale, ativar ou desativar soros, abrir planilha, abrir protocolo de risco, mudar de conta e comprar par ou ímpar");
+                processed = true;
+            }
+
+            // --- FIM DOS NOVOS COMANDOS ---
+
+            // Dobrar Aposta
             if (!processed && (subCmd.includes('dobra aposta') || subCmd.includes('dobrar aposta') || subCmd.includes('dobra a entrada') || subCmd.includes('dobrar a entrada') || subCmd.includes('dobra'))) {
                 const current = parseFloat(initialStake) || 0.35;
                 const doubled = (current * 2).toFixed(2);
@@ -550,7 +669,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 processed = true;
             }
 
-            // 2. Mostrar Números Saindo ("mostra quais números tá saindo", "quais números", "números saindo")
+            // Mostrar Números Saindo
             if (!processed && (subCmd.includes('números tá saindo') || subCmd.includes('numeros ta saindo') || subCmd.includes('quais números') || subCmd.includes('quais numeros') || subCmd.includes('números saindo') || subCmd.includes('numeros saindo') || subCmd.includes('últimos números') || subCmd.includes('ultimos numeros'))) {
                 const last5 = lastDigits.slice(0, 5).reverse().join(', ');
                 if (last5) {
@@ -561,7 +680,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 processed = true;
             }
 
-            // 3. Qual Ativo ("qual ativo", "qual mercado", "ativo atual")
+            // Qual Ativo
             if (!processed && (subCmd.includes('qual ativo') || subCmd.includes('qual mercado') || subCmd.includes('ativo atual') || subCmd.includes('mercado atual'))) {
                 const currentAssetObj = SCANNER_ASSETS.find(a => a.value === asset);
                 const assetLabel = currentAssetObj ? currentAssetObj.label : asset;
@@ -569,37 +688,33 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 processed = true;
             }
 
-            // 4. Abrir Planilha ("abre planilha", "abrir planilha", "mostra planilha")
+            // Abrir Planilha
             if (!processed && (subCmd.includes('abre planilha') || subCmd.includes('abrir planilha') || subCmd.includes('mostra planilha') || subCmd.includes('mostrar planilha'))) {
                 setIsSettingsOpen(true);
                 feedbacks.push("planilha de gestão aberta");
                 toast.info("Planilha de Gestão Aberta");
                 processed = true;
             }
-            // Fechar Planilha
             if (!processed && (subCmd.includes('fecha planilha') || subCmd.includes('fechar planilha') || subCmd.includes('esconde planilha') || subCmd.includes('esconder planilha'))) {
                 setIsSettingsOpen(false);
                 feedbacks.push("planilha de gestão fechada");
                 processed = true;
             }
 
-            // 5. Abrir Protocolo de Risco ("abre protocolo", "abrir protocolo", "protocolo de risco")
+            // Abrir Protocolo de Risco
             if (!processed && (subCmd.includes('abre protocolo') || subCmd.includes('abrir protocolo') || subCmd.includes('protocolo de risco') || subCmd.includes('protocolo de risco aberto') || subCmd.includes('abre risco') || subCmd.includes('abrir risco'))) {
                 setIsConfigModalOpen(true);
                 feedbacks.push("protocolo de risco aberto");
                 toast.info("Protocolo de Risco Aberto");
                 processed = true;
             }
-            // Fechar Protocolo de Risco
             if (!processed && (subCmd.includes('fecha protocolo') || subCmd.includes('fechar protocolo') || subCmd.includes('fecha risco') || subCmd.includes('fechar risco'))) {
                 setIsConfigModalOpen(false);
                 feedbacks.push("protocolo de risco fechado");
                 processed = true;
             }
 
-            // --- FIM DOS NOVOS COMANDOS ---
-
-            // Configurar Repetições (Ex: "entra em par quando repetir 3 vezes")
+            // Configurar Repetições
             const isRepetitionRule = subCmd.includes('repetir') || subCmd.includes('repetição') || subCmd.includes('repeticoes') || subCmd.includes('sequência') || subCmd.includes('sequencia');
             if (!processed && isRepetitionRule) {
                 const valStr = parseSpokenNumber(subCmd);
@@ -808,7 +923,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     if (targetAsset) {
                         setAsset(targetAsset);
                         feedbacks.push(`mercado alterado para volatilidade ${num}`);
-                        toast.success(`Mercado: Volatilidade ${num}`);
+                        toast.success(`Market: Volatility ${num}`);
                         processed = true;
                     }
                 }
@@ -828,7 +943,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else {
             speak("Desculpe, não entendi os comandos. Você pode dizer por exemplo: entrada de um dólar e meta de cinco.");
         }
-    }, [isConnected, isBotRunning, toggleBot, accountBalance, resetOperations, speak, setInitialStake, setTakeProfit, setStopLoss, setDuration, setAccountType, manualBuy, setIsVoiceEnabled, setAsset, setConsecutiveTarget, setEntryDirection, setVirtualTargetLosses, setIsSmartModeActive, initialStake, lastDigits, asset]);
+    }, [isConnected, isBotRunning, toggleBot, accountBalance, resetOperations, speak, setInitialStake, setTakeProfit, setStopLoss, setDuration, setAccountType, manualBuy, setIsVoiceEnabled, setAsset, setConsecutiveTarget, setEntryDirection, setVirtualTargetLosses, setIsSmartModeActive, initialStake, lastDigits, asset, setMartingaleFactor, setMaxLevels, setIsMartingaleActive, setIsSorosActive, setSorosLevels, setSorosProfitPercentage, wins, losses, getMarketState]);
 
     // Referência dinâmica para o processador de voz sempre ter o estado mais recente
     const processVoiceCommandRef = useRef(processVoiceCommand);
@@ -882,7 +997,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             
             // Se tiver alternativas, procura se alguma delas bate com palavras-chave importantes
             if (results.length > 1) {
-                const keywords = ['par', 'para', 'ímpar', 'impar', 'limpar', 'iniciar', 'parar', 'saldo', 'lucro', 'stake', 'entrada', 'meta', 'stop', 'repetir', 'repetição', 'sequência', 'contra', 'favor', 'filtro', 'dobra', 'planilha', 'protocolo', 'real', 'demo'];
+                const keywords = ['par', 'para', 'ímpar', 'impar', 'limpar', 'iniciar', 'parar', 'saldo', 'lucro', 'stake', 'entrada', 'meta', 'stop', 'repetir', 'repetição', 'sequência', 'contra', 'favor', 'filtro', 'dobra', 'planilha', 'protocolo', 'real', 'demo', 'gale', 'martingale', 'soros'];
                 for (let i = 0; i < results.length; i++) {
                     const altText = results[i].transcript.toLowerCase();
                     const hasKeyword = keywords.some(kw => altText.includes(kw));
