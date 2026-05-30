@@ -506,6 +506,16 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return match ? match[0] : null;
     };
 
+    const handleConnect = useCallback((targetType?: 'real' | 'demo', targetToken?: string) => {
+        const type = targetType || accountType;
+        const token = targetToken || (type === 'real' ? realToken : demoToken);
+        if (token) {
+            setIsConnecting(true);
+            if (isConnected) { disconnect(); connect(token, type); }
+            else connect(token, type);
+        }
+    }, [accountType, realToken, demoToken, connect, disconnect, isConnected]);
+
     // Processador de comandos de voz interativos (Atende a TODOS os comandos do bot)
     const processVoiceCommand = useCallback((command: string) => {
         const cleanCommand = command.toLowerCase().trim();
@@ -870,12 +880,22 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setAccountType('real');
                 feedbacks.push("conta alterada para real");
                 toast.info("Conta: REAL");
+                if (realToken) {
+                    handleConnect('real', realToken);
+                } else {
+                    feedbacks.push("por favor, configure o token da conta real");
+                }
                 processed = true;
             }
             if (!processed && demoKeywords.some(kw => subCmd.includes(kw))) {
                 setAccountType('demo');
                 feedbacks.push("conta alterada para demo");
                 toast.info("Conta: DEMO");
+                if (demoToken) {
+                    handleConnect('demo', demoToken);
+                } else {
+                    feedbacks.push("por favor, configure o token da conta demo");
+                }
                 processed = true;
             }
 
@@ -943,7 +963,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else {
             speak("Desculpe, não entendi os comandos. Você pode dizer por exemplo: entrada de um dólar e meta de cinco.");
         }
-    }, [isConnected, isBotRunning, toggleBot, accountBalance, resetOperations, speak, setInitialStake, setTakeProfit, setStopLoss, setDuration, setAccountType, manualBuy, setIsVoiceEnabled, setAsset, setConsecutiveTarget, setEntryDirection, setVirtualTargetLosses, setIsSmartModeActive, initialStake, lastDigits, asset, setMartingaleFactor, setMaxLevels, setIsMartingaleActive, setIsSorosActive, setSorosLevels, setSorosProfitPercentage, wins, losses, getMarketState]);
+    }, [isConnected, isBotRunning, toggleBot, accountBalance, resetOperations, speak, setInitialStake, setTakeProfit, setStopLoss, setDuration, setAccountType, manualBuy, setIsVoiceEnabled, setAsset, setConsecutiveTarget, setEntryDirection, setVirtualTargetLosses, setIsSmartModeActive, initialStake, lastDigits, asset, setMartingaleFactor, setMaxLevels, setIsMartingaleActive, setIsSorosActive, setSorosLevels, setSorosProfitPercentage, wins, losses, getMarketState, handleConnect, realToken, demoToken]);
 
     // Referência dinâmica para o processador de voz sempre ter o estado mais recente
     const processVoiceCommandRef = useRef(processVoiceCommand);
@@ -1049,16 +1069,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         stopBot("Sessão Finalizada"); 
         setAppFlow('selection'); 
     }, [stopBot]);
-    
-    const handleConnect = useCallback((targetType?: 'real' | 'demo', targetToken?: string) => {
-        const type = targetType || accountType;
-        const token = targetToken || (type === 'real' ? realToken : demoToken);
-        if (token) {
-            setIsConnecting(true);
-            if (isConnected) { disconnect(); connect(token, type); }
-            else connect(token, type);
-        }
-    }, [accountType, realToken, demoToken, connect, disconnect, isConnected]);
 
     const contextValue = useMemo(() => ({
         ...stateAndSetters, isConnected, isConnecting, status, handleConnect, handleDisconnect: disconnect, 
