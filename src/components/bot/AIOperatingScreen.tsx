@@ -10,6 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
 import { SettingsSheet } from './SettingsSheet';
 import { RecentDigitsPanel } from './RecentDigitsPanel';
+import { VoiceCommandsGuide } from './VoiceCommandsGuide';
 import confetti from 'canvas-confetti';
 
 export const AIOperatingScreen = () => {
@@ -357,6 +358,9 @@ export const AIOperatingScreen = () => {
                     </div>
                 </div>
             )}
+
+            {/* NOVO: Guia de Comandos de Voz Interativo */}
+            <VoiceCommandsGuide />
 
             {/* Monitor de Sinais - Versão Dark Integrada */}
             <div className="bg-slate-950/60 backdrop-blur-xl border border-white/10 rounded-[2rem] p-4 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)]">
