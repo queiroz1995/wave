@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
 import { SettingsSheet } from './SettingsSheet';
+import { RecentDigitsPanel } from './RecentDigitsPanel';
 import confetti from 'canvas-confetti';
 
 export const AIOperatingScreen = () => {
@@ -157,6 +158,9 @@ export const AIOperatingScreen = () => {
                     </div>
                 )}
             </div>
+
+            {/* NOVO: Painel Premium de 8 Dígitos Recentes */}
+            <RecentDigitsPanel />
 
             {/* Painel Central - Estética "Cyber-Luxury" */}
             <Card className="relative overflow-hidden bg-slate-950/60 backdrop-blur-xl border border-white/10 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)] rounded-[2rem] transition-all duration-500 hover:border-cyan-500/20">

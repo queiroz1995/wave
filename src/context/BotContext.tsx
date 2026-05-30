@@ -683,6 +683,35 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 processed = true;
             }
 
+            // 11. Máxima sequência de Par ou Ímpar nas últimas 100 rodadas
+            if (!processed && (subCmd.includes('máximo de par ou ímpar') || subCmd.includes('maximo de par ou impar') || subCmd.includes('máxima sequência') || subCmd.includes('maxima sequencia') || subCmd.includes('sequência seguida') || subCmd.includes('sequencia seguida') || subCmd.includes('par ou ímpar seguido') || subCmd.includes('par ou impar seguido'))) {
+                const subset = lastDigits.slice(0, 100);
+                if (subset.length === 0) {
+                    feedbacks.push("ainda não tenho dados suficientes para calcular as sequências");
+                } else {
+                    let maxEven = 0;
+                    let maxOdd = 0;
+                    let currentEven = 0;
+                    let currentOdd = 0;
+                    
+                    for (let i = subset.length - 1; i >= 0; i--) {
+                        const isEven = subset[i] % 2 === 0;
+                        if (isEven) {
+                            currentEven++;
+                            currentOdd = 0;
+                            if (currentEven > maxEven) maxEven = currentEven;
+                        } else {
+                            currentOdd++;
+                            currentEven = 0;
+                            if (currentOdd > maxOdd) maxOdd = currentOdd;
+                        }
+                    }
+                    feedbacks.push(`nas últimas cem rodadas, a maior sequência consecutiva de números pares foi de ${maxEven} vezes, e de números ímpares foi de ${maxOdd} vezes`);
+                    toast.success(`Max Par: ${maxEven}x | Max Ímpar: ${maxOdd}x`);
+                }
+                processed = true;
+            }
+
             // --- FIM DOS NOVOS COMANDOS ---
 
             // Dobrar Aposta
