@@ -944,17 +944,49 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 processed = true;
             }
 
-            // Compras Manuais por Voz
+            // Compras Manuais por Voz (Com suporte a Gale 3 automático)
             if (!processed && isBuyAction) {
                 const hasPar = parPhonetics.some(p => subCmd.includes(p));
                 const hasImpar = imparPhonetics.some(i => subCmd.includes(i));
+                
+                // Verifica se o usuário pediu Gale até 3 tentativas
+                const hasGale3 = subCmd.includes('gale até 3') || subCmd.includes('gale ate 3') || subCmd.includes('gale de 3') || subCmd.includes('3 tentativas') || subCmd.includes('três tentativas') || subCmd.includes('tres tentativas') || subCmd.includes('gale até três') || subCmd.includes('gale ate tres');
+
                 if (hasPar && !hasImpar) {
-                    manualBuy('DIGITEVEN', 'Voz');
-                    feedbacks.push("comprando par");
+                    if (hasGale3) {
+                        setMaxLevels(3);
+                        setIsMartingaleActive(true);
+                        setIsBotRunning(true);
+                        resetOperations();
+                        setIsStudying(false); // Entra imediatamente sem esperar estudo
+                        
+                        setTimeout(() => {
+                            manualBuy('DIGITEVEN', 'Voz (Gale 3)');
+                        }, 100);
+                        
+                        feedbacks.push("configurando gale até 3 tentativas e entrando em par com o robô ativo");
+                    } else {
+                        manualBuy('DIGITEVEN', 'Voz');
+                        feedbacks.push("comprando par");
+                    }
                     processed = true;
                 } else if (hasImpar) {
-                    manualBuy('DIGITODD', 'Voz');
-                    feedbacks.push("comprando ímpar");
+                    if (hasGale3) {
+                        setMaxLevels(3);
+                        setIsMartingaleActive(true);
+                        setIsBotRunning(true);
+                        resetOperations();
+                        setIsStudying(false); // Entra imediatamente sem esperar estudo
+                        
+                        setTimeout(() => {
+                            manualBuy('DIGITODD', 'Voz (Gale 3)');
+                        }, 100);
+                        
+                        feedbacks.push("configurando gale até 3 tentativas e entrando em ímpar com o robô ativo");
+                    } else {
+                        manualBuy('DIGITODD', 'Voz');
+                        feedbacks.push("comprando ímpar");
+                    }
                     processed = true;
                 }
             }
