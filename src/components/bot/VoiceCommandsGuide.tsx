@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronUp, Mic, HelpCircle, Play, ShieldAlert, DollarSign, BarChart3 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Mic, Play, ShieldAlert, DollarSign, BarChart3, Settings, Table, HelpCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export const VoiceCommandsGuide = () => {
@@ -44,14 +44,36 @@ export const VoiceCommandsGuide = () => {
             ]
         },
         {
+            title: "Modalidades & Barreiras",
+            icon: Settings,
+            color: "text-amber-400",
+            commands: [
+                { phrase: "Modo acima ou abaixo", desc: "Muda modalidade para Acima/Abaixo" },
+                { phrase: "Modo par ou ímpar", desc: "Muda modalidade para Par/Ímpar" },
+                { phrase: "Direção acima / Direção abaixo", desc: "Define direção do Over/Under" },
+                { phrase: "Barreira de 4", desc: "Define o dígito alvo de barreira" }
+            ]
+        },
+        {
+            title: "Planilha de Gestão",
+            icon: Table,
+            color: "text-purple-400",
+            commands: [
+                { phrase: "Banca inicial da planilha de 100", desc: "Define banca inicial na planilha" },
+                { phrase: "Meta diária de 5 por cento", desc: "Define meta diária na planilha" },
+                { phrase: "Aplicar meta da planilha", desc: "Aplica metas calculadas ao bot" },
+                { phrase: "Bati a meta do dia", desc: "Conclui o dia atual com vitória" }
+            ]
+        },
+        {
             title: "Consultas & Estatísticas",
             icon: BarChart3,
             color: "text-indigo-400",
             commands: [
-                { phrase: "Máxima sequência", desc: "Informa a maior sequência de Par/Ímpar nas últimas 100 rodadas" },
+                { phrase: "Qual a meta configurada", desc: "Informa a meta de lucro atual" },
+                { phrase: "Qual o valor da entrada", desc: "Informa o valor da stake atual" },
                 { phrase: "Quanto falta para a meta", desc: "Informa a distância para o objetivo" },
-                { phrase: "Como estão as operações", desc: "Relatório de vitórias, derrotas e assertividade" },
-                { phrase: "Qual meu saldo", desc: "Informa o saldo atual da conta" }
+                { phrase: "Como estão as operações", desc: "Relatório de vitórias, derrotas e assertividade" }
             ]
         }
     ];
