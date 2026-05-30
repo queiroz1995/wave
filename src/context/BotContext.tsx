@@ -372,6 +372,16 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     }
                 }
             }
+        } else if (event.type === 'auth_error') {
+            setIsConnecting(false);
+            setIsConnected(false);
+            setStatus({ message: 'Erro de Autenticação', color: 'bg-red-500' });
+            speak("Erro de autenticação. Verifique seu token.");
+        } else if (event.type === 'error') {
+            setIsConnecting(false);
+            setStatus({ message: 'Erro de Conexão', color: 'bg-red-500' });
+        } else if (event.type === 'close') {
+            setIsConnecting(false);
         }
     }, [processTickData, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, getMarketState, speak]);
 
@@ -511,7 +521,13 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const token = targetToken || (type === 'real' ? realToken : demoToken);
         if (token) {
             setIsConnecting(true);
-            if (isConnected) { disconnect(); connect(token, type); }
+            if (isConnected) { 
+                disconnect(); 
+                // Pequeno delay seguro para garantir que o socket anterior fechou completamente
+                setTimeout(() => {
+                    connect(token, type);
+                }, 600);
+            }
             else connect(token, type);
         }
     }, [accountType, realToken, demoToken, connect, disconnect, isConnected]);

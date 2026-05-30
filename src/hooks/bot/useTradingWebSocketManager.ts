@@ -94,10 +94,6 @@ export const useTradingWebSocketManager = ({
                         }
                     }
 
-                    // --- Lógica de atualização de estado movida para o BotContext ---
-                    // O BotContext agora lida com a resposta 'authorize' e 'balance'
-                    // --- FIM Lógica de atualização de estado movida para o BotContext ---
-
                     // Passa a mensagem completa para o contexto.
                     onMessageRef.current({ type: 'message', payload: data });
                 } catch (error) {
@@ -131,6 +127,8 @@ export const useTradingWebSocketManager = ({
                         setStatus({ message: 'Falha na Conexão', color: 'bg-red-500' });
                     }
                 }
+                // Envia evento de fechamento para o contexto resetar estados de carregamento
+                onMessageRef.current({ type: 'close' });
             };
         } catch (error) {
             console.error("[TradingWS] Critical error on connect:", error);
@@ -143,7 +141,10 @@ export const useTradingWebSocketManager = ({
         console.log('[TradingWS] Disconnecting intentionally.');
         isIntentionalDisconnect.current = true;
         reconnectAttemptsRef.current = 0;
-        ws.current?.close();
+        if (ws.current) {
+            ws.current.close();
+            ws.current = null; // Limpa a referência imediatamente para permitir nova conexão sem avisos de duplicidade
+        }
     }, [reconnectAttemptsRef]);
 
     const sendMessage = useCallback((payload: any) => {
