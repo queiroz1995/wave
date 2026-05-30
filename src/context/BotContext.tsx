@@ -874,13 +874,19 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 processed = true;
             }
             if (!processed && stopKeywords.some(kw => subCmd.includes(kw))) {
-                if (isBotRunning) {
-                    toggleBot();
-                    feedbacks.push("operações pausadas");
-                } else {
-                    feedbacks.push("o robô já está parado");
+                const hasNumber = parseSpokenNumber(subCmd) !== null;
+                const isStopLoss = subCmd.includes('loss') || subCmd.includes('limite') || subCmd.includes('máxima') || subCmd.includes('maxima') || subCmd.includes('perda');
+                
+                // Evita confundir "stop" de parar o bot com "stop loss" ou "stop de X dólares"
+                if (!(subCmd.includes('stop') && (hasNumber || isStopLoss))) {
+                    if (isBotRunning) {
+                        toggleBot();
+                        feedbacks.push("operações pausadas");
+                    } else {
+                        feedbacks.push("o robô já está parado");
+                    }
+                    processed = true;
                 }
-                processed = true;
             }
 
             // Consultas de Saldo e Lucro
@@ -1068,8 +1074,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (finalSpeech) {
                 speak("Entendido! " + finalSpeech + ".");
             }
-        } else {
-            speak("Desculpe, não entendi os comandos. Você pode dizer por exemplo: entrada de um dólar e meta de cinco.");
         }
     }, [isConnected, isBotRunning, toggleBot, accountBalance, resetOperations, speak, setInitialStake, setTakeProfit, setStopLoss, setDuration, setAccountType, manualBuy, setIsVoiceEnabled, setAsset, setConsecutiveTarget, setEntryDirection, setVirtualTargetLosses, setIsSmartModeActive, initialStake, lastDigits, asset, setMartingaleFactor, setMaxLevels, setIsMartingaleActive, setIsSorosActive, setSorosLevels, setSorosProfitPercentage, wins, losses, getMarketState, handleConnect, realToken, demoToken]);
 
