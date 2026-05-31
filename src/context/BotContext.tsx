@@ -269,6 +269,27 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 sendMessageRef.current({ balance: 1, subscribe: 1 });
             } else if (data?.msg_type === 'balance') {
                 if (data.balance?.balance !== undefined) setAccountBalance(parseFloat(data.balance.balance));
+            } else if (data?.msg_type === 'history') {
+                const history = data.history;
+                const symbol = data.echo_req.ticks_history;
+                if (history && symbol) {
+                    const prices = history.prices || [];
+                    const digits = prices.map((p: number) => {
+                        const lastDigit = parseInt(String(p).replace(/[^\d.]/g, '').slice(-1));
+                        return isNaN(lastDigit) ? 0 : lastDigit;
+                    });
+                    
+                    pricesRef.current[symbol] = [...prices].reverse().slice(0, 100);
+                    
+                    setMultiAssetDigits((prev: Record<string, number[]>) => ({
+                        ...prev,
+                        [symbol]: [...digits].reverse().slice(0, 500)
+                    }));
+                    
+                    if (symbol === asset) {
+                        setLastDigits([...digits].reverse().slice(0, 500));
+                    }
+                }
             } else if (data?.msg_type === 'tick') {
                 processTickData(data.tick);
             } else if (data?.msg_type === 'buy') {
@@ -357,7 +378,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else if (event.type === 'close') {
             setIsConnecting(false);
         }
-    }, [processTickData, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, getMarketState, maxLevels]);
+    }, [processTickData, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, getMarketState, maxLevels, asset]);
 
     const ws = useTradingWebSocketManager({ isConnected, status, setIsConnected, setStatus, setAccountBalance, onMessage: handleWebSocketMessage, reconnectAttemptsRef });
     const { sendMessage, connect, disconnect } = ws;
@@ -366,7 +387,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const calculateTradeSignal = useCallback((symbol: string) => {
         const digits = multiAssetDigits[symbol] || [];
         const prices = pricesRef.current[symbol] || [];
-        if (activeTrades.current.size > 0 || isStudying || digits.length < 2 || prices.length < 5) return null;
+        if (activeTrades.current.size > 0 || isStudying || digits.length < 4 || prices.length < 5) return null;
 
         if (isGalePausedForFilter.current && symbol === lastTradedAsset.current) return null;
 
@@ -558,7 +579,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             }
         }
-    }, [isBotRunning, calculateTradeSignal, addSignal, executeBuy, isStudying, virtualTradePending, virtualLossStreak, virtualTargetLosses, isSmartModeActive, getMarketState]);
+    }, [isBotRunning, calculateTradeSignal, addSignal, executeBuy, isStudying, virtualTradePending, virtualLossStreak, virtualTargetLosses, isSmartModeActive, getMarketState, lastTickEpoch]);
 
     const handleConnect = useCallback((targetType?: 'real' | 'demo', targetToken?: string) => {
         const type = targetType || accountType;
