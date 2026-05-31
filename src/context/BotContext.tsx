@@ -348,14 +348,13 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (isGalePausedForFilter.current && symbol === lastTradedAsset.current) return null;
 
-        const { recommendedDirection } = getMarketState(symbol);
-        const direction = isSmartModeActive ? recommendedDirection : entryDirection;
-
+        // Se for Gale/Recuperação, mantém a entrada para recuperar
         if (martingaleLevel.current > 0 && lastTradedAsset.current === symbol) {
             const contract = lastContractType.current || 'DIGITEVEN';
             return { type: contract === 'DIGITEVEN' ? 'EVEN' : 'ODD', contract, name: 'Recovery (Gale)', confidence: 99, symbol };
         }
 
+        // Evitar sequências de surf (sequências longas seguidas do mesmo dígito)
         let currentStreak = 1;
         const firstParity = digits[0] % 2 === 0;
         for (let i = 1; i < digits.length; i++) {
@@ -363,18 +362,35 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             else break;
         }
 
-        if (currentStreak >= consecutiveTarget) {
-            const targetType = direction === 'AGAINST' ? (firstParity ? 'ODD' : 'EVEN') : (firstParity ? 'EVEN' : 'ODD');
-            return { 
-                type: targetType, 
-                contract: targetType === 'EVEN' ? 'DIGITEVEN' : 'DIGITODD', 
-                name: 'WAVE', 
-                confidence: 85 + (currentStreak * 2), 
-                symbol 
+        // Se houver uma sequência muito longa (surf), não entra para evitar pegar a tendência infinita
+        if (currentStreak >= 3) {
+            return null; 
+        }
+
+        // Padrão Mesclado (Alternado): Ex: Par, Ímpar, Par ou Ímpar, Par, Ímpar nos últimos 4 dígitos
+        const p0 = digits[0] % 2 === 0;
+        const p1 = digits[1] % 2 === 0;
+        const p2 = digits[2] % 2 === 0;
+        const p3 = digits[3] % 2 === 0;
+
+        // Detecta alternância perfeita nos últimos 4 dígitos (ex: E, O, E, O)
+        const isAlternating = (p0 !== p1) && (p1 !== p2) && (p2 !== p3);
+
+        if (isAlternating) {
+            // Se o último foi Par (p0 === true), apostamos que vai continuar alternando e será Ímpar (ODD)
+            // Se o último foi Ímpar (p0 === false), apostamos que será Par (EVEN)
+            const targetType = p0 ? 'ODD' : 'EVEN';
+            return {
+                type: targetType,
+                contract: targetType === 'EVEN' ? 'DIGITEVEN' : 'DIGITODD',
+                name: 'WAVE (Mesclado)',
+                confidence: 92,
+                symbol
             };
         }
+
         return null;
-    }, [multiAssetDigits, consecutiveTarget, entryDirection, isStudying, isSmartModeActive, getMarketState]);
+    }, [multiAssetDigits, isStudying]);
 
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string, symbol: string) => {
         if (!isConnected || isStudying || activeTrades.current.size > 0) return;
