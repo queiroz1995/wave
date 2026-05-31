@@ -366,7 +366,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const calculateTradeSignal = useCallback((symbol: string) => {
         const digits = multiAssetDigits[symbol] || [];
         const prices = pricesRef.current[symbol] || [];
-        if (activeTrades.current.size > 0 || isStudying || digits.length < 5 || prices.length < 5) return null;
+        if (activeTrades.current.size > 0 || isStudying || digits.length < 2 || prices.length < 5) return null;
 
         if (isGalePausedForFilter.current && symbol === lastTradedAsset.current) return null;
 
@@ -383,30 +383,30 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         // --- ESTRATÉGIA 3: SEQUÊNCIA AUTOMÁTICA PERSONALIZADA ---
-        if (autoSequenceActive && symbol === asset) {
+        if (autoSequenceActive && symbol === asset && autoSequenceTrigger) {
             const triggerArray = autoSequenceTrigger.split(',').map(s => s.trim().toUpperCase());
             const len = triggerArray.length;
             if (digits.length >= len) {
-                let match = true;
-                for (let i = 0; i < len; i++) {
-                    const digitParity = digits[len - 1 - i] % 2 === 0 ? 'E' : 'O';
-                    if (digitParity !== triggerArray[i]) {
-                        match = false;
-                        break;
-                    }
-                }
+                // Pega os últimos 'len' dígitos e inverte para ordem cronológica (mais antigo para o mais recente)
+                const recentDigitsChronological = digits.slice(0, len).reverse();
+                const currentParities = recentDigitsChronological.map(d => d % 2 === 0 ? 'E' : 'O');
+                
+                const match = triggerArray.every((val, idx) => val === currentParities[idx]);
 
                 if (match) {
                     return {
                         type: autoSequenceEntry,
                         contract: autoSequenceEntry === 'EVEN' ? 'DIGITEVEN' : 'DIGITODD',
                         name: `Seq: ${autoSequenceTrigger}`,
-                        confidence: 98,
+                        confidence: 99,
                         symbol
                     };
                 }
             }
         }
+
+        // Se a sequência automática estiver ativa, não executa as outras estratégias para evitar conflito
+        if (autoSequenceActive) return null;
 
         // --- ESTRATÉGIA 1: SOBE / DESCE (RISE/FALL) ---
         // Analisa a tendência de preços reais para Sobe/Desce
