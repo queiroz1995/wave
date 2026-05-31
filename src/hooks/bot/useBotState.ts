@@ -38,6 +38,10 @@ const DEFAULTS = {
     isSorosActive: false,
     sorosLevels: 2,
     sorosProfitPercentage: 50,
+    // Configurações da Sequência Automática
+    autoSequenceActive: false,
+    autoSequenceTrigger: 'O,O,O', // Padrão: 3 Ímpares
+    autoSequenceEntry: 'EVEN' as 'EVEN' | 'ODD', // Padrão: Entra Par
 };
 
 const getInitialState = () => {
@@ -116,6 +120,11 @@ export const useBotState = () => {
     const [activeStrategy, setActiveStrategy] = useState<string | null>(null);
     const [neuralPredictions, setNeuralPredictions] = useState<number[]>([]);
 
+    // Sequência Automática
+    const [autoSequenceActive, setAutoSequenceActive] = useState(initialState.autoSequenceActive);
+    const [autoSequenceTrigger, setAutoSequenceTrigger] = useState(initialState.autoSequenceTrigger);
+    const [autoSequenceEntry, setAutoSequenceEntry] = useState<'EVEN' | 'ODD'>(initialState.autoSequenceEntry);
+
     const addLog = useCallback((message: string, type: LogType, details?: any) => {
         setLogs(prev => [{ timestamp: new Date().toLocaleTimeString('pt-BR', { hour12: false }), message, type, ...details }, ...prev].slice(0, 50));
     }, []);
@@ -158,6 +167,10 @@ export const useBotState = () => {
         bankManagementCurrentDay, setBankManagementCurrentDay,
         bankManagementActualBankroll, setBankManagementActualBankroll,
         activeStrategy, setActiveStrategy, neuralPredictions, setNeuralPredictions,
-        isSorosActive, setIsSorosActive, sorosLevels, setSorosLevels, sorosProfitPercentage, setSorosProfitPercentage
+        isSorosActive, setIsSorosActive, sorosLevels, setSorosLevels, sorosProfitPercentage, setSorosProfitPercentage,
+        // Sequência Automática
+        autoSequenceActive, setAutoSequenceActive,
+        autoSequenceTrigger, setAutoSequenceTrigger,
+        autoSequenceEntry, setAutoSequenceEntry
     };
 };

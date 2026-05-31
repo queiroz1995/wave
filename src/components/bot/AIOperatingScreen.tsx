@@ -4,12 +4,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, ArrowUp, ArrowDown } from 'lucide-react';
+import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, ArrowUp, ArrowDown, Settings2, Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
 import { SettingsSheet } from './SettingsSheet';
 import { RecentDigitsPanel } from './RecentDigitsPanel';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 import confetti from 'canvas-confetti';
 
 export const AIOperatingScreen = () => {
@@ -26,7 +28,12 @@ export const AIOperatingScreen = () => {
         isConfigModalOpen, setIsConfigModalOpen,
         manualBuy,
         tradeStatus,
-        isConnected
+        isConnected,
+        // Sequência Automática
+        autoSequenceActive, setAutoSequenceActive,
+        autoSequenceTrigger, setAutoSequenceTrigger,
+        autoSequenceEntry, setAutoSequenceEntry,
+        lastDigits
     } = useBotContext();
 
     const hasTriggeredGoalConfettiRef = useRef(false);
@@ -129,6 +136,37 @@ export const AIOperatingScreen = () => {
 
     const isTradePending = tradeStatus === 'SENDING' || tradeStatus === 'ACTIVE';
 
+    // Lógica para construir a sequência de gatilho
+    const handleAddTriggerElement = (type: 'E' | 'O') => {
+        const current = autoSequenceTrigger ? autoSequenceTrigger.split(',') : [];
+        if (current.length < 8) {
+            current.push(type);
+            setAutoSequenceTrigger(current.join(','));
+        }
+    };
+
+    const handleClearTrigger = () => {
+        setAutoSequenceTrigger('');
+    };
+
+    // Calcula o progresso atual da sequência em tempo real
+    const currentSequenceProgress = React.useMemo(() => {
+        if (!autoSequenceTrigger || lastDigits.length === 0) return [];
+        const triggerArray = autoSequenceTrigger.split(',').map(s => s.trim().toUpperCase());
+        const len = triggerArray.length;
+        
+        // Pega os últimos dígitos correspondentes ao tamanho do gatilho
+        const recentDigits = lastDigits.slice(0, len).reverse();
+        return recentDigits.map(d => d % 2 === 0 ? 'E' : 'O');
+    }, [autoSequenceTrigger, lastDigits]);
+
+    const isSequenceMatching = React.useMemo(() => {
+        if (!autoSequenceTrigger || currentSequenceProgress.length === 0) return false;
+        const triggerArray = autoSequenceTrigger.split(',').map(s => s.trim().toUpperCase());
+        if (triggerArray.length !== currentSequenceProgress.length) return false;
+        return triggerArray.every((val, index) => val === currentSequenceProgress[index]);
+    }, [autoSequenceTrigger, currentSequenceProgress]);
+
     return (
         <div className="w-full max-w-md mx-auto space-y-4 animate-in fade-in slide-in-from-bottom-8 duration-1000 px-1 pb-6">
             
@@ -164,6 +202,127 @@ export const AIOperatingScreen = () => {
 
             {/* Painel Premium de 8 Dígitos Recentes */}
             <RecentDigitsPanel />
+
+            {/* NOVO: Painel de Sequência Automática Inteligente */}
+            <Card className="relative overflow-hidden bg-slate-950/60 backdrop-blur-xl border border-white/10 shadow-xl rounded-[2rem] transition-all duration-500 hover:border-cyan-500/20">
+                <CardContent className="p-4 sm:p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <Settings2 className="h-4 w-4 text-cyan-400" />
+                            <span className="text-xs font-black text-white uppercase tracking-wider">Entrada por Sequência</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase">Ativar</span>
+                            <Switch 
+                                checked={autoSequenceActive} 
+                                onCheckedChange={setAutoSequenceActive} 
+                            />
+                        </div>
+                    </div>
+
+                    <div className={cn("space-y-4 transition-all duration-300", !autoSequenceActive && "opacity-40 pointer-events-none")}>
+                        {/* Construtor de Sequência */}
+                        <div className="space-y-2">
+                            <div className="flex justify-between items-center">
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Gatilho de Entrada</span>
+                                {autoSequenceTrigger && (
+                                    <Button variant="ghost" size="icon" className="h-5 w-5 text-rose-400 hover:text-rose-300" onClick={handleClearTrigger}>
+                                        <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                )}
+                            </div>
+                            
+                            <div className="flex items-center gap-1.5 p-2.5 rounded-xl bg-slate-900/60 border border-white/5 min-h-[44px] flex-wrap">
+                                {autoSequenceTrigger ? (
+                                    autoSequenceTrigger.split(',').map((char, index) => (
+                                        <Badge key={index} className={cn(
+                                            "font-black text-xs px-2 py-0.5 rounded-md",
+                                            char === 'E' ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-rose-500/20 text-rose-400 border border-rose-500/30"
+                                        )}>
+                                            {char === 'E' ? 'PAR' : 'ÍMPAR'}
+                                        </Badge>
+                                    ))
+                                ) : (
+                                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Monte sua sequência abaixo...</span>
+                                )}
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={() => handleAddTriggerElement('E')}
+                                    className="h-8 text-[10px] font-black uppercase tracking-wider border-white/10 hover:bg-emerald-500/10 hover:text-emerald-400"
+                                >
+                                    <Plus className="h-3 w-3 mr-1" /> PAR (E)
+                                </Button>
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={() => handleAddTriggerElement('O')}
+                                    className="h-8 text-[10px] font-black uppercase tracking-wider border-white/10 hover:bg-rose-500/10 hover:text-rose-400"
+                                >
+                                    <Plus className="h-3 w-3 mr-1" /> ÍMPAR (O)
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Ação após a sequência */}
+                        <div className="space-y-2">
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ação de Entrada</span>
+                            <div className="grid grid-cols-2 gap-2">
+                                <Button
+                                    onClick={() => setAutoSequenceEntry('EVEN')}
+                                    className={cn(
+                                        "h-9 text-[10px] font-black uppercase tracking-wider rounded-xl border transition-all duration-300",
+                                        autoSequenceEntry === 'EVEN' 
+                                            ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-[0_0_10px_rgba(52,211,153,0.15)]" 
+                                            : "bg-slate-900/40 text-slate-400 border-white/5 hover:bg-slate-900/80"
+                                    )}
+                                >
+                                    COMPRAR PAR
+                                </Button>
+                                <Button
+                                    onClick={() => setAutoSequenceEntry('ODD')}
+                                    className={cn(
+                                        "h-9 text-[10px] font-black uppercase tracking-wider rounded-xl border transition-all duration-300",
+                                        autoSequenceEntry === 'ODD' 
+                                            ? "bg-rose-500/20 text-rose-400 border-rose-500/40 shadow-[0_0_10px_rgba(244,63,94,0.15)]" 
+                                            : "bg-slate-900/40 text-slate-400 border-white/5 hover:bg-slate-900/80"
+                                    )}
+                                >
+                                    COMPRAR ÍMPAR
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Monitor de Progresso em Tempo Real */}
+                        {autoSequenceTrigger && (
+                            <div className="p-2.5 rounded-xl bg-slate-900/40 border border-white/5 space-y-1.5">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Progresso Real</span>
+                                    <span className={cn(
+                                        "text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded",
+                                        isSequenceMatching ? "bg-emerald-500/20 text-emerald-400" : "bg-slate-800 text-slate-400"
+                                    )}>
+                                        {isSequenceMatching ? "GATILHO ATIVO" : "AGUARDANDO"}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-1 flex-wrap">
+                                    {currentSequenceProgress.map((char, index) => (
+                                        <Badge key={index} className={cn(
+                                            "text-[9px] font-bold px-1.5 py-0.5 rounded",
+                                            char === 'E' ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
+                                        )}>
+                                            {char === 'E' ? 'PAR' : 'ÍMPAR'}
+                                        </Badge>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </CardContent>
+            </Card>
 
             {/* Painel Central - Estética "Cyber-Luxury" */}
             <Card className="relative overflow-hidden bg-slate-950/60 backdrop-blur-xl border border-white/10 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)] rounded-[2rem] transition-all duration-500 hover:border-cyan-500/20">

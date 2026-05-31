@@ -12,7 +12,8 @@ export const useBotPersistence = (state: ReturnType<typeof useBotState>) => {
         learningData, scoreThreshold, marketStabilityThreshold,
         bankManagementInitialBankroll, bankManagementDailyGoalPercent,
         bankManagementDailyStopPercent, bankManagementCurrentDay,
-        bankManagementActualBankroll
+        bankManagementActualBankroll,
+        autoSequenceActive, autoSequenceTrigger, autoSequenceEntry
     } = state;
     
     useEffect(() => {
@@ -24,7 +25,8 @@ export const useBotPersistence = (state: ReturnType<typeof useBotState>) => {
             learningData, scoreThreshold, marketStabilityThreshold,
             bankManagementInitialBankroll, bankManagementDailyGoalPercent,
             bankManagementDailyStopPercent, bankManagementCurrentDay,
-            bankManagementActualBankroll
+            bankManagementActualBankroll,
+            autoSequenceActive, autoSequenceTrigger, autoSequenceEntry
         };
         localStorage.setItem('derivBotState', JSON.stringify(stateToSave));
     }, [
@@ -35,6 +37,7 @@ export const useBotPersistence = (state: ReturnType<typeof useBotState>) => {
         learningData, scoreThreshold, marketStabilityThreshold,
         bankManagementInitialBankroll, bankManagementDailyGoalPercent,
         bankManagementDailyStopPercent, bankManagementCurrentDay,
-        bankManagementActualBankroll
+        bankManagementActualBankroll,
+        autoSequenceActive, autoSequenceTrigger, autoSequenceEntry
     ]);
 };

@@ -84,7 +84,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         bankManagementActualBankroll, setBankManagementActualBankroll,
         digitTradeMode, setDigitTradeMode,
         digitPrediction, setDigitPrediction,
-        overUnderDirection, setOverUnderDirection
+        overUnderDirection, setOverUnderDirection,
+        // Sequência Automática
+        autoSequenceActive, setAutoSequenceActive,
+        autoSequenceTrigger, setAutoSequenceTrigger,
+        autoSequenceEntry, setAutoSequenceEntry
     } = stateAndSetters;
 
     const [isConnected, setIsConnected] = useState(false);
@@ -378,6 +382,32 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             };
         }
 
+        // --- ESTRATÉGIA 3: SEQUÊNCIA AUTOMÁTICA PERSONALIZADA ---
+        if (autoSequenceActive && symbol === asset) {
+            const triggerArray = autoSequenceTrigger.split(',').map(s => s.trim().toUpperCase());
+            const len = triggerArray.length;
+            if (digits.length >= len) {
+                let match = true;
+                for (let i = 0; i < len; i++) {
+                    const digitParity = digits[len - 1 - i] % 2 === 0 ? 'E' : 'O';
+                    if (digitParity !== triggerArray[i]) {
+                        match = false;
+                        break;
+                    }
+                }
+
+                if (match) {
+                    return {
+                        type: autoSequenceEntry,
+                        contract: autoSequenceEntry === 'EVEN' ? 'DIGITEVEN' : 'DIGITODD',
+                        name: `Seq: ${autoSequenceTrigger}`,
+                        confidence: 98,
+                        symbol
+                    };
+                }
+            }
+        }
+
         // --- ESTRATÉGIA 1: SOBE / DESCE (RISE/FALL) ---
         // Analisa a tendência de preços reais para Sobe/Desce
         const pr0 = prices[0];
@@ -446,7 +476,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         return null;
-    }, [multiAssetDigits, isStudying]);
+    }, [multiAssetDigits, isStudying, autoSequenceActive, autoSequenceTrigger, autoSequenceEntry, asset]);
 
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string, symbol: string, bypassStudy = false) => {
         if (!isConnected || (!bypassStudy && isStudying) || activeTrades.current.size > 0) return;
