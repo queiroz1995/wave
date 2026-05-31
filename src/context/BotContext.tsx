@@ -53,6 +53,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const pendingContracts = useRef<Map<string, any>>(new Map());
     const reconnectAttemptsRef = useRef(0);
     const sendMessageRef = useRef<(payload: any) => void>(() => {});
+    
+    // Ref para armazenar o histórico de preços reais para análise de Sobe/Desce (Rise/Fall)
+    const pricesRef = useRef<Record<string, number[]>>({});
 
     const {
         addLog, setAccountBalance, setLastDigits, setIsBotRunning,
@@ -139,9 +142,16 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const processTickData = useCallback((tick: { quote: string, epoch: number, symbol: string }) => {
         const symbol = tick.symbol;
+        const price = parseFloat(tick.quote);
         const lastDigit = parseInt(String(tick.quote).replace(/[^\d.]/g, '').slice(-1));
         if (isNaN(lastDigit)) return;
         
+        // Salva o histórico de preços reais
+        if (!pricesRef.current[symbol]) {
+            pricesRef.current[symbol] = [];
+        }
+        pricesRef.current[symbol] = [price, ...pricesRef.current[symbol]].slice(0, 100);
+
         setMultiAssetDigits((prev: Record<string, number[]>) => {
             const currentHistory = prev[symbol] || [];
             const newHistory = [lastDigit, ...currentHistory].slice(0, 500);
@@ -156,8 +166,15 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (virtualTradePending && virtualTradePending.symbol === symbol) {
             let win = false;
-            if (virtualTradePending.contract === 'DIGITEVEN') win = lastDigit % 2 === 0;
-            else if (virtualTradePending.contract === 'DIGITODD') win = lastDigit % 2 !== 0;
+            if (virtualTradePending.contract === 'DIGITEVEN') {
+                win = lastDigit % 2 === 0;
+            } else if (virtualTradePending.contract === 'DIGITODD') {
+                win = lastDigit % 2 !== 0;
+            } else if (virtualTradePending.contract === 'CALL') {
+                win = price > (virtualTradePending.entryPrice || 0);
+            } else if (virtualTradePending.contract === 'PUT') {
+                win = price < (virtualTradePending.entryPrice || 0);
+            }
 
             if (win) {
                 setVirtualLossStreak(0);
@@ -344,16 +361,55 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const calculateTradeSignal = useCallback((symbol: string) => {
         const digits = multiAssetDigits[symbol] || [];
-        if (activeTrades.current.size > 0 || isStudying || digits.length < 5) return null;
+        const prices = pricesRef.current[symbol] || [];
+        if (activeTrades.current.size > 0 || isStudying || digits.length < 5 || prices.length < 5) return null;
 
         if (isGalePausedForFilter.current && symbol === lastTradedAsset.current) return null;
 
         // Se for Gale/Recuperação, mantém a entrada para recuperar
         if (martingaleLevel.current > 0 && lastTradedAsset.current === symbol) {
             const contract = lastContractType.current || 'DIGITEVEN';
-            return { type: contract === 'DIGITEVEN' ? 'EVEN' : 'ODD', contract, name: 'Recovery (Gale)', confidence: 99, symbol };
+            return { 
+                type: contract === 'DIGITEVEN' ? 'EVEN' : contract === 'DIGITODD' ? 'ODD' : contract === 'CALL' ? 'CALL' : 'PUT', 
+                contract, 
+                name: 'Recovery (Gale)', 
+                confidence: 99, 
+                symbol 
+            };
         }
 
+        // --- ESTRATÉGIA 1: SOBE / DESCE (RISE/FALL) ---
+        // Analisa a tendência de preços reais para Sobe/Desce
+        const pr0 = prices[0];
+        const pr1 = prices[1];
+        const pr2 = prices[2];
+        const pr3 = prices[3];
+
+        // Se houver 3 quedas consecutivas de preço, aposta em SOBE (CALL) - Reversão de micro-tendência
+        if (pr0 < pr1 && pr1 < pr2 && pr2 < pr3) {
+            return {
+                type: 'CALL',
+                contract: 'CALL',
+                name: 'WAVE (Sobe)',
+                confidence: 90,
+                symbol,
+                entryPrice: pr0
+            };
+        }
+
+        // Se houver 3 altas consecutivas de preço, aposta em DESCE (PUT) - Reversão de micro-tendência
+        if (pr0 > pr1 && pr1 > pr2 && pr2 > pr3) {
+            return {
+                type: 'PUT',
+                contract: 'PUT',
+                name: 'WAVE (Desce)',
+                confidence: 90,
+                symbol,
+                entryPrice: pr0
+            };
+        }
+
+        // --- ESTRATÉGIA 2: DÍGITOS (PAR/ÍMPAR) ---
         // Evitar sequências de surf (sequências longas seguidas do mesmo dígito)
         let currentStreak = 1;
         const firstParity = digits[0] % 2 === 0;
@@ -423,7 +479,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         const sId = addSignal({ 
             strategy: source, 
-            signal: contractType === 'DIGITEVEN' ? 'EVEN' : 'ODD', 
+            signal: contractType === 'DIGITEVEN' ? 'EVEN' : contractType === 'DIGITODD' ? 'ODD' : contractType === 'CALL' ? 'CALL' : 'PUT', 
             details: `Entrada manual via ${source}`, 
             winRate: '100%' 
         });

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
@@ -251,13 +251,15 @@ export const AIOperatingScreen = () => {
                     </Button>
 
                     {/* Seção de Entradas Manuais */}
-                    <div className="space-y-2 pt-1">
+                    <div className="space-y-3 pt-1">
                         <div className="flex items-center justify-between px-1">
                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Entradas Manuais</span>
                             {isTradePending && (
                                 <span className="text-[8px] font-bold text-cyan-400 animate-pulse uppercase">Operação em andamento...</span>
                             )}
                         </div>
+                        
+                        {/* Botões de Paridade */}
                         <div className="grid grid-cols-2 gap-3">
                             <Button
                                 onClick={() => manualBuy('DIGITEVEN', 'Manual')}
@@ -274,6 +276,26 @@ export const AIOperatingScreen = () => {
                             >
                                 <ArrowDownRight className="h-4 w-4" />
                                 ÍMPAR
+                            </Button>
+                        </div>
+
+                        {/* Botões de Sobe / Desce */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <Button
+                                onClick={() => manualBuy('CALL', 'Manual')}
+                                disabled={!isConnected || isTradePending}
+                                className="h-12 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 font-black uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all duration-300 active:scale-95"
+                            >
+                                <ArrowUp className="h-4 w-4" />
+                                SOBE
+                            </Button>
+                            <Button
+                                onClick={() => manualBuy('PUT', 'Manual')}
+                                disabled={!isConnected || isTradePending}
+                                className="h-12 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 font-black uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all duration-300 active:scale-95"
+                            >
+                                <ArrowDown className="h-4 w-4" />
+                                DESCE
                             </Button>
                         </div>
                     </div>
