@@ -32,16 +32,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const stateAndSetters = useBotState();
     useBotPersistence(stateAndSetters);
 
-    // Inicia diretamente na tela de operações (operating) sem precisar selecionar I.A
-    const [appFlow, setAppFlow] = useState<'selection' | 'operating'>('operating');
-    const [selectedAIInfo, setSelectedAIInfo] = useState<any>({
-        id: "trendSurfer", 
-        name: "NÚCLEO WAVE", 
-        style: "Especialista em Paridade", 
-        image: "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&q=80&w=600",
-        color: "blue"
-    });
-    const [aiThought, setAiThought] = useState("Sistema Pronto para Operações Manuais.");
+    const [appFlow, setAppFlow] = useState<'selection' | 'operating'>('selection');
+    const [selectedAIInfo, setSelectedAIInfo] = useState<any>(null);
+    const [aiThought, setAiThought] = useState("Sincronizando I.A...");
     const [isConnecting, setIsConnecting] = useState(false);
     const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
     const [isSpeaking, setIsSpeaking] = useState(false);
@@ -58,7 +51,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const lastTradedAsset = useRef<string | null>(null);
     
     const isGalePausedForFilter = useRef(false);
-    const isManualSession = useRef(false); 
+    const isManualSession = useRef(false); // Controla se a sessão atual foi iniciada manualmente
 
     const pendingContracts = useRef<Map<string, any>>(new Map());
     const reconnectAttemptsRef = useRef(0);
@@ -275,7 +268,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setVirtualLossStreak(0);
         setVirtualTradePending(null);
         setTradeStatus('IDLE');
-        setAiThought("Sessão Finalizada.");
+        setAiThought("Bot Parado.");
         addLog(reason, 'INFO');
         speak("Operações finalizadas. " + reason);
     }, [setIsBotRunning, addLog, setTradeStatus, speak]);
@@ -298,18 +291,18 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const toggleBot = useCallback(() => {
         if (!isConnected) {
-            speak("Por favor, conecte-se à corretora antes de iniciar.");
+            speak("Por favor, conecte-se à corretora antes de iniciar o robô.");
             toast.error("Conecte-se primeiro.");
             return;
         }
         if (isBotRunning) {
-            stopBot("Sessão Pausada");
+            stopBot("Sniper Pausado");
         } else { 
             setIsBotRunning(true); 
             resetOperations();
             setIsStudying(true);
-            setAiThought("Sessão Manual Ativa. Aguardando suas entradas.");
-            speak("Sessão manual iniciada. Use os botões ou comandos de voz para entrar.");
+            setAiThought("Varrendo ativos por manipulação...");
+            speak("Iniciando Wave Sniper. Analisando padrões de mercado.");
         }
     }, [isConnected, isBotRunning, stopBot, resetOperations, speak]);
 
@@ -427,9 +420,38 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
     const calculateTradeSignal = useCallback((symbol: string) => {
-        // Retorna nulo para desativar completamente as entradas automáticas da I.A
+        const digits = multiAssetDigits[symbol] || [];
+        if (activeTrades.current.size > 0 || isStudying || digits.length < 5) return null;
+
+        if (isGalePausedForFilter.current && symbol === lastTradedAsset.current) return null;
+
+        const { recommendedDirection } = getMarketState(symbol);
+        const direction = isSmartModeActive ? recommendedDirection : entryDirection;
+
+        if (martingaleLevel.current > 0 && lastTradedAsset.current === symbol) {
+            const contract = lastContractType.current || 'DIGITEVEN';
+            return { type: contract === 'DIGITEVEN' ? 'EVEN' : 'ODD', contract, name: 'Recovery (Gale)', confidence: 99, symbol };
+        }
+
+        let currentStreak = 1;
+        const firstParity = digits[0] % 2 === 0;
+        for (let i = 1; i < digits.length; i++) {
+            if ((digits[i] % 2 === 0) === firstParity) currentStreak++;
+            else break;
+        }
+
+        if (currentStreak >= consecutiveTarget) {
+            const targetType = direction === 'AGAINST' ? (firstParity ? 'ODD' : 'EVEN') : (firstParity ? 'EVEN' : 'ODD');
+            return { 
+                type: targetType, 
+                contract: targetType === 'EVEN' ? 'DIGITEVEN' : 'DIGITODD', 
+                name: 'WAVE', 
+                confidence: 85 + (currentStreak * 2), 
+                symbol 
+            };
+        }
         return null;
-    }, []);
+    }, [multiAssetDigits, consecutiveTarget, entryDirection, isStudying, isSmartModeActive, getMarketState]);
 
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string, symbol: string) => {
         if (!isConnected || isStudying || activeTrades.current.size > 0) return;
@@ -469,6 +491,40 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
         executeBuy(contractType, source, sId, asset);
     }, [isConnected, isBotRunning, setIsBotRunning, setIsStudying, setAiThought, addSignal, executeBuy, asset, speak]);
+
+    useEffect(() => {
+        if (!isBotRunning || isStudying) return;
+        
+        for (const symbol of SCANNER_ASSETS.map(a => a.value)) {
+            const signal = calculateTradeSignal(symbol);
+            if (signal) {
+                const { recommendedVirtualLosses } = getMarketState(symbol);
+                const target = isSmartModeActive ? recommendedVirtualLosses : virtualTargetLosses;
+                
+                const isRecovery = signal.name.includes('Recovery');
+                const needsVirtual = target > 0 && virtualLossStreak < target;
+                
+                if (needsVirtual) {
+                    if (!virtualTradePending) {
+                        const sId = addSignal({ 
+                            strategy: isRecovery ? `VIRTUAL (RECOVERY FILTER)` : `VIRTUAL (IA: ${target}L)`, 
+                            signal: signal.type as any, 
+                            details: isRecovery ? `Limpando ciclo para Gale seguro` : `Filtro dinâmico em ${symbol}`, 
+                            winRate: `${signal.confidence}%` 
+                        });
+                        setVirtualTradePending({ ...signal, signalId: sId, symbol });
+                    }
+                    break;
+                }
+                
+                if (activeTrades.current.size === 0) {
+                    const sId = addSignal({ strategy: signal.name, signal: signal.type as any, details: `Sniper Real em ${symbol}`, winRate: `${signal.confidence}%` });
+                    executeBuy(signal.contract as ContractType, signal.name, sId, symbol);
+                    break;
+                }
+            }
+        }
+    }, [isBotRunning, calculateTradeSignal, addSignal, executeBuy, isStudying, virtualTradePending, virtualLossStreak, virtualTargetLosses, isSmartModeActive, getMarketState]);
 
     // Função auxiliar para converter números falados em português para dígitos numéricos
     const parseSpokenNumber = (text: string): string | null => {

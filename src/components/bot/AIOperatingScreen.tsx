@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, Volume2, VolumeX, Mic, MicOff, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, Volume2, VolumeX, Mic, MicOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
@@ -26,12 +26,7 @@ export const AIOperatingScreen = () => {
         takeProfit,
         isVoiceEnabled, setIsVoiceEnabled, isSpeaking,
         isListening, startListening,
-        isConfigModalOpen, setIsConfigModalOpen,
-        digitTradeMode,
-        digitPrediction,
-        overUnderDirection,
-        manualBuy,
-        isConnected
+        isConfigModalOpen, setIsConfigModalOpen
     } = useBotContext();
 
     const hasTriggeredGoalConfettiRef = useRef(false);
@@ -124,14 +119,6 @@ export const AIOperatingScreen = () => {
                 text = 'DESCE'; 
                 baseColor = isVirtual ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20';
                 break;
-            case 'OVER': 
-                text = `ACIMA ${digitPrediction}`; 
-                baseColor = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
-                break;
-            case 'UNDER': 
-                text = `ABAIXO ${digitPrediction}`; 
-                baseColor = 'bg-rose-500/10 text-rose-400 border-rose-500/20';
-                break;
             default: 
                 text = signal; 
                 baseColor = 'bg-slate-500/10 text-slate-400 border-slate-500/20';
@@ -160,20 +147,20 @@ export const AIOperatingScreen = () => {
                             "text-[8px] font-bold uppercase tracking-widest leading-none mt-0.5",
                             isBotRunning ? "text-emerald-400" : "text-slate-500"
                         )}>
-                            {isBotRunning ? "Sessão Ativa" : "Offline"}
+                            {isBotRunning ? (isStudying ? "Sincronizando..." : "Sniper Online") : "Offline"}
                         </span>
                     </div>
                 </div>
 
-                {isBotRunning && (
+                {isBotRunning && !isStudying && (
                     <div className="flex items-center gap-1.5 bg-cyan-500/10 backdrop-blur-xl px-3 py-1 rounded-full border border-cyan-500/20 shadow-lg shadow-cyan-500/5">
                         <Target className="h-3 w-3 text-cyan-400 animate-pulse" />
-                        <span className="text-[9px] font-black text-cyan-400 tracking-wider">Sessão Manual</span>
+                        <span className="text-[9px] font-black text-cyan-400 tracking-wider">{currentConfidence}% Precisão</span>
                     </div>
                 )}
             </div>
 
-            {/* Painel Premium de 8 Dígitos Recentes */}
+            {/* NOVO: Painel Premium de 8 Dígitos Recentes */}
             <RecentDigitsPanel />
 
             {/* Painel Central - Estética "Cyber-Luxury" */}
@@ -203,7 +190,7 @@ export const AIOperatingScreen = () => {
                                         <span className="text-[7px] font-black text-cyan-400 uppercase">PRO</span>
                                     </div>
                                 </div>
-                                <p className="text-[8px] font-bold text-slate-500 uppercase tracking-[0.3em] mt-0.5">Manual Trading Engine</p>
+                                <p className="text-[8px] font-bold text-slate-500 uppercase tracking-[0.3em] mt-0.5">Neural Engine v2.4.0</p>
                             </div>
                         </div>
                         
@@ -298,82 +285,24 @@ export const AIOperatingScreen = () => {
                         </div>
                     </div>
 
-                    {/* --- NOVOS BOTÕES DE ENTRADA MANUAL PREMIUM --- */}
-                    <div className="space-y-3 pt-2 border-t border-white/5">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] text-center">Painel de Operações Manuais</p>
-                        
-                        {/* Renderiza botões dinamicamente com base na modalidade selecionada */}
-                        {digitTradeMode === 'overUnder' ? (
-                            <div className="grid grid-cols-2 gap-3">
-                                <Button 
-                                    onClick={() => manualBuy('DIGITOVER', 'Manual')}
-                                    disabled={!isConnected}
-                                    className="h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm uppercase tracking-widest flex flex-col justify-center gap-1 shadow-lg shadow-emerald-900/20 active:scale-95 transition-all"
-                                >
-                                    <ArrowUpCircle className="h-5 w-5" />
-                                    <span>ACIMA {digitPrediction}</span>
-                                </Button>
-                                <Button 
-                                    onClick={() => manualBuy('DIGITUNDER', 'Manual')}
-                                    disabled={!isConnected}
-                                    className="h-16 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-black text-sm uppercase tracking-widest flex flex-col justify-center gap-1 shadow-lg shadow-rose-900/20 active:scale-95 transition-all"
-                                >
-                                    <ArrowDownCircle className="h-5 w-5" />
-                                    <span>ABAIXO {digitPrediction}</span>
-                                </Button>
-                            </div>
-                        ) : digitTradeMode === 'riseFall' ? (
-                            <div className="grid grid-cols-2 gap-3">
-                                <Button 
-                                    onClick={() => manualBuy('CALL', 'Manual')}
-                                    disabled={!isConnected}
-                                    className="h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm uppercase tracking-widest flex flex-col justify-center gap-1 shadow-lg shadow-emerald-900/20 active:scale-95 transition-all"
-                                >
-                                    <ArrowUpCircle className="h-5 w-5" />
-                                    <span>SOBE (CALL)</span>
-                                </Button>
-                                <Button 
-                                    onClick={() => manualBuy('PUT', 'Manual')}
-                                    disabled={!isConnected}
-                                    className="h-16 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-black text-sm uppercase tracking-widest flex flex-col justify-center gap-1 shadow-lg shadow-rose-900/20 active:scale-95 transition-all"
-                                >
-                                    <ArrowDownCircle className="h-5 w-5" />
-                                    <span>DESCE (PUT)</span>
-                                </Button>
-                            </div>
-                        ) : (
-                            // Par/Ímpar (Padrão e Multimodal)
-                            <div className="grid grid-cols-2 gap-3">
-                                <Button 
-                                    onClick={() => manualBuy('DIGITEVEN', 'Manual')}
-                                    disabled={!isConnected}
-                                    className="h-16 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm uppercase tracking-widest flex flex-col justify-center gap-1 shadow-lg shadow-emerald-900/20 active:scale-95 transition-all"
-                                >
-                                    <span className="text-lg">PAR</span>
-                                    <span className="text-[8px] opacity-60 tracking-widest">DIGITEVEN</span>
-                                </Button>
-                                <Button 
-                                    onClick={() => manualBuy('DIGITODD', 'Manual')}
-                                    disabled={!isConnected}
-                                    className="h-16 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-black text-sm uppercase tracking-widest flex flex-col justify-center gap-1 shadow-lg shadow-rose-900/20 active:scale-95 transition-all"
-                                >
-                                    <span className="text-lg">ÍMPAR</span>
-                                    <span className="text-[8px] opacity-60 tracking-widest">DIGITODD</span>
-                                </Button>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Botão de Configuração Rápida de Sessão */}
+                    {/* Botão de Ignição */}
                     <Button 
                         onClick={handleStartClick}
                         disabled={status.message.includes('Desconectado') || isPaused || isManipulationDetected}
                         className={cn(
-                            "group relative w-full h-12 rounded-2xl overflow-hidden transition-all duration-500 shadow-2xl active:scale-95 bg-slate-900 hover:bg-slate-800 border border-white/10"
+                            "group relative w-full h-16 rounded-2xl overflow-hidden transition-all duration-500 shadow-2xl active:scale-95",
+                            isBotRunning 
+                                ? "bg-rose-600 hover:bg-rose-700 shadow-rose-900/20" 
+                                : "bg-cyan-500 hover:bg-cyan-600 text-slate-950 shadow-cyan-500/20"
                         )}
                     >
-                        <span className="relative flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em]">
-                            Ajustar Limites de Risco <BrainCircuit className="h-4 w-4 text-cyan-400" />
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-shimmer" />
+                        <span className="relative flex items-center gap-2 text-base font-black uppercase tracking-[0.2em]">
+                            {isBotRunning ? (
+                                <>PARAR<Power className="h-4 w-4" /></>
+                            ) : (
+                                <>INICIAR<BrainCircuit className="h-4 w-4" /></>
+                            )}
                         </span>
                     </Button>
 
@@ -430,7 +359,7 @@ export const AIOperatingScreen = () => {
                 </div>
             )}
 
-            {/* Guia de Comandos de Voz Interativo */}
+            {/* NOVO: Guia de Comandos de Voz Interativo */}
             <VoiceCommandsGuide />
 
             {/* Monitor de Sinais - Versão Dark Integrada */}
@@ -477,7 +406,7 @@ export const AIOperatingScreen = () => {
                                 <div className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-white/5 mb-2 border border-white/5">
                                     <Target className="h-4 w-4 text-slate-500" />
                                 </div>
-                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em] italic">Aguardando operações...</p>
+                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em] italic">Aguardando gatilhos neurais...</p>
                             </div>
                         )}
                     </div>
