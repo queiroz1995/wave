@@ -448,8 +448,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return null;
     }, [multiAssetDigits, isStudying]);
 
-    const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string, symbol: string) => {
-        if (!isConnected || isStudying || activeTrades.current.size > 0) return;
+    const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string, symbol: string, bypassStudy = false) => {
+        if (!isConnected || (!bypassStudy && isStudying) || activeTrades.current.size > 0) return;
         const baseStake = parseFloat(initialStake) || 0.35;
         const mgFactor = parseFloat(martingaleFactor) || 2.1; 
         const stakeToUse = martingaleLevel.current > 0 ? baseStake * Math.pow(mgFactor, martingaleLevel.current) : baseStake;
@@ -471,9 +471,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         
         // Ativa a sessão manual inteligente
         isManualSession.current = true;
+        setIsStudying(false); // Sempre aborta o estudo para entrada manual imediata
+        
         if (!isBotRunning) {
             setIsBotRunning(true);
-            setIsStudying(false); // Ignora o estudo inicial para entrada manual imediata
             setAiThought("Entrada manual detectada. Monitorando recuperação inteligente...");
         }
 
@@ -483,7 +484,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             details: `Entrada manual via ${source}`, 
             winRate: '100%' 
         });
-        executeBuy(contractType, source, sId, asset);
+        executeBuy(contractType, source, sId, asset, true); // Passa bypassStudy = true para garantir execução imediata
     }, [isConnected, isBotRunning, setIsBotRunning, setIsStudying, setAiThought, addSignal, executeBuy, asset]);
 
     useEffect(() => {
