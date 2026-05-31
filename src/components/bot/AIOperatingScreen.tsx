@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, ArrowUp, ArrowDown, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
@@ -117,14 +117,6 @@ export const AIOperatingScreen = () => {
                 break;
             case 'PUT': 
                 text = 'DESCE'; 
-                baseColor = isVirtual ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20';
-                break;
-            case 'ONETOUCH': 
-                text = 'TOCA'; 
-                baseColor = isVirtual ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
-                break;
-            case 'NOTOUCH': 
-                text = 'NÃO TOCA'; 
                 baseColor = isVirtual ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20';
                 break;
             default: 
@@ -304,26 +296,6 @@ export const AIOperatingScreen = () => {
                             >
                                 <ArrowDown className="h-4 w-4" />
                                 DESCE
-                            </Button>
-                        </div>
-
-                        {/* Botões de Toca / Não Toca */}
-                        <div className="grid grid-cols-2 gap-3">
-                            <Button
-                                onClick={() => manualBuy('ONETOUCH', 'Manual')}
-                                disabled={!isConnected || isTradePending}
-                                className="h-12 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 font-black uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all duration-300 active:scale-95"
-                            >
-                                <ShieldCheck className="h-4 w-4" />
-                                TOCA
-                            </Button>
-                            <Button
-                                onClick={() => manualBuy('NOTOUCH', 'Manual')}
-                                disabled={!isConnected || isTradePending}
-                                className="h-12 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 font-black uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all duration-300 active:scale-95"
-                            >
-                                <ShieldAlert className="h-4 w-4" />
-                                NÃO TOCA
                             </Button>
                         </div>
                     </div>

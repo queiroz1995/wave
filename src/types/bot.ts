@@ -14,7 +14,7 @@ export interface LogEntry {
     barrier?: number;
 }
 
-export type SignalType = 'EVEN' | 'ODD' | 'OVER' | 'UNDER' | 'CALL' | 'PUT' | 'ONETOUCH' | 'NOTOUCH';
+export type SignalType = 'EVEN' | 'ODD' | 'OVER' | 'UNDER' | 'CALL' | 'PUT';
 
 export interface SignalEntry {
     id: string;
@@ -29,7 +29,7 @@ export interface SignalEntry {
     exitDigit?: number;
 }
 
-export type ContractType = 'DIGITODD' | 'DIGITEVEN' | 'DIGITOVER' | 'DIGITUNDER' | 'CALL' | 'PUT' | 'ONETOUCH' | 'NOTOUCH';
+export type ContractType = 'DIGITODD' | 'DIGITEVEN' | 'DIGITOVER' | 'DIGITUNDER' | 'CALL' | 'PUT';
 
 export type TradeType = 'digit' | 'rise_fall';
 

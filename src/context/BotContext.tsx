@@ -174,10 +174,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 win = price > (virtualTradePending.entryPrice || 0);
             } else if (virtualTradePending.contract === 'PUT') {
                 win = price < (virtualTradePending.entryPrice || 0);
-            } else if (virtualTradePending.contract === 'ONETOUCH') {
-                win = Math.abs(price - (virtualTradePending.entryPrice || 0)) >= 0.05;
-            } else if (virtualTradePending.contract === 'NOTOUCH') {
-                win = Math.abs(price - (virtualTradePending.entryPrice || 0)) < 0.05;
             }
 
             if (win) {
@@ -374,7 +370,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (martingaleLevel.current > 0 && lastTradedAsset.current === symbol) {
             const contract = lastContractType.current || 'DIGITEVEN';
             return { 
-                type: contract === 'DIGITEVEN' ? 'EVEN' : contract === 'DIGITODD' ? 'ODD' : contract === 'CALL' ? 'CALL' : contract === 'PUT' ? 'PUT' : contract === 'ONETOUCH' ? 'ONETOUCH' : 'NOTOUCH', 
+                type: contract === 'DIGITEVEN' ? 'EVEN' : contract === 'DIGITODD' ? 'ODD' : contract === 'CALL' ? 'CALL' : 'PUT', 
                 contract, 
                 name: 'Recovery (Gale)', 
                 confidence: 99, 
@@ -458,9 +454,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const mgFactor = parseFloat(martingaleFactor) || 2.1; 
         const stakeToUse = martingaleLevel.current > 0 ? baseStake * Math.pow(mgFactor, martingaleLevel.current) : baseStake;
         
-        // Para ONETOUCH e NOTOUCH, precisamos de uma barreira (offset). Usamos +0.05 como padrão seguro.
-        const isTouchContract = contractType === 'ONETOUCH' || contractType === 'NOTOUCH';
-        const params: any = { 
+        const params = { 
             amount: parseFloat(stakeToUse.toFixed(2)), 
             basis: 'stake', 
             contract_type: contractType, 
@@ -469,11 +463,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             duration_unit: 't', 
             symbol 
         };
-
-        if (isTouchContract) {
-            params.barrier = "+0.05";
-            params.duration = 5; // Touch/No Touch geralmente requer duração mínima de 5 ticks
-        }
 
         lastContractType.current = contractType;
         lastTradedAsset.current = symbol;
@@ -500,7 +489,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         const sId = addSignal({ 
             strategy: source, 
-            signal: contractType as any, 
+            signal: contractType === 'DIGITEVEN' ? 'EVEN' : contractType === 'DIGITODD' ? 'ODD' : contractType === 'CALL' ? 'CALL' : 'PUT', 
             details: `Entrada manual via ${source}`, 
             winRate: '100%' 
         });
