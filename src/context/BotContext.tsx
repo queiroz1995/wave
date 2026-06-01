@@ -640,28 +640,30 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (autoSequenceActive) return null;
 
-        // --- BLOQUEIO DE SURFE (ANTI-TREND) ---
-        // Se os últimos 3 dígitos tiverem a mesma paridade, a I.A bloqueia a entrada para evitar surfar uma tendência perigosa.
+        // --- DETECÇÃO DE SURFE (SURF THE WAVE - A FAVOR DO MERCADO) ---
+        // Se os últimos 3 dígitos tiverem a mesma paridade, a I.A identifica uma onda forte (tendência).
+        // Em vez de bloquear, ela entra A FAVOR da onda para surfar a tendência.
         const last3Parities = digits.slice(0, 3).map(d => d % 2 === 0 ? 'E' : 'O');
         const isSurf = last3Parities.every(p => p === last3Parities[0]);
         if (isSurf) {
-            setAiThought(`Surfe detectado [${last3Parities.join('-')}]. Bloqueando entrada para segurança.`);
-            return null;
-        }
-
-        // --- ESTRATÉGIA ZIG-ZAG (PRO-ALTERNÂNCIA) ---
-        // Se os últimos 3 dígitos estiverem alternando perfeitamente (ex: Par -> Ímpar -> Par), a I.A projeta a continuação do Zig-Zag.
-        const isAlternating = last3Parities[0] !== last3Parities[1] && last3Parities[1] !== last3Parities[2];
-        if (isAlternating) {
-            const nextExpectedParity = last3Parities[0] === 'E' ? 'O' : 'E';
-            setAiThought(`Zig-Zag detectado [${last3Parities.reverse().join('->')}]. Projetando alternância para ${nextExpectedParity === 'E' ? 'PAR' : 'ÍMPAR'}.`);
+            const waveParity = last3Parities[0];
+            setAiThought(`Onda forte detectada [${last3Parities.join('-')}]. Surfando a tendência de ${waveParity === 'E' ? 'PAR' : 'ÍMPAR'}!`);
             return {
-                type: nextExpectedParity === 'E' ? 'EVEN' : 'ODD',
-                contract: nextExpectedParity === 'E' ? 'DIGITEVEN' : 'DIGITODD',
-                name: 'I.A Zig-Zag',
-                confidence: 88,
+                type: waveParity === 'E' ? 'EVEN' : 'ODD',
+                contract: waveParity === 'E' ? 'DIGITEVEN' : 'DIGITODD',
+                name: 'I.A Surfista (A Favor)',
+                confidence: 94,
                 symbol
             };
+        }
+
+        // --- BLOQUEIO DE ZIG-ZAG (ANTI-CHOPPY) ---
+        // Se o mercado estiver alternando perfeitamente (ex: Par -> Ímpar -> Par), o mercado está sem tendência (lateralizado/choppy).
+        // A I.A bloqueia a entrada para evitar ser estopada na quebra da alternância.
+        const isAlternating = last3Parities[0] !== last3Parities[1] && last3Parities[1] !== last3Parities[2];
+        if (isAlternating) {
+            setAiThought(`Mercado lateralizado (Zig-Zag) [${last3Parities.reverse().join('->')}]. Aguardando formação de onda.`);
+            return null;
         }
 
         // --- MODO 1: MEMÓRIA DE PARIDADE (PAR/ÍMPAR) ---
