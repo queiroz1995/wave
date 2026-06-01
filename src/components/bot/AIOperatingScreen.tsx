@@ -11,7 +11,6 @@ import { QuickConfigModal } from './QuickConfigModal';
 import { SettingsSheet } from './SettingsSheet';
 import { RecentDigitsPanel } from './RecentDigitsPanel';
 import { Progress } from '@/components/ui/progress';
-import { sounds } from '@/utils/sounds';
 import confetti from 'canvas-confetti';
 
 export const AIOperatingScreen = () => {
@@ -48,20 +47,6 @@ export const AIOperatingScreen = () => {
         });
     }, [totalProfit]);
 
-    // Toca sons de vitória ou derrota baseados nos sinais recebidos
-    useEffect(() => {
-        if (signals.length > 0) {
-            const mostRecentSignal = signals[0];
-            if (mostRecentSignal.result === 'WIN') {
-                sounds.playSuccess();
-                sounds.vibrate([100, 50, 100]);
-            } else if (mostRecentSignal.result === 'LOSS') {
-                sounds.playFailure();
-                sounds.vibrate(250);
-            }
-        }
-    }, [signals]);
-
     // Resetar o gatilho de confete quando o lucro for zerado (ao reiniciar as operações)
     useEffect(() => {
         if (totalProfit === 0) {
@@ -75,7 +60,6 @@ export const AIOperatingScreen = () => {
         const targetProfit = parseFloat(takeProfit) || 0;
         if (targetProfit > 0 && totalProfit >= targetProfit && !hasTriggeredGoalConfettiRef.current) {
             hasTriggeredGoalConfettiRef.current = true;
-            sounds.playSuccess();
             
             // Celebração Premium de Meta Batida (Várias explosões consecutivas)
             const duration = 4 * 1000;
@@ -118,13 +102,11 @@ export const AIOperatingScreen = () => {
     const currentToken = accountType === 'real' ? realToken : demoToken;
 
     const handleStartClick = () => {
-        sounds.playClick();
         if (isBotRunning) toggleBot();
         else setIsConfigModalOpen(true);
     };
 
     const confirmStart = () => {
-        sounds.playLaser();
         setIsConfigModalOpen(false);
         toggleBot();
     };
@@ -289,11 +271,11 @@ export const AIOperatingScreen = () => {
                         
                         <div className="flex items-center gap-1.5">
                             <SettingsSheet trigger={
-                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all" onClick={() => sounds.playClick()}>
+                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
                                     <FileSpreadsheet className="h-3.5 w-3.5 text-slate-300" />
                                 </Button>
                             } />
-                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20 hover:bg-rose-500/20 transition-all" onClick={() => { sounds.playClick(); exitToSelection(); }}>
+                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20 hover:bg-rose-500/20 transition-all" onClick={exitToSelection}>
                                 <Power className="h-3.5 w-3.5" />
                             </Button>
                         </div>
@@ -364,7 +346,7 @@ export const AIOperatingScreen = () => {
                         {/* Botões de Paridade */}
                         <div className="grid grid-cols-2 gap-3">
                             <Button
-                                onClick={() => { sounds.playLaser(); manualBuy('DIGITEVEN', 'Manual'); }}
+                                onClick={() => manualBuy('DIGITEVEN', 'Manual')}
                                 disabled={!isConnected || isTradePending}
                                 className="h-12 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 font-black uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all duration-300 active:scale-95"
                             >
@@ -372,7 +354,7 @@ export const AIOperatingScreen = () => {
                                 PAR
                             </Button>
                             <Button
-                                onClick={() => { sounds.playLaser(); manualBuy('DIGITODD', 'Manual'); }}
+                                onClick={() => manualBuy('DIGITODD', 'Manual')}
                                 disabled={!isConnected || isTradePending}
                                 className="h-12 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 font-black uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all duration-300 active:scale-95"
                             >
@@ -384,7 +366,7 @@ export const AIOperatingScreen = () => {
                         {/* Botões de Sobe / Desce */}
                         <div className="grid grid-cols-2 gap-3">
                             <Button
-                                onClick={() => { sounds.playLaser(); manualBuy('CALL', 'Manual'); }}
+                                onClick={() => manualBuy('CALL', 'Manual')}
                                 disabled={!isConnected || isTradePending}
                                 className="h-12 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 font-black uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all duration-300 active:scale-95"
                             >
@@ -392,7 +374,7 @@ export const AIOperatingScreen = () => {
                                 SOBE
                             </Button>
                             <Button
-                                onClick={() => { sounds.playLaser(); manualBuy('PUT', 'Manual'); }}
+                                onClick={() => manualBuy('PUT', 'Manual')}
                                 disabled={!isConnected || isTradePending}
                                 className="h-12 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 font-black uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all duration-300 active:scale-95"
                             >
@@ -427,7 +409,7 @@ export const AIOperatingScreen = () => {
                             variant="ghost" 
                             size="icon" 
                             className="h-8 w-8 rounded-lg bg-white/5 hover:bg-white/10 hover:rotate-180 transition-all duration-500" 
-                            onClick={() => { sounds.playClick(); handleConnect(accountType, currentToken); }}
+                            onClick={() => handleConnect(accountType, currentToken)}
                         >
                             <RefreshCw className="h-3.5 w-3.5 text-slate-400" />
                         </Button>
@@ -462,7 +444,7 @@ export const AIOperatingScreen = () => {
                         <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Feed de Operações</span>
                     </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5" onClick={() => { sounds.playClick(); resetOperations(); }}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5" onClick={resetOperations}>
                         <RotateCcw className="h-3.5 w-3.5 text-slate-400" />
                     </Button>
                 </div>
