@@ -10,6 +10,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
 import { SettingsSheet } from './SettingsSheet';
 import { RecentDigitsPanel } from './RecentDigitsPanel';
+import { PerformanceAnalytics } from './PerformanceAnalytics';
+import { Progress } from '@/components/ui/progress';
 import confetti from 'canvas-confetti';
 
 export const AIOperatingScreen = () => {
@@ -129,6 +131,13 @@ export const AIOperatingScreen = () => {
 
     const isTradePending = tradeStatus === 'SENDING' || tradeStatus === 'ACTIVE';
 
+    // Calcula a porcentagem de progresso da meta diária
+    const goalProgressPercentage = React.useMemo(() => {
+        const target = parseFloat(takeProfit) || 0;
+        if (target <= 0 || totalProfit <= 0) return 0;
+        return Math.min(100, (totalProfit / target) * 100);
+    }, [totalProfit, takeProfit]);
+
     return (
         <div className="w-full max-w-md mx-auto space-y-3 animate-in fade-in slide-in-from-bottom-8 duration-1000 px-1 pb-6">
             
@@ -161,6 +170,17 @@ export const AIOperatingScreen = () => {
                     </div>
                 )}
             </div>
+
+            {/* Barra de Progresso da Meta Diária (Take Profit) */}
+            {parseFloat(takeProfit) > 0 && (
+                <div className="bg-slate-950/40 backdrop-blur-md border border-white/5 rounded-2xl p-3 space-y-1.5">
+                    <div className="flex justify-between items-center text-[8px] font-bold uppercase tracking-wider text-slate-400">
+                        <span>Progresso da Meta</span>
+                        <span className="text-emerald-400 font-black">${totalProfit.toFixed(2)} / ${parseFloat(takeProfit).toFixed(2)}</span>
+                    </div>
+                    <Progress value={goalProgressPercentage} className="h-1.5 [&>div]:bg-emerald-400" />
+                </div>
+            )}
 
             {/* Painel Premium de 8 Dígitos Recentes */}
             <RecentDigitsPanel />
@@ -332,6 +352,9 @@ export const AIOperatingScreen = () => {
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Painel de Análise de Performance e Curva de Patrimônio */}
+            <PerformanceAnalytics />
 
             {/* AI Thought Stream */}
             {isBotRunning && (
