@@ -6,7 +6,6 @@ import { useBotPersistence } from '../hooks/bot/useBotPersistence';
 import { useTradingWebSocketManager } from '../hooks/bot/useTradingWebSocketManager';
 import { ContractType } from '@/types/bot';
 import { toast } from "sonner";
-import { audioSynth } from '@/utils/audio';
 
 const BotContext = createContext<any>(undefined);
 
@@ -227,7 +226,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTradeStatus('IDLE');
         setAiThought("Bot Parado.");
         addLog(reason, 'INFO');
-        audioSynth.playLoss(); // Alerta sonoro de parada
     }, [setIsBotRunning, addLog, setTradeStatus]);
 
     const resetOperations = useCallback(() => {
@@ -257,7 +255,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             resetOperations();
             setIsStudying(true);
             setAiThought("Varrendo ativos por manipulação...");
-            audioSynth.playStart(); // Som futurista de inicialização
         }
     }, [isConnected, isBotRunning, stopBot, resetOperations]);
 
@@ -323,7 +320,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         if (isLoss) {
                             setLosses((prev: number) => prev + 1);
                             martingaleLevel.current += 1;
-                            audioSynth.playLoss(); // Som de derrota
                             
                             // Se atingiu o limite máximo de gales configurado
                             if (martingaleLevel.current > maxLevels) {
@@ -351,7 +347,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             isGalePausedForFilter.current = false;
                             setVirtualLossStreak(0);
                             setAiThought("Operação Neutralizada com Sucesso.");
-                            audioSynth.playWin(); // Som de vitória
 
                             // Se era uma sessão manual, para o bot de forma inteligente após a vitória
                             if (isManualSession.current) {
@@ -550,7 +545,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             winRate: '100%' 
         });
         executeBuy(contractType, source, sId, asset, true); // Passa bypassStudy = true para garantir execução imediata
-        audioSynth.playClick(); // Som de clique tátil
     }, [isConnected, isBotRunning, setIsBotRunning, setIsStudying, setAiThought, addSignal, executeBuy, asset]);
 
     useEffect(() => {
