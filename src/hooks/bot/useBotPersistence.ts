@@ -10,9 +10,21 @@ export const useBotPersistence = (state: ReturnType<typeof useBotState>) => {
         martingaleFactor, maxLevels, takeProfit, stopLoss,
         isMartingaleActive, analyzerWindowSize, isManualMode,
         learningData, scoreThreshold, marketStabilityThreshold,
-        bankManagementInitialBankroll, bankManagementDailyGoalPercent,
-        bankManagementDailyStopPercent, bankManagementCurrentDay,
-        bankManagementActualBankroll, bankManagementHistory,
+        
+        // Banca Separada
+        realInitialBankroll, demoInitialBankroll,
+        realDailyGoalPercent, demoDailyGoalPercent,
+        realDailyStopPercent, demoDailyStopPercent,
+        realCurrentDay, demoCurrentDay,
+        realActualBankroll, demoActualBankroll,
+        realBankHistory, demoBankHistory,
+        
+        // Resultados Separados
+        realTotalProfit, demoTotalProfit,
+        realWins, demoWins,
+        realLosses, demoLosses,
+        realSignals, demoSignals,
+
         autoSequenceActive, autoSequenceTrigger, autoSequenceEntry
     } = state;
     
@@ -23,9 +35,21 @@ export const useBotPersistence = (state: ReturnType<typeof useBotState>) => {
             martingaleFactor, maxLevels, takeProfit, stopLoss,
             isMartingaleActive, analyzerWindowSize, isManualMode,
             learningData, scoreThreshold, marketStabilityThreshold,
-            bankManagementInitialBankroll, bankManagementDailyGoalPercent,
-            bankManagementDailyStopPercent, bankManagementCurrentDay,
-            bankManagementActualBankroll, bankManagementHistory,
+            
+            // Banca Separada
+            realInitialBankroll, demoInitialBankroll,
+            realDailyGoalPercent, demoDailyGoalPercent,
+            realDailyStopPercent, demoDailyStopPercent,
+            realCurrentDay, demoCurrentDay,
+            realActualBankroll, demoActualBankroll,
+            realBankHistory, demoBankHistory,
+            
+            // Resultados Separados
+            realTotalProfit, demoTotalProfit,
+            realWins, demoWins,
+            realLosses, demoLosses,
+            realSignals, demoSignals,
+
             autoSequenceActive, autoSequenceTrigger, autoSequenceEntry
         };
         localStorage.setItem('derivBotState', JSON.stringify(stateToSave));
@@ -35,9 +59,21 @@ export const useBotPersistence = (state: ReturnType<typeof useBotState>) => {
         martingaleFactor, maxLevels, takeProfit, stopLoss,
         isMartingaleActive, analyzerWindowSize, isManualMode,
         learningData, scoreThreshold, marketStabilityThreshold,
-        bankManagementInitialBankroll, bankManagementDailyGoalPercent,
-        bankManagementDailyStopPercent, bankManagementCurrentDay,
-        bankManagementActualBankroll, bankManagementHistory,
+        
+        // Banca Separada
+        realInitialBankroll, demoInitialBankroll,
+        realDailyGoalPercent, demoDailyGoalPercent,
+        realDailyStopPercent, demoDailyStopPercent,
+        realCurrentDay, demoCurrentDay,
+        realActualBankroll, demoActualBankroll,
+        realBankHistory, demoBankHistory,
+        
+        // Resultados Separados
+        realTotalProfit, demoTotalProfit,
+        realWins, demoWins,
+        realLosses, demoLosses,
+        realSignals, demoSignals,
+
         autoSequenceActive, autoSequenceTrigger, autoSequenceEntry
     ]);
 };

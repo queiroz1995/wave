@@ -4,7 +4,7 @@ import React, { createContext, useContext, useRef, useCallback, useEffect, useSt
 import { useBotState } from '../hooks/bot/useBotState';
 import { useBotPersistence } from '../hooks/bot/useBotPersistence';
 import { useTradingWebSocketManager } from '../hooks/bot/useTradingWebSocketManager';
-import { ContractType } from '@/types/bot';
+import { ContractType, SignalEntry } from '@/types/bot';
 import { toast } from "sonner";
 
 const BotContext = createContext<any>(undefined);
@@ -61,8 +61,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const {
         addLog, setAccountBalance, setLastDigits, setIsBotRunning,
-        setTotalProfit, setWins, setLosses,
-        asset, setAsset, initialStake, setInitialStake, addSignal, updateSignalResult,
+        asset, setAsset, initialStake, setInitialStake,
         lastDigits, setLastTickEpoch, lastTickEpoch,
         multiAssetDigits, setMultiAssetDigits,
         setTradeStatus, isBotRunning, setActiveStrategy,
@@ -78,21 +77,122 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         virtualTargetLosses, setVirtualTargetLosses,
         consecutiveTarget, setConsecutiveTarget, entryDirection, setEntryDirection,
         isSmartModeActive, setIsSmartModeActive,
-        setSignals, accountBalance, wins, losses,
-        bankManagementInitialBankroll, setBankManagementInitialBankroll,
-        bankManagementDailyGoalPercent, setBankManagementDailyGoalPercent,
-        bankManagementDailyStopPercent, setBankManagementDailyStopPercent,
-        bankManagementCurrentDay, setBankManagementCurrentDay,
-        bankManagementActualBankroll, setBankManagementActualBankroll,
-        bankManagementHistory, setBankManagementHistory,
+        accountBalance,
+        
+        // Resultados Separados
+        realTotalProfit, setRealTotalProfit,
+        demoTotalProfit, setDemoTotalProfit,
+        realWins, setRealWins,
+        demoWins, setDemoWins,
+        realLosses, setRealLosses,
+        demoLosses, setDemoLosses,
+        realSignals, setRealSignals,
+        demoSignals, setDemoSignals,
+
+        // Banca Separada
+        realInitialBankroll, setRealInitialBankroll,
+        demoInitialBankroll, setDemoInitialBankroll,
+        realDailyGoalPercent, setRealDailyGoalPercent,
+        demoDailyGoalPercent, setDemoDailyGoalPercent,
+        realDailyStopPercent, setRealDailyStopPercent,
+        demoDailyStopPercent, setDemoDailyStopPercent,
+        realCurrentDay, setRealCurrentDay,
+        demoCurrentDay, setDemoCurrentDay,
+        realActualBankroll, setRealActualBankroll,
+        demoActualBankroll, setDemoActualBankroll,
+        realBankHistory, setRealBankHistory,
+        demoBankHistory, setDemoBankHistory,
+
         digitTradeMode, setDigitTradeMode,
         digitPrediction, setDigitPrediction,
         overUnderDirection, setOverUnderDirection,
         // Sequência Automática
         autoSequenceActive, setAutoSequenceActive,
         autoSequenceTrigger, setAutoSequenceTrigger,
-        autoSequenceEntry, setAutoSequenceEntry
+        autoSequenceEntry, setAutoSequenceEntry,
+        generateSignalId
     } = stateAndSetters;
+
+    // --- MAPEAMENTO DINÂMICO DE ESTADOS (REAL VS DEMO) ---
+    const isReal = accountType === 'real';
+
+    const totalProfit = isReal ? realTotalProfit : demoTotalProfit;
+    const wins = isReal ? realWins : demoWins;
+    const losses = isReal ? realLosses : demoLosses;
+    const signals = isReal ? realSignals : demoSignals;
+
+    const bankManagementInitialBankroll = isReal ? realInitialBankroll : demoInitialBankroll;
+    const bankManagementDailyGoalPercent = isReal ? realDailyGoalPercent : demoDailyGoalPercent;
+    const bankManagementDailyStopPercent = isReal ? realDailyStopPercent : demoDailyStopPercent;
+    const bankManagementCurrentDay = isReal ? realCurrentDay : demoCurrentDay;
+    const bankManagementActualBankroll = isReal ? realActualBankroll : demoActualBankroll;
+    const bankManagementHistory = isReal ? realBankHistory : demoBankHistory;
+
+    // Sincroniza a referência de lucro com o estado ativo ao mudar de conta
+    useEffect(() => {
+        totalProfitRef.current = isReal ? realTotalProfit : demoTotalProfit;
+    }, [accountType, isReal, realTotalProfit, demoTotalProfit]);
+
+    // Setters dinâmicos que atualizam a conta correta
+    const setTotalProfit = useCallback((val: number) => {
+        if (isReal) setRealTotalProfit(val);
+        else setDemoTotalProfit(val);
+    }, [isReal, setRealTotalProfit, setDemoTotalProfit]);
+
+    const setWins = useCallback((val: number | ((prev: number) => number)) => {
+        if (isReal) setRealWins(val);
+        else setDemoWins(val);
+    }, [isReal, setRealWins, setDemoWins]);
+
+    const setLosses = useCallback((val: number | ((prev: number) => number)) => {
+        if (isReal) setRealLosses(val);
+        else setDemoLosses(val);
+    }, [isReal, setRealLosses, setDemoLosses]);
+
+    const setSignals = useCallback((val: SignalEntry[] | ((prev: SignalEntry[]) => SignalEntry[])) => {
+        if (isReal) setRealSignals(val);
+        else setDemoSignals(val);
+    }, [isReal, setRealSignals, setDemoSignals]);
+
+    const setBankManagementInitialBankroll = useCallback((val: string) => {
+        if (isReal) setRealInitialBankroll(val);
+        else setDemoInitialBankroll(val);
+    }, [isReal, setRealInitialBankroll, setDemoInitialBankroll]);
+
+    const setBankManagementDailyGoalPercent = useCallback((val: string) => {
+        if (isReal) setRealDailyGoalPercent(val);
+        else setDemoDailyGoalPercent(val);
+    }, [isReal, setRealDailyGoalPercent, setDemoDailyGoalPercent]);
+
+    const setBankManagementDailyStopPercent = useCallback((val: string) => {
+        if (isReal) setRealDailyStopPercent(val);
+        else setDemoDailyStopPercent(val);
+    }, [isReal, setRealDailyStopPercent, setDemoDailyStopPercent]);
+
+    const setBankManagementCurrentDay = useCallback((val: number | ((prev: number) => number)) => {
+        if (isReal) setRealCurrentDay(val);
+        else setDemoCurrentDay(val);
+    }, [isReal, setRealCurrentDay, setDemoCurrentDay]);
+
+    const setBankManagementActualBankroll = useCallback((val: string) => {
+        if (isReal) setRealActualBankroll(val);
+        else setDemoActualBankroll(val);
+    }, [isReal, setRealActualBankroll, setDemoActualBankroll]);
+
+    const setBankManagementHistory = useCallback((val: any | ((prev: any) => any)) => {
+        if (isReal) setRealBankHistory(val);
+        else setDemoBankHistory(val);
+    }, [isReal, setRealBankHistory, setDemoBankHistory]);
+
+    const addSignal = useCallback((signal: Omit<SignalEntry, 'timestamp' | 'id'>) => {
+        const newSignal: SignalEntry = { ...signal, id: generateSignalId(), timestamp: new Date().toLocaleTimeString('pt-BR', { hour12: false }) };
+        setSignals(prev => [newSignal, ...prev].slice(0, 100));
+        return newSignal.id;
+    }, [setSignals, generateSignalId]);
+
+    const updateSignalResult = useCallback((id: string, result: 'WIN' | 'LOSS', profit: number, stake: number | undefined, exitDigit?: number) => {
+        setSignals(prev => prev.map(s => s.id === id ? { ...s, result, profit, stake, exitDigit } : s));
+    }, [setSignals]);
 
     const [isConnected, setIsConnected] = useState(false);
     const [status, setStatus] = useState({ message: 'Desconectado', color: 'bg-red-500' });
@@ -674,8 +774,23 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const contextValue = useMemo(() => ({
         ...stateAndSetters, isConnected, isConnecting, status, handleConnect, handleDisconnect: disconnect, 
         toggleBot, resetOperations, appFlow, setAppFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, aiThought,
-        manualBuy, isSettingsOpen, setIsSettingsOpen, isConfigModalOpen, setIsConfigModalOpen, saveDayToHistory
-    }), [stateAndSetters, isConnected, isConnecting, status, handleConnect, disconnect, toggleBot, resetOperations, appFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, aiThought, manualBuy, isSettingsOpen, isConfigModalOpen, saveDayToHistory]);
+        manualBuy, isSettingsOpen, setIsSettingsOpen, isConfigModalOpen, setIsConfigModalOpen, saveDayToHistory,
+        
+        // Expondo dinamicamente os estados ativos
+        totalProfit, wins, losses, signals,
+        bankManagementInitialBankroll, bankManagementDailyGoalPercent, bankManagementDailyStopPercent,
+        bankManagementCurrentDay, bankManagementActualBankroll, bankManagementHistory,
+        setTotalProfit, setWins, setLosses, setSignals,
+        setBankManagementInitialBankroll, setBankManagementDailyGoalPercent, setBankManagementDailyStopPercent,
+        setBankManagementCurrentDay, setBankManagementActualBankroll, setBankManagementHistory
+    }), [stateAndSetters, isConnected, isConnecting, status, handleConnect, disconnect, toggleBot, resetOperations, appFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, aiThought, manualBuy, isSettingsOpen, isConfigModalOpen, saveDayToHistory,
+        totalProfit, wins, losses, signals,
+        bankManagementInitialBankroll, bankManagementDailyGoalPercent, bankManagementDailyStopPercent,
+        bankManagementCurrentDay, bankManagementActualBankroll, bankManagementHistory,
+        setTotalProfit, setWins, setLosses, setSignals,
+        setBankManagementInitialBankroll, setBankManagementDailyGoalPercent, setBankManagementDailyStopPercent,
+        setBankManagementCurrentDay, setBankManagementActualBankroll, setBankManagementHistory
+    ]);
 
     return <BotContext.Provider value={contextValue}>{children}</BotContext.Provider>;
 };
