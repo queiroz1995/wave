@@ -537,10 +537,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { sendMessage, connect, disconnect } = ws;
     useEffect(() => { sendMessageRef.current = sendMessage; }, [sendMessage]);
 
+    // --- SISTEMA DE MEMÓRIA COGNITIVA DA I.A (PATTERN MATCHING HISTÓRICO) ---
     const calculateTradeSignal = useCallback((symbol: string) => {
         const digits = multiAssetDigits[symbol] || [];
         const prices = pricesRef.current[symbol] || [];
-        if (activeTrades.current.size > 0 || isStudying || digits.length < 4 || prices.length < 5) return null;
+        if (activeTrades.current.size > 0 || isStudying || digits.length < 50 || prices.length < 50) return null;
 
         if (isGalePausedForFilter.current && symbol === lastTradedAsset.current) return null;
 
@@ -561,10 +562,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const triggerArray = autoSequenceTrigger.split(',').map(s => s.trim().toUpperCase());
             const len = triggerArray.length;
             if (digits.length >= len) {
-                // Pega os últimos 'len' dígitos e inverte para ordem cronológica (mais antigo para o mais recente)
                 const recentDigitsChronological = digits.slice(0, len).reverse();
                 const currentParities = recentDigitsChronological.map(d => d % 2 === 0 ? 'E' : 'O');
-                
                 const match = triggerArray.every((val, idx) => val === currentParities[idx]);
 
                 if (match) {
@@ -579,74 +578,104 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
         }
 
-        // Se a sequência automática estiver ativa, não executa as outras estratégias para evitar conflito
         if (autoSequenceActive) return null;
 
-        // --- ESTRATÉGIA 1: SOBE / DESCE (RISE/FALL) ---
-        // Analisa a tendência de preços reais para Sobe/Desce
-        const pr0 = prices[0];
-        const pr1 = prices[1];
-        const pr2 = prices[2];
-        const pr3 = prices[3];
+        // --- MODO 1: MEMÓRIA DE PARIDADE (PAR/ÍMPAR) ---
+        // A I.A analisa a sequência de paridade dos últimos 3 dígitos e busca na memória de 500 dígitos o que costuma acontecer em seguida.
+        const currentParityPattern = digits.slice(0, 3).map(d => d % 2 === 0 ? 'E' : 'O').reverse().join('');
+        let parityMatches = 0;
+        let nextEvenCount = 0;
+        let nextOddCount = 0;
 
-        // Se houver 3 quedas consecutivas de preço, aposta em SOBE (CALL) - Reversão de micro-tendência
-        if (pr0 < pr1 && pr1 < pr2 && pr2 < pr3) {
-            return {
-                type: 'CALL',
-                contract: 'CALL',
-                name: 'WAVE (Sobe)',
-                confidence: 90,
-                symbol,
-                entryPrice: pr0
-            };
+        const historyParities = digits.map(d => d % 2 === 0 ? 'E' : 'O').reverse();
+        for (let i = 0; i < historyParities.length - 4; i++) {
+            const pattern = historyParities.slice(i, i + 3).join('');
+            if (pattern === currentParityPattern) {
+                parityMatches++;
+                const next = historyParities[i + 3];
+                if (next === 'E') nextEvenCount++;
+                else nextOddCount++;
+            }
         }
 
-        // Se houver 3 altas consecutivas de preço, aposta em DESCE (PUT) - Reversão de micro-tendência
-        if (pr0 > pr1 && pr1 > pr2 && pr2 > pr3) {
-            return {
-                type: 'PUT',
-                contract: 'PUT',
-                name: 'WAVE (Desce)',
-                confidence: 90,
-                symbol,
-                entryPrice: pr0
-            };
+        // Se houver pelo menos 5 ocorrências idênticas no histórico, calcula a probabilidade
+        if (parityMatches >= 5) {
+            const evenProbability = nextEvenCount / parityMatches;
+            const oddProbability = nextOddCount / parityMatches;
+
+            if (evenProbability >= 0.62) {
+                setAiThought(`Memória I.A: Padrão [${currentParityPattern}] tem ${Math.round(evenProbability * 100)}% de chance de PAR.`);
+                return {
+                    type: 'EVEN',
+                    contract: 'DIGITEVEN',
+                    name: 'I.A Memória (Par)',
+                    confidence: Math.round(evenProbability * 100),
+                    symbol
+                };
+            }
+            if (oddProbability >= 0.62) {
+                setAiThought(`Memória I.A: Padrão [${currentParityPattern}] tem ${Math.round(oddProbability * 100)}% de chance de ÍMPAR.`);
+                return {
+                    type: 'ODD',
+                    contract: 'DIGITODD',
+                    name: 'I.A Memória (Ímpar)',
+                    confidence: Math.round(oddProbability * 100),
+                    symbol
+                };
+            }
         }
 
-        // --- ESTRATÉGIA 2: DÍGITOS (PAR/ÍMPAR) ---
-        // Evitar sequências de surf (sequências longas seguidas do mesmo dígito)
-        let currentStreak = 1;
-        const firstParity = digits[0] % 2 === 0;
-        for (let i = 1; i < digits.length; i++) {
-            if ((digits[i] % 2 === 0) === firstParity) currentStreak++;
-            else break;
+        // --- MODO 2: MEMÓRIA DE MOVIMENTO (SOBE/DESCE) ---
+        // A I.A converte os preços históricos em movimentos de Alta (U) ou Baixa (D), analisa os últimos 3 movimentos e busca padrões idênticos no histórico.
+        const chronoPrices = [...prices].reverse();
+        const chronoMovements: string[] = [];
+        for (let i = 1; i < chronoPrices.length; i++) {
+            chronoMovements.push(chronoPrices[i] > chronoPrices[i-1] ? 'U' : 'D');
         }
 
-        // Se houver uma sequência muito longa (surf), não entra para evitar pegar a tendência infinita
-        if (currentStreak >= 3) {
-            return null; 
-        }
+        if (chronoMovements.length >= 10) {
+            const currentMovementPattern = chronoMovements.slice(-3).join('');
+            let movementMatches = 0;
+            let nextUpCount = 0;
+            let nextDownCount = 0;
 
-        // Padrão Mesclado (Alternado): Ex: Par, Ímpar, Par ou Ímpar, Par, Ímpar nos últimos 4 dígitos
-        const p0 = digits[0] % 2 === 0;
-        const p1 = digits[1] % 2 === 0;
-        const p2 = digits[2] % 2 === 0;
-        const p3 = digits[3] % 2 === 0;
+            for (let i = 0; i < chronoMovements.length - 4; i++) {
+                const pattern = chronoMovements.slice(i, i + 3).join('');
+                if (pattern === currentMovementPattern) {
+                    movementMatches++;
+                    const next = chronoMovements[i + 3];
+                    if (next === 'U') nextUpCount++;
+                    else nextDownCount++;
+                }
+            }
 
-        // Detecta alternância perfeita nos últimos 4 dígitos (ex: E, O, E, O)
-        const isAlternating = (p0 !== p1) && (p1 !== p2) && (p2 !== p3);
+            if (movementMatches >= 5) {
+                const upProbability = nextUpCount / movementMatches;
+                const downProbability = nextDownCount / movementMatches;
 
-        if (isAlternating) {
-            // Se o último foi Par (p0 === true), apostamos que vai continuar alternando e será Ímpar (ODD)
-            // Se o último foi Ímpar (p0 === false), apostamos que será Par (EVEN)
-            const targetType = p0 ? 'ODD' : 'EVEN';
-            return {
-                type: targetType,
-                contract: targetType === 'EVEN' ? 'DIGITEVEN' : 'DIGITODD',
-                name: 'WAVE (Mesclado)',
-                confidence: 92,
-                symbol
-            };
+                if (upProbability >= 0.62) {
+                    setAiThought(`Memória I.A: Tendência [${currentMovementPattern}] tem ${Math.round(upProbability * 100)}% de chance de ALTA.`);
+                    return {
+                        type: 'CALL',
+                        contract: 'CALL',
+                        name: 'I.A Memória (Sobe)',
+                        confidence: Math.round(upProbability * 100),
+                        symbol,
+                        entryPrice: prices[0]
+                    };
+                }
+                if (downProbability >= 0.62) {
+                    setAiThought(`Memória I.A: Tendência [${currentMovementPattern}] tem ${Math.round(downProbability * 100)}% de chance de BAIXA.`);
+                    return {
+                        type: 'PUT',
+                        contract: 'PUT',
+                        name: 'I.A Memória (Desce)',
+                        confidence: Math.round(downProbability * 100),
+                        symbol,
+                        entryPrice: prices[0]
+                    };
+                }
+            }
         }
 
         return null;
@@ -751,7 +780,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setIsConnecting(true);
             if (isConnected) { 
                 disconnect(); 
-                // Pequeno delay seguro para garantir que o socket anterior fechou completamente
                 setTimeout(() => {
                     connect(token, type);
                 }, 600);
