@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DollarSign, ShieldCheck, Play, Zap, BrainCircuit } from 'lucide-react';
+import { DollarSign, ShieldCheck, Play, BrainCircuit, Target, AlertTriangle } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
 
 interface QuickConfigModalProps {
@@ -30,40 +30,50 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
         setMaxLevels,
         setMartingaleFactor,
         setIsSorosActive,
-        setSorosLevels,
-        setSorosProfitPercentage,
         setDigitTradeMode
     } = useBotContext();
     
     const [bankroll, setBankroll] = useState('100.00');
+    const [customStake, setCustomStake] = useState('1.00');
+    const [customMeta, setCustomMeta] = useState('5.00');
+    const [customStop, setCustomStop] = useState('15.00');
 
-    const handleConfirm = () => {
+    // Atualiza as sugestões automaticamente quando a banca é alterada
+    useEffect(() => {
         const bankrollValue = parseFloat(bankroll) || 100;
         
-        // --- CONFIGURAÇÃO AUTOMÁTICA INTELIGENTE (Foco em Alta Lucratividade e Proteção) ---
-        // 1. Stake Inicial: 1% da banca (mínimo de $0.35 para segurança matemática)
+        // Entrada Inicial: 1% da banca (mínimo de $0.35)
         const calculatedStake = Math.max(0.35, bankrollValue * 0.01);
-        setInitialStake(calculatedStake.toFixed(2));
+        setCustomStake(calculatedStake.toFixed(2));
 
-        // 2. Meta Diária (Take Profit): 5% da banca (altamente alcançável e consistente)
+        // Meta Diária (Take Profit): 5% da banca
         const calculatedMeta = bankrollValue * 0.05;
-        setTakeProfit(calculatedMeta.toFixed(2));
+        setCustomMeta(calculatedMeta.toFixed(2));
 
-        // 3. Limite de Perda (Stop Loss): 15% da banca (protege 85% do seu capital em dias ruins)
+        // Limite de Perda (Stop Loss): 15% da banca
         const calculatedStop = bankrollValue * 0.15;
-        setStopLoss(calculatedStop.toFixed(2));
+        setCustomStop(calculatedStop.toFixed(2));
+    }, [bankroll]);
 
-        // 4. Ativa Martingale Inteligente (Recuperação rápida)
+    const handleConfirm = () => {
+        const stakeValue = parseFloat(customStake) || 0.35;
+        const metaValue = parseFloat(customMeta) || 5.00;
+        const stopValue = parseFloat(customStop) || 15.00;
+
+        // Aplica as configurações personalizadas do usuário
+        setInitialStake(stakeValue.toFixed(2));
+        setTakeProfit(metaValue.toFixed(2));
+        setStopLoss(stopValue.toFixed(2));
+
+        // Ativa Martingale Inteligente (Recuperação rápida)
         setIsMartingaleActive(true);
-        setMaxLevels(4); // Máximo de 4 gales para não quebrar a banca
+        setMaxLevels(4); // Máximo de 4 gales para segurança
         setMartingaleFactor('2.2');
 
-        // 5. Ativa Soros Automático (Alavancagem exponencial sem risco adicional)
-        setIsSorosActive(true);
-        setSorosLevels(2); // Ciclos de 2 níveis para maximizar lucros nas sequências vitoriosas
-        setSorosProfitPercentage(50); // Reinveste 50% do lucro da vitória anterior
+        // DESATIVA Soros Automático conforme solicitado
+        setIsSorosActive(false);
 
-        // 6. Ativa Modo Multimodal (A I.A decide em tempo real a melhor modalidade)
+        // Ativa Modo Multimodal (A I.A decide em tempo real a melhor modalidade)
         setDigitTradeMode('multimodal');
         setIsSmartModeActive(true);
 
@@ -81,7 +91,7 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                         <BrainCircuit className="h-5 w-5 text-cyan-400 animate-pulse" />
                     </div>
                     <DrawerTitle className="text-xl font-black uppercase tracking-tighter text-center text-white">
-                        Configuração Automática I.A
+                        Configuração Personalizada I.A
                     </DrawerTitle>
                     <p className="text-center text-[9px] font-black text-cyan-400 uppercase tracking-[0.3em]">
                         Gestão de Banca e Proteção
@@ -89,8 +99,9 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                 </DrawerHeader>
                 
                 <div className="space-y-4 py-4 max-w-md mx-auto w-full">
-                    <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase tracking-widest ml-1 text-slate-400">
+                    {/* Input de Banca */}
+                    <div className="space-y-1.5">
+                        <Label className="text-[9px] font-black uppercase tracking-widest ml-1 text-slate-400">
                             Qual o valor total da sua banca? ($)
                         </Label>
                         <div className="relative">
@@ -98,42 +109,57 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                             <Input 
                                 value={bankroll}
                                 onChange={(e) => setBankroll(e.target.value.replace(',', '.'))}
-                                className="pl-10 h-14 rounded-2xl font-black text-xl bg-slate-900/60 border border-white/10 text-white focus-visible:ring-cyan-500/30 focus-visible:border-cyan-500/50 text-center"
+                                className="pl-10 h-12 rounded-2xl font-black text-lg bg-slate-900/60 border border-white/10 text-white focus-visible:ring-cyan-500/30 focus-visible:border-cyan-500/50 text-center"
                                 placeholder="100.00"
                             />
                         </div>
                     </div>
 
-                    {/* Painel de Configurações que a I.A vai aplicar */}
-                    <div className="p-4 rounded-2xl bg-cyan-500/5 border border-cyan-500/10 space-y-3">
-                        <div className="flex items-center gap-2">
+                    {/* Painel de Ajustes Finos */}
+                    <div className="p-4 rounded-2xl bg-slate-900/40 border border-white/5 space-y-3">
+                        <div className="flex items-center gap-2 border-b border-white/5 pb-2">
                             <ShieldCheck className="h-4 w-4 text-cyan-400 shrink-0" />
                             <span className="text-[10px] font-black text-cyan-300 uppercase tracking-wider">
-                                Protocolo de Proteção Ativado:
+                                Ajuste os Limites Recomendados:
                             </span>
                         </div>
-                        <ul className="space-y-1.5 text-[10px] text-slate-300 font-medium">
-                            <li className="flex justify-between">
-                                <span>• Entrada Inicial (1%):</span>
-                                <span className="font-bold text-white">${(parseFloat(bankroll) * 0.01 || 1).toFixed(2)}</span>
-                            </li>
-                            <li className="flex justify-between">
-                                <span>• Meta Diária (5%):</span>
-                                <span className="font-bold text-emerald-400">${(parseFloat(bankroll) * 0.05 || 5).toFixed(2)}</span>
-                            </li>
-                            <li className="flex justify-between">
-                                <span>• Stop Loss Seguro (15%):</span>
-                                <span className="font-bold text-rose-400">${(parseFloat(bankroll) * 0.15 || 15).toFixed(2)}</span>
-                            </li>
-                            <li className="flex justify-between">
-                                <span>• Alavancagem Soros:</span>
-                                <span className="font-bold text-cyan-400">Ativado (Nível 2)</span>
-                            </li>
-                            <li className="flex justify-between">
-                                <span>• Recuperação Martingale:</span>
-                                <span className="font-bold text-cyan-400">Ativado (Máx 4)</span>
-                            </li>
-                        </ul>
+                        
+                        <div className="grid grid-cols-3 gap-2">
+                            {/* Entrada */}
+                            <div className="space-y-1">
+                                <Label className="text-[8px] font-bold uppercase text-slate-400">Entrada ($)</Label>
+                                <Input 
+                                    value={customStake}
+                                    onChange={(e) => setCustomStake(e.target.value.replace(',', '.'))}
+                                    className="h-9 text-xs rounded-xl bg-slate-950/50 border-white/10 text-center font-bold"
+                                />
+                            </div>
+
+                            {/* Meta */}
+                            <div className="space-y-1">
+                                <Label className="text-[8px] font-bold uppercase text-emerald-400">Meta ($)</Label>
+                                <Input 
+                                    value={customMeta}
+                                    onChange={(e) => setCustomMeta(e.target.value.replace(',', '.'))}
+                                    className="h-9 text-xs rounded-xl bg-slate-950/50 border-white/10 text-center font-bold text-emerald-400"
+                                />
+                            </div>
+
+                            {/* Stop Loss */}
+                            <div className="space-y-1">
+                                <Label className="text-[8px] font-bold uppercase text-rose-400">Stop ($)</Label>
+                                <Input 
+                                    value={customStop}
+                                    onChange={(e) => setCustomStop(e.target.value.replace(',', '.'))}
+                                    className="h-9 text-xs rounded-xl bg-slate-950/50 border-white/10 text-center font-bold text-rose-400"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 text-[8px] text-slate-400 font-medium pt-1">
+                            <AlertTriangle className="h-3 w-3 text-amber-500 shrink-0" />
+                            <span>Soros desativado. Martingale inteligente ativo (Máx 4).</span>
+                        </div>
                     </div>
                 </div>
 
