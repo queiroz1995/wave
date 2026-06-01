@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { DollarSign, Target, RotateCcw, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { DollarSign, Target, RotateCcw, ThumbsUp, ThumbsDown, CalendarDays } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
 import { toast } from "sonner";
 import { cn } from '@/lib/utils';
@@ -19,6 +19,9 @@ interface DayPlan {
     goalValue: number;
     stopValue: number;
     projectedEndBankroll: number;
+    isReal: boolean;
+    status?: 'win' | 'loss';
+    realProfit?: number;
 }
 
 export const BankManagement = () => {
@@ -30,69 +33,96 @@ export const BankManagement = () => {
         bankManagementDailyStopPercent, setBankManagementDailyStopPercent,
         bankManagementCurrentDay, setBankManagementCurrentDay,
         bankManagementActualBankroll, setBankManagementActualBankroll,
+        bankManagementHistory, setBankManagementHistory,
+        saveDayToHistory
     } = useBotContext();
 
+    // Mescla o histórico real com as projeções futuras para compor os 30 dias
     const plan: DayPlan[] = useMemo(() => {
-        const goalPercent = parseFloat(bankManagementDailyGoalPercent) / 100 || 0;
-        const stopPercent = parseFloat(bankManagementDailyStopPercent) / 100 || 0;
-        const startBankroll = parseFloat(bankManagementActualBankroll) || 0;
-
-        if (startBankroll <= 0 || goalPercent <= 0 || stopPercent <= 0) return [];
+        const goalPercent = parseFloat(bankManagementDailyGoalPercent) / 100 || 0.05;
+        const stopPercent = parseFloat(bankManagementDailyStopPercent) / 100 || 0.15;
+        const startBankroll = parseFloat(bankManagementInitialBankroll) || 100;
 
         const dailyPlans: DayPlan[] = [];
         let currentBankroll = startBankroll;
 
-        for (let i = 0; i < 30; i++) {
-            const dayNumber = bankManagementCurrentDay + i;
-            const goalValue = currentBankroll * goalPercent;
-            const stopValue = currentBankroll * stopPercent;
-            const projectedEndBankroll = currentBankroll + goalValue;
-
-            dailyPlans.push({ day: dayNumber, initialBankroll: currentBankroll, goalValue, stopValue, projectedEndBankroll });
-            currentBankroll = projectedEndBankroll;
+        // 1. Adiciona os dias que já foram concluídos e salvos no histórico real
+        const historyMap = new Map<number, typeof bankManagementHistory[0]>();
+        if (bankManagementHistory && bankManagementHistory.length > 0) {
+            bankManagementHistory.forEach((item: any) => {
+                historyMap.set(item.day, item);
+            });
         }
+
+        // Geramos 30 dias no total
+        for (let d = 1; d <= 30; d++) {
+            if (historyMap.has(d)) {
+                const realDay = historyMap.get(d)!;
+                dailyPlans.push({
+                    day: d,
+                    initialBankroll: realDay.initial,
+                    goalValue: realDay.initial * goalPercent,
+                    stopValue: realDay.initial * stopPercent,
+                    projectedEndBankroll: realDay.final,
+                    isReal: true,
+                    status: realDay.status,
+                    realProfit: realDay.profit
+                });
+                currentBankroll = realDay.final;
+            } else {
+                // Se o dia ainda não foi jogado, calcula a projeção futura
+                const goalValue = currentBankroll * goalPercent;
+                const stopValue = currentBankroll * stopPercent;
+                const projectedEndBankroll = currentBankroll + goalValue;
+
+                dailyPlans.push({
+                    day: d,
+                    initialBankroll: currentBankroll,
+                    goalValue,
+                    stopValue,
+                    projectedEndBankroll,
+                    isReal: false
+                });
+                currentBankroll = projectedEndBankroll;
+            }
+        }
+
         return dailyPlans;
-    }, [bankManagementDailyGoalPercent, bankManagementDailyStopPercent, bankManagementCurrentDay, bankManagementActualBankroll]);
+    }, [bankManagementDailyGoalPercent, bankManagementDailyStopPercent, bankManagementInitialBankroll, bankManagementHistory]);
 
     const handleApplyToBot = () => {
-        if (plan.length > 0) {
-            const currentDayPlan = plan[0];
+        const currentDayPlan = plan.find(p => p.day === bankManagementCurrentDay);
+        if (currentDayPlan) {
             setTakeProfit(currentDayPlan.goalValue.toFixed(2));
             setStopLoss(currentDayPlan.stopValue.toFixed(2));
             toast.success(`Metas do Dia ${currentDayPlan.day} aplicadas ao bot!`, {
                 description: `Take Profit: $${currentDayPlan.goalValue.toFixed(2)} | Stop Loss: $${currentDayPlan.stopValue.toFixed(2)}`,
             });
         } else {
-            toast.error("Preencha os valores para gerar um plano antes de aplicar.");
+            toast.error("Erro ao carregar o plano do dia atual.");
         }
     };
 
     const handleGoalMet = () => {
-        if (plan.length > 0) {
-            const currentDayPlan = plan[0];
-            setBankManagementActualBankroll(currentDayPlan.projectedEndBankroll.toFixed(2));
-            setBankManagementCurrentDay(bankManagementCurrentDay + 1);
-            toast.success(`Parabéns! Dia ${currentDayPlan.day} concluído com sucesso.`, {
-                description: `Novo saldo: $${currentDayPlan.projectedEndBankroll.toFixed(2)}. Preparando para o Dia ${currentDayPlan.day + 1}.`
-            });
+        const currentDayPlan = plan.find(p => p.day === bankManagementCurrentDay);
+        if (currentDayPlan) {
+            saveDayToHistory('win', currentDayPlan.goalValue);
+            toast.success(`Parabéns! Dia ${bankManagementCurrentDay} concluído com sucesso.`);
         }
     };
 
     const handleStopLossHit = () => {
-        if (plan.length > 0) {
-            const currentDayPlan = plan[0];
-            const newBankroll = currentDayPlan.initialBankroll - currentDayPlan.stopValue;
-            setBankManagementActualBankroll(newBankroll.toFixed(2));
-            setBankManagementCurrentDay(bankManagementCurrentDay + 1);
-            toast.info(`Dia ${currentDayPlan.day} finalizado em stop.`, {
-                description: `Novo saldo: $${newBankroll.toFixed(2)}. Mantenha o foco para o Dia ${currentDayPlan.day + 1}.`
-            });
+        const currentDayPlan = plan.find(p => p.day === bankManagementCurrentDay);
+        if (currentDayPlan) {
+            saveDayToHistory('loss', -currentDayPlan.stopValue);
+            toast.info(`Dia ${bankManagementCurrentDay} finalizado em stop.`);
         }
     };
 
     const handleResetPlan = () => {
         setBankManagementCurrentDay(1);
         setBankManagementActualBankroll(bankManagementInitialBankroll);
+        setBankManagementHistory([]);
         toast.info("Gerenciamento de banca resetado para o Dia 1.");
     };
 
@@ -100,9 +130,9 @@ export const BankManagement = () => {
         <Card className="border-none shadow-none bg-transparent">
             <CardHeader className="p-0 pb-4">
                 <CardTitle className="flex items-center gap-2 text-primary text-base">
-                    <DollarSign className="h-4 w-4" />Planilha de Gestão
+                    <CalendarDays className="h-4 w-4" />Planilha de Gestão Mensal
                 </CardTitle>
-                <CardDescription className="text-[10px]">Planeje e acompanhe seu progresso diário.</CardDescription>
+                <CardDescription className="text-[10px]">Acompanhe seu progresso real e projeções para os 30 dias.</CardDescription>
             </CardHeader>
             <CardContent className="p-0 space-y-4">
                 <div className="grid grid-cols-1 gap-3">
@@ -115,6 +145,10 @@ export const BankManagement = () => {
                                 const value = e.target.value;
                                 if (/^\d*[,.]?\d*$/.test(value)) {
                                     setBankManagementInitialBankroll(value.replace(',', '.'));
+                                    // Se estiver no dia 1, atualiza a banca atual também
+                                    if (bankManagementCurrentDay === 1) {
+                                        setBankManagementActualBankroll(value.replace(',', '.'));
+                                    }
                                 }
                             }}
                             placeholder="Ex: 100.00"
@@ -154,11 +188,29 @@ export const BankManagement = () => {
                                 {plan.length > 0 ? plan.map(p => (
                                     <TableRow key={p.day} className={cn(
                                         "hover:bg-white/5 border-b border-white/5",
-                                        p.day === bankManagementCurrentDay && "bg-primary/10 border-l-2 border-primary"
+                                        p.day === bankManagementCurrentDay && "bg-primary/10 border-l-2 border-primary",
+                                        p.isReal && p.status === 'win' && "bg-emerald-500/5",
+                                        p.isReal && p.status === 'loss' && "bg-rose-500/5"
                                     )}>
-                                        <TableCell className="px-2 py-2 text-[9px] font-bold">{p.day}</TableCell>
+                                        <TableCell className="px-2 py-2 text-[9px] font-bold flex items-center gap-1">
+                                            {p.day}
+                                            {p.isReal && (
+                                                <span className={cn(
+                                                    "h-1.5 w-1.5 rounded-full",
+                                                    p.status === 'win' ? "bg-emerald-400" : "bg-rose-400"
+                                                )} />
+                                            )}
+                                        </TableCell>
                                         <TableCell className="px-2 py-2 text-[9px] text-center font-medium">${p.initialBankroll.toFixed(2)}</TableCell>
-                                        <TableCell className="px-2 py-2 text-[9px] text-center font-black text-green-400">${p.goalValue.toFixed(2)}</TableCell>
+                                        <TableCell className="px-2 py-2 text-[9px] text-center font-black text-green-400">
+                                            {p.isReal && p.realProfit !== undefined ? (
+                                                <span className={p.status === 'win' ? "text-emerald-400" : "text-rose-400"}>
+                                                    {p.realProfit > 0 ? '+' : ''}${p.realProfit.toFixed(2)}
+                                                </span>
+                                            ) : (
+                                                `$${p.goalValue.toFixed(2)}`
+                                            )}
+                                        </TableCell>
                                         <TableCell className="px-2 py-2 text-[9px] text-right font-bold text-primary">${p.projectedEndBankroll.toFixed(2)}</TableCell>
                                     </TableRow>
                                 )) : (

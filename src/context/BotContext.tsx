@@ -84,6 +84,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         bankManagementDailyStopPercent, setBankManagementDailyStopPercent,
         bankManagementCurrentDay, setBankManagementCurrentDay,
         bankManagementActualBankroll, setBankManagementActualBankroll,
+        bankManagementHistory, setBankManagementHistory,
         digitTradeMode, setDigitTradeMode,
         digitPrediction, setDigitPrediction,
         overUnderDirection, setOverUnderDirection,
@@ -216,6 +217,32 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             });
         }
     }, [asset, getMarketState, isStudying, setIsStudying, setStudyTicksCount, virtualTradePending, virtualLossStreak, virtualTargetLosses, isSmartModeActive, updateSignalResult]);
+
+    // Função auxiliar para salvar o dia concluído no histórico persistente
+    const saveDayToHistory = useCallback((status: 'win' | 'loss', profit: number) => {
+        const currentDay = bankManagementCurrentDay;
+        const initialBankroll = parseFloat(bankManagementActualBankroll) || 0;
+        const finalBankroll = initialBankroll + profit;
+
+        const newHistoryItem = {
+            day: currentDay,
+            initial: initialBankroll,
+            final: finalBankroll,
+            profit: profit,
+            status: status,
+            date: new Date().toLocaleDateString('pt-BR')
+        };
+
+        setBankManagementHistory((prev: any) => {
+            // Evita duplicar o mesmo dia
+            const filtered = prev.filter((item: any) => item.day !== currentDay);
+            return [...filtered, newHistoryItem].sort((a, b) => a.day - b.day);
+        });
+
+        // Atualiza o saldo real da planilha e avança o dia
+        setBankManagementActualBankroll(finalBankroll.toFixed(2));
+        setBankManagementCurrentDay(currentDay + 1);
+    }, [bankManagementCurrentDay, bankManagementActualBankroll, setBankManagementHistory, setBankManagementActualBankroll, setBankManagementCurrentDay]);
 
     const stopBot = useCallback((reason: string) => {
         setIsBotRunning(false);
@@ -383,10 +410,13 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         pendingContracts.current.delete(contract.contract_id);
                         setTradeStatus('IDLE'); 
 
+                        // --- SALVAMENTO AUTOMÁTICO DE BANCA ---
                         if (totalProfitRef.current >= parseFloat(takeProfit)) {
-                            stopBot(`Meta batida!`);
+                            saveDayToHistory('win', totalProfitRef.current);
+                            stopBot(`Meta batida! Dia concluído e salvo.`);
                         } else if (totalProfitRef.current <= -Math.abs(parseFloat(stopLoss))) {
-                            stopBot(`Stop Loss atingido.`);
+                            saveDayToHistory('loss', totalProfitRef.current);
+                            stopBot(`Stop Loss atingido. Dia concluído e salvo.`);
                         }
                     }
                 }
@@ -401,7 +431,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else if (event.type === 'close') {
             setIsConnecting(false);
         }
-    }, [processTickData, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, getMarketState, maxLevels, asset, isSorosActive, sorosLevels]);
+    }, [processTickData, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, getMarketState, maxLevels, asset, isSorosActive, sorosLevels, saveDayToHistory]);
 
     const ws = useTradingWebSocketManager({ isConnected, status, setIsConnected, setStatus, setAccountBalance, onMessage: handleWebSocketMessage, reconnectAttemptsRef });
     const { sendMessage, connect, disconnect } = ws;
@@ -644,8 +674,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const contextValue = useMemo(() => ({
         ...stateAndSetters, isConnected, isConnecting, status, handleConnect, handleDisconnect: disconnect, 
         toggleBot, resetOperations, appFlow, setAppFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, aiThought,
-        manualBuy, isSettingsOpen, setIsSettingsOpen, isConfigModalOpen, setIsConfigModalOpen
-    }), [stateAndSetters, isConnected, isConnecting, status, handleConnect, disconnect, toggleBot, resetOperations, appFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, aiThought, manualBuy, isSettingsOpen, isConfigModalOpen]);
+        manualBuy, isSettingsOpen, setIsSettingsOpen, isConfigModalOpen, setIsConfigModalOpen, saveDayToHistory
+    }), [stateAndSetters, isConnected, isConnecting, status, handleConnect, disconnect, toggleBot, resetOperations, appFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, aiThought, manualBuy, isSettingsOpen, isConfigModalOpen, saveDayToHistory]);
 
     return <BotContext.Provider value={contextValue}>{children}</BotContext.Provider>;
 };

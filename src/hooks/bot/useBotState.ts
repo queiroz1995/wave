@@ -34,14 +34,14 @@ const DEFAULTS = {
     bankManagementDailyStopPercent: '50.0',
     bankManagementCurrentDay: 1,
     bankManagementActualBankroll: '20.00',
+    bankManagementHistory: [] as Array<{ day: number; initial: number; final: number; profit: number; status: 'win' | 'loss'; date: string }>,
     isSmartModeActive: true,
     isSorosActive: false,
     sorosLevels: 2,
     sorosProfitPercentage: 50,
-    // Configurações da Sequência Automática
     autoSequenceActive: false,
-    autoSequenceTrigger: 'O,O,O', // Padrão: 3 Ímpares
-    autoSequenceEntry: 'EVEN' as 'EVEN' | 'ODD', // Padrão: Entra Par
+    autoSequenceTrigger: 'O,O,O', 
+    autoSequenceEntry: 'EVEN' as 'EVEN' | 'ODD', 
 };
 
 const getInitialState = () => {
@@ -100,27 +100,28 @@ export const useBotState = () => {
     const [hybridWinsRequired, setHybridWinsRequired] = useState(initialState.hybridWinsRequired);
     const [isSmartModeActive, setIsSmartModeActive] = useState(initialState.isSmartModeActive);
     
-    // Soros State
     const [isSorosActive, setIsSorosActive] = useState(initialState.isSorosActive);
     const [sorosLevels, setSorosLevels] = useState(initialState.sorosLevels);
     const [sorosProfitPercentage, setSorosProfitPercentage] = useState(initialState.sorosProfitPercentage);
 
-    // Novo: Filtro de Segurança Pós-Loss
     const [isWaitingForRecoveryVirtual, setIsWaitingForRecoveryVirtual] = useState(false);
 
     const [analyzerWindowSize, setAnalyzerWindowSize] = useState(initialState.analyzerWindowSize);
     const [learningData, setLearningData] = useState<any>(null);
     const [scoreThreshold, setScoreThreshold] = useState(initialState.scoreThreshold);
     const [marketStabilityThreshold, setMarketStabilityThreshold] = useState(initialState.marketStabilityThreshold);
+    
+    // Gestão de Banca
     const [bankManagementInitialBankroll, setBankManagementInitialBankroll] = useState(initialState.bankManagementInitialBankroll);
     const [bankManagementDailyGoalPercent, setBankManagementDailyGoalPercent] = useState(initialState.bankManagementDailyGoalPercent);
     const [bankManagementDailyStopPercent, setBankManagementDailyStopPercent] = useState(initialState.bankManagementDailyStopPercent);
     const [bankManagementCurrentDay, setBankManagementCurrentDay] = useState(initialState.bankManagementCurrentDay);
     const [bankManagementActualBankroll, setBankManagementActualBankroll] = useState(initialState.bankManagementActualBankroll);
+    const [bankManagementHistory, setBankManagementHistory] = useState<Array<{ day: number; initial: number; final: number; profit: number; status: 'win' | 'loss'; date: string }>>(initialState.bankManagementHistory || []);
+
     const [activeStrategy, setActiveStrategy] = useState<string | null>(null);
     const [neuralPredictions, setNeuralPredictions] = useState<number[]>([]);
 
-    // Sequência Automática
     const [autoSequenceActive, setAutoSequenceActive] = useState(initialState.autoSequenceActive);
     const [autoSequenceTrigger, setAutoSequenceTrigger] = useState(initialState.autoSequenceTrigger);
     const [autoSequenceEntry, setAutoSequenceEntry] = useState<'EVEN' | 'ODD'>(initialState.autoSequenceEntry);
@@ -166,9 +167,9 @@ export const useBotState = () => {
         bankManagementDailyStopPercent, setBankManagementDailyStopPercent,
         bankManagementCurrentDay, setBankManagementCurrentDay,
         bankManagementActualBankroll, setBankManagementActualBankroll,
+        bankManagementHistory, setBankManagementHistory,
         activeStrategy, setActiveStrategy, neuralPredictions, setNeuralPredictions,
         isSorosActive, setIsSorosActive, sorosLevels, setSorosLevels, sorosProfitPercentage, setSorosProfitPercentage,
-        // Sequência Automática
         autoSequenceActive, setAutoSequenceActive,
         autoSequenceTrigger, setAutoSequenceTrigger,
         autoSequenceEntry, setAutoSequenceEntry
