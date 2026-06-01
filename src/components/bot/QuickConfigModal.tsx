@@ -67,8 +67,23 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
 
         // Ativa Martingale Inteligente (Recuperação rápida)
         setIsMartingaleActive(true);
-        setMaxLevels(4); // Máximo de 4 gales para segurança
-        setMartingaleFactor('2.2');
+        
+        const factor = 2.2;
+        setMartingaleFactor(factor.toFixed(1));
+
+        // CALCULA DINAMICAMENTE OS NÍVEIS MÁXIMOS COM BASE NO STOP LOSS
+        // Isso garante que o bot não resete o Martingale antes de atingir o Stop Loss financeiro real!
+        let totalLoss = 0;
+        let currentStake = stakeValue;
+        let levels = 0;
+        while (totalLoss + currentStake <= stopValue && levels < 10) {
+            totalLoss += currentStake;
+            currentStake = currentStake * factor;
+            levels++;
+        }
+        // Define o limite de gales calculado para suportar o Stop Loss do usuário
+        const calculatedLevels = Math.max(2, levels);
+        setMaxLevels(calculatedLevels);
 
         // DESATIVA Soros Automático conforme solicitado
         setIsSorosActive(false);
