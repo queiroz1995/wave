@@ -4,13 +4,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, ArrowUp, ArrowDown, Award, ShieldAlert, BarChart3 } from 'lucide-react';
+import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, ArrowUp, ArrowDown, Award, ShieldAlert, BarChart3, Volume2, VolumeX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
 import { SettingsSheet } from './SettingsSheet';
 import { RecentDigitsPanel } from './RecentDigitsPanel';
 import { Progress } from '@/components/ui/progress';
+import { sounds } from '@/utils/sounds';
 import confetti from 'canvas-confetti';
 
 export const AIOperatingScreen = () => {
@@ -33,6 +34,7 @@ export const AIOperatingScreen = () => {
 
     const hasTriggeredGoalConfettiRef = useRef(false);
     const [profitHistory, setProfitHistory] = useState<number[]>([0]);
+    const [isMuted, setIsMuted] = useState(sounds.isMuted());
 
     // Atualiza o histórico de lucro para desenhar o gráfico de curva de patrimônio (Equity Curve)
     useEffect(() => {
@@ -47,6 +49,16 @@ export const AIOperatingScreen = () => {
         });
     }, [totalProfit]);
 
+    // Toca som de vitória leve quando houver um WIN
+    useEffect(() => {
+        if (signals.length > 0) {
+            const mostRecentSignal = signals[0];
+            if (mostRecentSignal.result === 'WIN') {
+                sounds.playSuccess();
+            }
+        }
+    }, [signals]);
+
     // Resetar o gatilho de confete quando o lucro for zerado (ao reiniciar as operações)
     useEffect(() => {
         if (totalProfit === 0) {
@@ -60,6 +72,7 @@ export const AIOperatingScreen = () => {
         const targetProfit = parseFloat(takeProfit) || 0;
         if (targetProfit > 0 && totalProfit >= targetProfit && !hasTriggeredGoalConfettiRef.current) {
             hasTriggeredGoalConfettiRef.current = true;
+            sounds.playSuccess();
             
             // Celebração Premium de Meta Batida (Várias explosões consecutivas)
             const duration = 4 * 1000;
@@ -109,6 +122,12 @@ export const AIOperatingScreen = () => {
     const confirmStart = () => {
         setIsConfigModalOpen(false);
         toggleBot();
+    };
+
+    const toggleMute = () => {
+        const nextMute = !isMuted;
+        sounds.setMuted(nextMute);
+        setIsMuted(nextMute);
     };
 
     const getSignalLabel = (signal: string, strategy: string) => {
@@ -270,6 +289,19 @@ export const AIOperatingScreen = () => {
                         </div>
                         
                         <div className="flex items-center gap-1.5">
+                            {/* Botão de Mute/Unmute */}
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all"
+                                onClick={toggleMute}
+                            >
+                                {isMuted ? (
+                                    <VolumeX className="h-3.5 w-3.5 text-rose-400" />
+                                ) : (
+                                    <Volume2 className="h-3.5 w-3.5 text-emerald-400" />
+                                )}
+                            </Button>
                             <SettingsSheet trigger={
                                 <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
                                     <FileSpreadsheet className="h-3.5 w-3.5 text-slate-300" />
