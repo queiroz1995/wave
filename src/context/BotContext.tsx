@@ -44,6 +44,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const activeTrades = useRef<Set<string>>(new Set());
     const totalProfitRef = useRef(0.00);
     const martingaleLevel = useRef(0);
+    const consecutiveWins = useRef(0);
+    const lastWinProfit = useRef(0.00);
     const lastContractType = useRef<ContractType | null>(null);
     const lastTradedAsset = useRef<string | null>(null);
     
@@ -219,6 +221,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsBotRunning(false);
         activeTrades.current.clear();
         martingaleLevel.current = 0;
+        consecutiveWins.current = 0;
+        lastWinProfit.current = 0.00;
         isGalePausedForFilter.current = false;
         isManualSession.current = false;
         setVirtualLossStreak(0);
@@ -235,6 +239,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setLosses(0);
         setSignals([]);
         martingaleLevel.current = 0;
+        consecutiveWins.current = 0;
+        lastWinProfit.current = 0.00;
         isGalePausedForFilter.current = false;
         isManualSession.current = false;
         setVirtualLossStreak(0);
@@ -320,6 +326,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         if (isLoss) {
                             setLosses((prev: number) => prev + 1);
                             martingaleLevel.current += 1;
+                            consecutiveWins.current = 0;
+                            lastWinProfit.current = 0.00;
                             
                             // Se atingiu o limite máximo de gales configurado
                             if (martingaleLevel.current > maxLevels) {
@@ -346,7 +354,22 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             martingaleLevel.current = 0;
                             isGalePausedForFilter.current = false;
                             setVirtualLossStreak(0);
-                            setAiThought("Operação Neutralizada com Sucesso.");
+                            
+                            // --- GESTÃO DE SOROS AUTOMÁTICO ---
+                            if (isSorosActive) {
+                                consecutiveWins.current += 1;
+                                lastWinProfit.current = profitValue;
+                                if (consecutiveWins.current >= sorosLevels) {
+                                    // Ciclo de Soros concluído com sucesso! Reseta para o início
+                                    consecutiveWins.current = 0;
+                                    lastWinProfit.current = 0.00;
+                                    setAiThought("Ciclo Soros Concluído! Lucro consolidado com sucesso.");
+                                } else {
+                                    setAiThought(`Soros Nível ${consecutiveWins.current + 1} Ativado para a próxima entrada.`);
+                                }
+                            } else {
+                                setAiThought("Operação Neutralizada com Sucesso.");
+                            }
 
                             // Se era uma sessão manual, para o bot de forma inteligente após a vitória
                             if (isManualSession.current) {
@@ -378,7 +401,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else if (event.type === 'close') {
             setIsConnecting(false);
         }
-    }, [processTickData, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, getMarketState, maxLevels, asset]);
+    }, [processTickData, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, getMarketState, maxLevels, asset, isSorosActive, sorosLevels]);
 
     const ws = useTradingWebSocketManager({ isConnected, status, setIsConnected, setStatus, setAccountBalance, onMessage: handleWebSocketMessage, reconnectAttemptsRef });
     const { sendMessage, connect, disconnect } = ws;
@@ -503,8 +526,18 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!isConnected || (!bypassStudy && isStudying) || activeTrades.current.size > 0) return;
         const baseStake = parseFloat(initialStake) || 0.35;
         const mgFactor = parseFloat(martingaleFactor) || 2.1; 
-        const stakeToUse = martingaleLevel.current > 0 ? baseStake * Math.pow(mgFactor, martingaleLevel.current) : baseStake;
         
+        let stakeToUse = baseStake;
+
+        // 1. Se estiver em Martingale (Recuperação de perda)
+        if (martingaleLevel.current > 0) {
+            stakeToUse = baseStake * Math.pow(mgFactor, martingaleLevel.current);
+        } 
+        // 2. Se estiver em Soros (Alavancagem de vitória)
+        else if (isSorosActive && consecutiveWins.current > 0 && consecutiveWins.current <= sorosLevels) {
+            stakeToUse = baseStake + (lastWinProfit.current * (sorosProfitPercentage / 100));
+        }
+
         const params = { 
             amount: parseFloat(stakeToUse.toFixed(2)), 
             basis: 'stake', 
@@ -520,7 +553,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeTrades.current.add(signalId);
         setTradeStatus('SENDING');
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params, passthrough: { signalId, strategyName } });
-    }, [isConnected, initialStake, sendMessage, setTradeStatus, martingaleFactor, isStudying]);
+    }, [isConnected, initialStake, sendMessage, setTradeStatus, martingaleFactor, isStudying, isSorosActive, sorosLevels, sorosProfitPercentage]);
 
     // Função para compra manual (usada por botões)
     const manualBuy = useCallback((contractType: ContractType, source: string = 'Manual') => {
