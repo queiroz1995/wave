@@ -110,7 +110,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         autoSequenceActive, setAutoSequenceActive,
         autoSequenceTrigger, setAutoSequenceTrigger,
         autoSequenceEntry, setAutoSequenceEntry,
-        generateSignalId
+        generateSignalId,
+
+        // Novos estados de manipulação
+        isManipulationDetected, setIsManipulationDetected,
+        manipulationScore, setManipulationScore
     } = stateAndSetters;
 
     // --- MAPEAMENTO DINÂMICO DE ESTADOS (REAL VS DEMO) ---
@@ -206,6 +210,58 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return -probs.reduce((sum, p) => sum + p * Math.log2(p), 0) / 3.32;
     };
 
+    // --- ALGORITMO DE DETECÇÃO DE MANIPULAÇÃO DE MERCADO ---
+    const detectMarketManipulation = useCallback((symbol: string) => {
+        const digits = multiAssetDigits[symbol] || [];
+        const prices = pricesRef.current[symbol] || [];
+        if (digits.length < 20) return { score: 0, isManipulated: false };
+
+        let score = 0;
+
+        // 1. Repetição Anormal de Dígitos (Broker Spike)
+        // Se o mesmo dígito se repete consecutivamente (ex: 3 vezes seguidas)
+        let maxConsecutiveSameDigit = 1;
+        let currentConsecutive = 1;
+        for (let i = 1; i < 10; i++) {
+            if (digits[i] === digits[i - 1]) {
+                currentConsecutive++;
+                maxConsecutiveSameDigit = Math.max(maxConsecutiveSameDigit, currentConsecutive);
+            } else {
+                currentConsecutive = 1;
+            }
+        }
+        if (maxConsecutiveSameDigit >= 3) score += 40; // Altíssimo risco de manipulação de tick
+        else if (maxConsecutiveSameDigit === 2) score += 10;
+
+        // 2. Desequilíbrio Extremo de Paridade (Bias)
+        const recentDigits = digits.slice(0, 15);
+        const evens = recentDigits.filter(d => d % 2 === 0).length;
+        const odds = 15 - evens;
+        const biasRatio = Math.abs(evens - odds) / 15;
+        if (biasRatio >= 0.73) score += 35; // Mais de 85% de um lado só em 15 ticks
+        else if (biasRatio >= 0.60) score += 15;
+
+        // 3. Micro-Tendências Artificiais (Preço em linha reta)
+        if (prices.length >= 8) {
+            let consecutiveUps = 0;
+            let consecutiveDowns = 0;
+            for (let i = 1; i < 7; i++) {
+                if (prices[i] > prices[i-1]) consecutiveUps++;
+                else if (prices[i] < prices[i-1]) consecutiveDowns++;
+            }
+            if (consecutiveUps >= 6 || consecutiveDowns >= 6) score += 25; // Preço subindo/descendo sem parar
+        }
+
+        const isManipulated = score >= 70;
+        
+        if (symbol === asset) {
+            setManipulationScore(score);
+            setIsManipulationDetected(isManipulated);
+        }
+
+        return { score, isManipulated };
+    }, [multiAssetDigits, asset, setManipulationScore, setIsManipulationDetected]);
+
     const getMarketState = useCallback((symbol: string) => {
         const digits = multiAssetDigits[symbol] || [];
         if (digits.length < 50) return { confidence: 0, entropy: 1, recommendedVirtualLosses: 1, recommendedDirection: 'AGAINST', isStable: false };
@@ -216,20 +272,29 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const entropy = calculateEntropy(digits);
         const confidence = Math.floor((70 + (bias * 30)) * (1.2 - (entropy * 0.2)));
         
+        // Integração com o detector de manipulação
+        const { isManipulated, score: manipScore } = detectMarketManipulation(symbol);
+
         let recVirtual = 1;
-        if (entropy > 0.96) recVirtual = 4;
-        else if (entropy > 0.92) recVirtual = 3;
-        else if (entropy > 0.86) recVirtual = 2;
-        else if (bias > 0.18) recVirtual = 0;
-        else recVirtual = 1;
+        if (isManipulated) {
+            recVirtual = 4; // Força o filtro virtual máximo se houver manipulação
+        } else if (entropy > 0.96) {
+            recVirtual = 3;
+        } else if (entropy > 0.92) {
+            recVirtual = 2;
+        } else if (bias > 0.18) {
+            recVirtual = 0;
+        } else {
+            recVirtual = 1;
+        }
 
         const recDirection = bias > 0.22 ? 'FAVOR' : 'AGAINST';
-        const isStable = entropy < 0.88 && bias < 0.25;
+        const isStable = !isManipulated && entropy < 0.88 && bias < 0.25;
 
         if (symbol === asset) setCurrentConfidence(Math.min(99, confidence));
         
         return { confidence, entropy, recommendedVirtualLosses: recVirtual, recommendedDirection: recDirection, isStable };
-    }, [multiAssetDigits, asset]);
+    }, [multiAssetDigits, asset, detectMarketManipulation]);
 
     const fetchDerivHistory = useCallback((symbol: string) => {
         if (!sendMessageRef.current) return;

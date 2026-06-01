@@ -160,6 +160,10 @@ export const useBotState = () => {
     const [autoSequenceTrigger, setAutoSequenceTrigger] = useState(initialState.autoSequenceTrigger);
     const [autoSequenceEntry, setAutoSequenceEntry] = useState<'EVEN' | 'ODD'>(initialState.autoSequenceEntry);
 
+    // NOVOS ESTADOS: Detecção de Manipulação
+    const [isManipulationDetected, setIsManipulationDetected] = useState(false);
+    const [manipulationScore, setManipulationScore] = useState(0);
+
     const addLog = useCallback((message: string, type: LogType, details?: any) => {
         setLogs(prev => [{ timestamp: new Date().toLocaleTimeString('pt-BR', { hour12: false }), message, type, ...details }, ...prev].slice(0, 50));
     }, []);
@@ -216,6 +220,10 @@ export const useBotState = () => {
         autoSequenceActive, setAutoSequenceActive,
         autoSequenceTrigger, setAutoSequenceTrigger,
         autoSequenceEntry, setAutoSequenceEntry,
-        generateSignalId
+        generateSignalId,
+
+        // Expondo novos estados de manipulação
+        isManipulationDetected, setIsManipulationDetected,
+        manipulationScore, setManipulationScore
     };
 };
