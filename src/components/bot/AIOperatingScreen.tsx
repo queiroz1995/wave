@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, ArrowUp, ArrowDown, Award, ShieldAlert, BarChart3, Volume2, VolumeX } from 'lucide-react';
+import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, Award, BarChart3, Volume2, VolumeX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
@@ -145,14 +145,6 @@ export const AIOperatingScreen = () => {
                 text = 'ÍMPAR'; 
                 baseColor = isVirtual ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20';
                 break;
-            case 'CALL': 
-                text = 'SOBE'; 
-                baseColor = isVirtual ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
-                break;
-            case 'PUT': 
-                text = 'DESCE'; 
-                baseColor = isVirtual ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20';
-                break;
             default: 
                 text = signal; 
                 baseColor = 'bg-slate-500/10 text-slate-400 border-slate-500/20';
@@ -240,7 +232,7 @@ export const AIOperatingScreen = () => {
             {/* Painel Premium de 8 Dígitos Recentes */}
             <RecentDigitsPanel />
 
-            {/* NOVO: Barra de Progresso Neon da Meta Diária */}
+            {/* Barra de Progresso Neon da Meta Diária */}
             {isBotRunning && (
                 <div className="bg-slate-950/60 backdrop-blur-xl border border-white/10 rounded-2xl p-3 space-y-1.5 shadow-lg">
                     <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-wider text-slate-400">
@@ -337,7 +329,7 @@ export const AIOperatingScreen = () => {
                         </div>
                     </div>
 
-                    {/* NOVO: Gráfico de Curva de Patrimônio (Equity Curve) */}
+                    {/* Gráfico de Curva de Patrimônio (Equity Curve) */}
                     {profitHistory.length > 1 && (
                         <div className="bg-slate-900/30 border border-white/5 rounded-xl p-2 space-y-1">
                             <div className="flex justify-between items-center text-[7px] font-bold text-slate-500 uppercase tracking-wider">
@@ -395,26 +387,6 @@ export const AIOperatingScreen = () => {
                             >
                                 <ArrowDownRight className="h-4 w-4" />
                                 ÍMPAR
-                            </Button>
-                        </div>
-
-                        {/* Botões de Sobe / Desce */}
-                        <div className="grid grid-cols-2 gap-3">
-                            <Button
-                                onClick={() => manualBuy('CALL', 'Manual')}
-                                disabled={!isConnected || isTradePending}
-                                className="h-12 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 font-black uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all duration-300 active:scale-95"
-                            >
-                                <ArrowUp className="h-4 w-4" />
-                                SOBE
-                            </Button>
-                            <Button
-                                onClick={() => manualBuy('PUT', 'Manual')}
-                                disabled={!isConnected || isTradePending}
-                                className="h-12 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 font-black uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all duration-300 active:scale-95"
-                            >
-                                <ArrowDown className="h-4 w-4" />
-                                DESCE
                             </Button>
                         </div>
                     </div>

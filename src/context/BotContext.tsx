@@ -342,10 +342,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 win = lastDigit % 2 === 0;
             } else if (virtualTradePending.contract === 'DIGITODD') {
                 win = lastDigit % 2 !== 0;
-            } else if (virtualTradePending.contract === 'CALL') {
-                win = price > (virtualTradePending.entryPrice || 0);
-            } else if (virtualTradePending.contract === 'PUT') {
-                win = price < (virtualTradePending.entryPrice || 0);
             }
 
             if (win) {
@@ -605,8 +601,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // --- SISTEMA DE MEMÓRIA COGNITIVA DA I.A (PATTERN MATCHING HISTÓRICO) ---
     const calculateTradeSignal = useCallback((symbol: string) => {
         const digits = multiAssetDigits[symbol] || [];
-        const prices = pricesRef.current[symbol] || [];
-        if (activeTrades.current.size > 0 || isStudying || digits.length < 50 || prices.length < 50) return null;
+        if (activeTrades.current.size > 0 || isStudying || digits.length < 50) return null;
 
         if (isGalePausedForFilter.current && symbol === lastTradedAsset.current) return null;
 
@@ -614,7 +609,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (martingaleLevel.current > 0 && lastTradedAsset.current === symbol) {
             const contract = lastContractType.current || 'DIGITEVEN';
             return { 
-                type: contract === 'DIGITEVEN' ? 'EVEN' : contract === 'DIGITODD' ? 'ODD' : contract === 'CALL' ? 'CALL' : 'PUT', 
+                type: contract === 'DIGITEVEN' ? 'EVEN' : 'ODD', 
                 contract, 
                 name: 'Recovery (Gale)', 
                 confidence: 99, 
@@ -644,6 +639,30 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         if (autoSequenceActive) return null;
+
+        // --- BLOQUEIO DE SURFE (ANTI-TREND) ---
+        // Se os últimos 3 dígitos tiverem a mesma paridade, a I.A bloqueia a entrada para evitar surfar uma tendência perigosa.
+        const last3Parities = digits.slice(0, 3).map(d => d % 2 === 0 ? 'E' : 'O');
+        const isSurf = last3Parities.every(p => p === last3Parities[0]);
+        if (isSurf) {
+            setAiThought(`Surfe detectado [${last3Parities.join('-')}]. Bloqueando entrada para segurança.`);
+            return null;
+        }
+
+        // --- ESTRATÉGIA ZIG-ZAG (PRO-ALTERNÂNCIA) ---
+        // Se os últimos 3 dígitos estiverem alternando perfeitamente (ex: Par -> Ímpar -> Par), a I.A projeta a continuação do Zig-Zag.
+        const isAlternating = last3Parities[0] !== last3Parities[1] && last3Parities[1] !== last3Parities[2];
+        if (isAlternating) {
+            const nextExpectedParity = last3Parities[0] === 'E' ? 'O' : 'E';
+            setAiThought(`Zig-Zag detectado [${last3Parities.reverse().join('->')}]. Projetando alternância para ${nextExpectedParity === 'E' ? 'PAR' : 'ÍMPAR'}.`);
+            return {
+                type: nextExpectedParity === 'E' ? 'EVEN' : 'ODD',
+                contract: nextExpectedParity === 'E' ? 'DIGITEVEN' : 'DIGITODD',
+                name: 'I.A Zig-Zag',
+                confidence: 88,
+                symbol
+            };
+        }
 
         // --- MODO 1: MEMÓRIA DE PARIDADE (PAR/ÍMPAR) ---
         // A I.A analisa a sequência de paridade dos últimos 3 dígitos e busca na memória de 500 dígitos o que costuma acontecer em seguida.
@@ -687,59 +706,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     confidence: Math.round(oddProbability * 100),
                     symbol
                 };
-            }
-        }
-
-        // --- MODO 2: MEMÓRIA DE MOVIMENTO (SOBE/DESCE) ---
-        // A I.A converte os preços históricos em movimentos de Alta (U) ou Baixa (D), analisa os últimos 3 movimentos e busca padrões idênticos no histórico.
-        const chronoPrices = [...prices].reverse();
-        const chronoMovements: string[] = [];
-        for (let i = 1; i < chronoPrices.length; i++) {
-            chronoMovements.push(chronoPrices[i] > chronoPrices[i-1] ? 'U' : 'D');
-        }
-
-        if (chronoMovements.length >= 10) {
-            const currentMovementPattern = chronoMovements.slice(-3).join('');
-            let movementMatches = 0;
-            let nextUpCount = 0;
-            let nextDownCount = 0;
-
-            for (let i = 0; i < chronoMovements.length - 4; i++) {
-                const pattern = chronoMovements.slice(i, i + 3).join('');
-                if (pattern === currentMovementPattern) {
-                    movementMatches++;
-                    const next = chronoMovements[i + 3];
-                    if (next === 'U') nextUpCount++;
-                    else nextDownCount++;
-                }
-            }
-
-            if (movementMatches >= 5) {
-                const upProbability = nextUpCount / movementMatches;
-                const downProbability = nextDownCount / movementMatches;
-
-                if (upProbability >= 0.62) {
-                    setAiThought(`Memória I.A: Tendência [${currentMovementPattern}] tem ${Math.round(upProbability * 100)}% de chance de ALTA.`);
-                    return {
-                        type: 'CALL',
-                        contract: 'CALL',
-                        name: 'I.A Memória (Sobe)',
-                        confidence: Math.round(upProbability * 100),
-                        symbol,
-                        entryPrice: prices[0]
-                    };
-                }
-                if (downProbability >= 0.62) {
-                    setAiThought(`Memória I.A: Tendência [${currentMovementPattern}] tem ${Math.round(downProbability * 100)}% de chance de BAIXA.`);
-                    return {
-                        type: 'PUT',
-                        contract: 'PUT',
-                        name: 'I.A Memória (Desce)',
-                        confidence: Math.round(downProbability * 100),
-                        symbol,
-                        entryPrice: prices[0]
-                    };
-                }
             }
         }
 
@@ -797,7 +763,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         const sId = addSignal({ 
             strategy: source, 
-            signal: contractType === 'DIGITEVEN' ? 'EVEN' : contractType === 'DIGITODD' ? 'ODD' : contractType === 'CALL' ? 'CALL' : 'PUT', 
+            signal: contractType === 'DIGITEVEN' ? 'EVEN' : 'ODD', 
             details: `Entrada manual via ${source}`, 
             winRate: '100%' 
         });
