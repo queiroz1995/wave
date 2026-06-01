@@ -10,6 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
 import { SettingsSheet } from './SettingsSheet';
 import { RecentDigitsPanel } from './RecentDigitsPanel';
+import { DiagnosticsModal } from './DiagnosticsModal';
 import { Progress } from '@/components/ui/progress';
 import { sounds } from '@/utils/sounds';
 import confetti from 'canvas-confetti';
@@ -302,6 +303,8 @@ export const AIOperatingScreen = () => {
                                     <Volume2 className="h-3.5 w-3.5 text-emerald-400" />
                                 )}
                             </Button>
+                            {/* Botão de Diagnóstico de Performance */}
+                            <DiagnosticsModal />
                             <SettingsSheet trigger={
                                 <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
                                     <FileSpreadsheet className="h-3.5 w-3.5 text-slate-300" />
