@@ -72,7 +72,7 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
         const factor = 2.2;
         setMartingaleFactor(factor.toFixed(1));
 
-        // CALCULA DINAMICAMENTE OS NÍVEIS MÁXIMOS COM BASE NO STOP LOSS
+        // CALCULA DINAMICAMENTE OS NÍVEIS MÁXIMOS COM BASE DO STOP LOSS
         let totalLoss = 0;
         let currentStake = stakeValue;
         let levels = 0;
@@ -87,8 +87,8 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
         // DESATIVA Soros Automático conforme solicitado
         setIsSorosActive(false);
 
-        // Ativa Modo Multimodal (A I.A decide em tempo real a melhor modalidade)
-        setDigitTradeMode('multimodal');
+        // Força o modo de operação para operar exclusivamente em Dígitos (Par/Ímpar)
+        setDigitTradeMode('evenOdd');
         setIsSmartModeActive(true);
 
         // Salva no localStorage para garantir persistência imediata e robusta
@@ -99,7 +99,7 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
         localStorage.setItem('bot_martingale_factor', factor.toFixed(1));
         localStorage.setItem('bot_max_levels', String(calculatedLevels));
         localStorage.setItem('bot_is_soros_active', 'false');
-        localStorage.setItem('bot_digit_trade_mode', 'multimodal');
+        localStorage.setItem('bot_digit_trade_mode', 'evenOdd');
         localStorage.setItem('bot_is_smart_mode_active', 'true');
 
         toast.success("Configurações salvas e aplicadas com sucesso!");

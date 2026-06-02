@@ -15,6 +15,19 @@ import { Progress } from '@/components/ui/progress';
 import { sounds } from '@/utils/sounds';
 import confetti from 'canvas-confetti';
 
+const ASSET_LABELS: Record<string, string> = {
+    '1HZ100V': 'Volatility 100 (1s) Index',
+    '1HZ75V': 'Volatility 75 (1s) Index',
+    '1HZ50V': 'Volatility 50 (1s) Index',
+    '1HZ25V': 'Volatility 25 (1s) Index',
+    '1HZ10V': 'Volatility 10 (1s) Index',
+    'R_100': 'Volatility 100 Index',
+    'R_75': 'Volatility 75 Index',
+    'R_50': 'Volatility 50 Index',
+    'R_25': 'Volatility 25 Index',
+    'R_10': 'Volatility 10 Index',
+};
+
 export const AIOperatingScreen = () => {
     const { 
         selectedAIInfo, totalProfit, accountBalance, 
@@ -338,7 +351,9 @@ export const AIOperatingScreen = () => {
                                         <span className="text-[7px] font-black text-cyan-400 uppercase">PRO</span>
                                     </div>
                                 </div>
-                                <p className="text-[8px] font-bold text-slate-500 uppercase tracking-[0.3em] mt-0.5">Neural Engine v2.4.0</p>
+                                <p className="text-[9px] font-black text-cyan-400 uppercase tracking-wider mt-0.5">
+                                    {ASSET_LABELS[asset] || asset}
+                                </p>
                             </div>
                         </div>
                         
