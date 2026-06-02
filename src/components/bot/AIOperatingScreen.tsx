@@ -302,7 +302,7 @@ export const AIOperatingScreen = () => {
                 )}
             </div>
 
-            {/* --- NOVO CONTAINER TOP: AJUSTES DE ESTRATÉGIA --- */}
+            {/* --- CONTAINER TOP: AJUSTES DE ESTRATÉGIA --- */}
             {showSettings && (
                 <Card className="relative overflow-hidden bg-slate-950/90 backdrop-blur-2xl border border-cyan-500/30 shadow-[0_15px_40px_rgba(0,0,0,0.6)] rounded-[2.5rem] p-5 space-y-4 animate-in slide-in-from-top-4 duration-500">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 rounded-full blur-[40px] pointer-events-none" />
