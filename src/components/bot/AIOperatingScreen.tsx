@@ -44,6 +44,7 @@ export const AIOperatingScreen = () => {
             const last = prev[prev.length - 1];
             if (last !== totalProfit) {
                 const next = [...prev, totalProfit];
+                // Mantém os últimos 15 pontos para o gráfico ficar limpo
                 return next.slice(-15);
             }
             return prev;
@@ -75,6 +76,7 @@ export const AIOperatingScreen = () => {
             hasTriggeredGoalConfettiRef.current = true;
             sounds.playSuccess();
             
+            // Celebração Premium de Meta Batida (Várias explosões consecutivas)
             const duration = 4 * 1000;
             const end = Date.now() + duration;
 
@@ -158,90 +160,187 @@ export const AIOperatingScreen = () => {
     const targetProfitValue = parseFloat(takeProfit) || 10;
     const goalProgressPercentage = Math.min(100, Math.max(0, (totalProfit / targetProfitValue) * 100));
 
+    // Desenha a curva de patrimônio (Equity Curve) em SVG
+    const renderEquityCurve = () => {
+        if (profitHistory.length < 2) return null;
+        const width = 300;
+        const height = 40;
+        const minVal = Math.min(...profitHistory, 0);
+        const maxVal = Math.max(...profitHistory, targetProfitValue);
+        const range = maxVal - minVal || 1;
+
+        const points = profitHistory.map((val, index) => {
+            const x = (index / (profitHistory.length - 1)) * width;
+            const y = height - ((val - minVal) / range) * height;
+            return `${x},${y}`;
+        }).join(' ');
+
+        return (
+            <svg className="w-full h-10 overflow-visible" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+                <polyline
+                    fill="none"
+                    stroke={isWin ? "#10b981" : "#f43f5e"}
+                    strokeWidth="2"
+                    points={points}
+                    className="transition-all duration-500"
+                />
+                {/* Linha de base zero */}
+                <line
+                    x1="0"
+                    y1={height - ((0 - minVal) / range) * height}
+                    x2={width}
+                    y2={height - ((0 - minVal) / range) * height}
+                    stroke="rgba(255,255,255,0.1)"
+                    strokeDasharray="3,3"
+                />
+            </svg>
+        );
+    };
+
     return (
-        <div className="w-full max-w-md mx-auto space-y-3 animate-in fade-in duration-500 px-1 pb-4">
+        <div className="w-full max-w-md mx-auto space-y-3 animate-in fade-in slide-in-from-bottom-8 duration-1000 px-1 pb-6">
             
+            {/* Status Bar Superior */}
+            <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2 bg-slate-950/60 backdrop-blur-xl p-1 pr-3 rounded-full border border-white/10">
+                    <div className={cn(
+                        "h-6 w-6 rounded-full flex items-center justify-center transition-all duration-500",
+                        isBotRunning ? "bg-emerald-500/20 text-emerald-400" : "bg-slate-800/50 text-slate-500"
+                    )}>
+                        <Activity className={cn("h-3 w-3", isBotRunning && "animate-pulse")} />
+                    </div>
+                    <div className="flex flex-col">
+                        <span className="text-[8px] font-black uppercase tracking-tighter leading-none text-slate-400">
+                            Status
+                        </span>
+                        <span className={cn(
+                            "text-[8px] font-bold uppercase tracking-widest leading-none mt-0.5",
+                            isBotRunning ? "text-emerald-400" : "text-slate-500"
+                        )}>
+                            {isBotRunning ? (isStudying ? "Sincronizando..." : "Sniper Online") : "Offline"}
+                        </span>
+                    </div>
+                </div>
+
+                {isBotRunning && !isStudying && (
+                    <div className="flex items-center gap-1.5 bg-cyan-500/10 backdrop-blur-xl px-3 py-1 rounded-full border border-cyan-500/20 shadow-lg shadow-cyan-500/5">
+                        <Target className="h-3 w-3 text-cyan-400 animate-pulse" />
+                        <span className="text-[9px] font-black text-cyan-400 tracking-wider">{currentConfidence}% Precisão</span>
+                    </div>
+                )}
+            </div>
+
             {/* Painel Premium de 8 Dígitos Recentes */}
             <RecentDigitsPanel />
 
             {/* Painel de Monitoramento de Loss Virtual */}
             <VirtualLossDisplay />
 
-            {/* Painel Central Unificado - Estética Minimalista e Focada na IA */}
-            <Card className="relative overflow-hidden bg-slate-950/40 backdrop-blur-xl border border-white/5 shadow-2xl rounded-[2rem]">
-                <CardContent className="p-5 space-y-5 relative z-10">
-                    
-                    {/* Header do Robô */}
+            {/* Barra de Progresso Neon da Meta Diária */}
+            {isBotRunning && (
+                <div className="bg-slate-950/60 backdrop-blur-xl border border-white/10 rounded-2xl p-3 space-y-1.5 shadow-lg">
+                    <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-wider text-slate-400">
+                        <span className="flex items-center gap-1"><Award className="h-3 w-3 text-yellow-400" /> Progresso da Meta</span>
+                        <span className="text-cyan-400">{goalProgressPercentage.toFixed(0)}%</span>
+                    </div>
+                    <Progress 
+                        value={goalProgressPercentage} 
+                        className="h-1.5 bg-slate-900 [&>div]:bg-gradient-to-r [&>div]:from-cyan-500 [&>div]:to-emerald-500 shadow-[0_0_10px_rgba(34,211,238,0.2)]"
+                    />
+                    <div className="flex justify-between text-[8px] font-bold text-slate-500 uppercase">
+                        <span>Início: $0.00</span>
+                        <span>Meta: ${targetProfitValue.toFixed(2)}</span>
+                    </div>
+                </div>
+            )}
+
+            {/* Painel Central - Estética "Cyber-Luxury" */}
+            <Card className="relative overflow-hidden bg-slate-950/60 backdrop-blur-xl border border-white/10 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)] rounded-[2rem] transition-all duration-500 hover:border-cyan-500/20">
+                {/* Efeitos de Fundo Decorativos */}
+                <div className="absolute top-0 right-0 w-48 h-48 bg-cyan-500/10 rounded-full blur-[60px] -mr-24 -mt-24" />
+                <div className="absolute bottom-0 left-0 w-48 h-48 bg-emerald-500/5 rounded-full blur-[60px] -ml-24 -mb-24" />
+                
+                <CardContent className="p-4 sm:p-6 space-y-6 relative z-10">
+                    {/* Header com Branding */}
                     <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-2.5">
-                            <div className="h-10 w-10 bg-slate-900 rounded-xl p-0.5 border border-white/5 overflow-hidden">
-                                {selectedAIInfo?.image ? (
-                                    <img src={selectedAIInfo.image} alt="" className="w-full h-full object-cover rounded-lg" />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center bg-slate-800"><Bot className="h-4 w-4 text-cyan-400" /></div>
-                                )}
+                        <div className="flex items-center gap-3">
+                            <div className="relative group">
+                                <div className="absolute -inset-1 bg-gradient-to-tr from-cyan-500 to-indigo-500 rounded-xl blur opacity-25" />
+                                <div className="h-12 w-12 bg-slate-900 rounded-xl p-0.5 shadow-2xl border border-white/10 overflow-hidden">
+                                    {selectedAIInfo?.image ? (
+                                        <img src={selectedAIInfo.image} alt="" className="w-full h-full object-cover rounded-lg" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center bg-slate-800"><Bot className="h-5 w-5 text-cyan-400" /></div>
+                                    )}
+                                </div>
                             </div>
                             <div>
                                 <div className="flex items-center gap-1">
-                                    <h2 className="text-sm font-black text-white tracking-tight">WAVE SNIPER</h2>
-                                    <span className="text-[7px] font-black text-cyan-400 bg-cyan-500/10 px-1 rounded border border-cyan-500/20">PRO</span>
+                                    <h2 className="text-base font-black text-white italic tracking-tighter">WAVE SNIPER</h2>
+                                    <div className="px-1 py-0.5 bg-cyan-500/20 rounded border border-cyan-500/30">
+                                        <span className="text-[7px] font-black text-cyan-400 uppercase">PRO</span>
+                                    </div>
                                 </div>
-                                <p className="text-[8px] font-bold text-slate-500 uppercase tracking-wider">Neural Engine Active</p>
+                                <p className="text-[8px] font-bold text-slate-500 uppercase tracking-[0.3em] mt-0.5">Neural Engine v2.4.0</p>
                             </div>
                         </div>
                         
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1.5">
+                            {/* Botão de Mute/Unmute */}
                             <Button 
                                 variant="ghost" 
                                 size="icon" 
-                                className="h-8 w-8 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 transition-all"
+                                className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all"
                                 onClick={toggleMute}
                             >
                                 {isMuted ? (
-                                    <VolumeX className="h-3 w-3 text-rose-400" />
+                                    <VolumeX className="h-3.5 w-3.5 text-rose-400" />
                                 ) : (
-                                    <Volume2 className="h-3 w-3 text-emerald-400" />
+                                    <Volume2 className="h-3.5 w-3.5 text-emerald-400" />
                                 )}
                             </Button>
+                            {/* Botão de Diagnóstico de Performance */}
                             <DiagnosticsModal />
                             <SettingsSheet trigger={
-                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 transition-all">
+                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
                                     <FileSpreadsheet className="h-3.5 w-3.5 text-slate-300" />
                                 </Button>
                             } />
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 hover:bg-rose-500/20 transition-all" onClick={exitToSelection}>
-                                <Power className="h-3 w-3" />
+                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20 hover:bg-rose-500/20 transition-all" onClick={exitToSelection}>
+                                <Power className="h-3.5 w-3.5" />
                             </Button>
                         </div>
                     </div>
 
                     {/* Display de Lucro Hero */}
-                    <div className="flex flex-col items-center py-1 relative">
-                        <div className="flex items-center gap-1 mb-1">
+                    <div className="flex flex-col items-center py-2 relative">
+                        <div className={cn(
+                            "absolute inset-0 blur-[80px] opacity-20 -z-10 transition-all duration-1000",
+                            isWin ? "bg-emerald-500" : "bg-rose-500"
+                        )} />
+                        
+                        <div className="flex items-center gap-1.5 mb-1">
                             {isWin ? <TrendingUp className="h-3 w-3 text-emerald-400" /> : <TrendingDown className="h-3 w-3 text-rose-400" />}
-                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Resultado da Sessão</span>
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.4em]">Resultado da Sessão</span>
                         </div>
                         
                         <div className={cn(
-                            "text-4xl font-black tracking-tighter leading-none transition-all duration-500",
+                            "text-5xl sm:text-6xl font-black tracking-tighter leading-none transition-all duration-700 drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]",
                             isWin ? "text-emerald-400" : "text-rose-400"
                         )}>
-                            <span className="text-xl opacity-40 mr-0.5 font-medium">$</span>
+                            <span className="text-2xl opacity-40 mr-0.5 font-medium font-sans">$</span>
                             {totalProfit.toFixed(2)}
                         </div>
                     </div>
 
-                    {/* Barra de Progresso da Meta Diária Integrada */}
-                    {isBotRunning && (
-                        <div className="space-y-1 bg-white/[0.01] border border-white/5 p-2.5 rounded-xl">
-                            <div className="flex justify-between items-center text-[8px] font-black uppercase tracking-wider text-slate-400">
-                                <span className="flex items-center gap-1"><Award className="h-2.5 w-2.5 text-yellow-400" /> Progresso da Meta</span>
-                                <span className="text-cyan-400">{goalProgressPercentage.toFixed(0)}%</span>
+                    {/* Gráfico de Curva de Patrimônio (Equity Curve) */}
+                    {profitHistory.length > 1 && (
+                        <div className="bg-slate-900/30 border border-white/5 rounded-xl p-2 space-y-1">
+                            <div className="flex justify-between items-center text-[7px] font-bold text-slate-500 uppercase tracking-wider">
+                                <span className="flex items-center gap-1"><BarChart3 className="h-2.5 w-2.5" /> Curva de Patrimônio</span>
+                                <span>Tempo Real</span>
                             </div>
-                            <Progress 
-                                value={goalProgressPercentage} 
-                                className="h-1 bg-slate-900 [&>div]:bg-gradient-to-r [&>div]:from-cyan-500 [&>div]:to-emerald-500"
-                            />
+                            {renderEquityCurve()}
                         </div>
                     )}
 
@@ -250,66 +349,68 @@ export const AIOperatingScreen = () => {
                         onClick={handleStartClick}
                         disabled={status.message.includes('Desconectado') || isPaused || isManipulationDetected}
                         className={cn(
-                            "group relative w-full h-14 rounded-xl overflow-hidden transition-all duration-500 shadow-lg active:scale-95",
+                            "group relative w-full h-16 rounded-2xl overflow-hidden transition-all duration-500 shadow-2xl active:scale-95",
                             isBotRunning 
-                                ? "bg-rose-600 hover:bg-rose-700" 
-                                : "bg-cyan-500 hover:bg-cyan-600 text-slate-950"
+                                ? "bg-rose-600 hover:bg-rose-700 shadow-rose-900/20" 
+                                : "bg-cyan-500 hover:bg-cyan-600 text-slate-950 shadow-cyan-500/20"
                         )}
                     >
-                        <span className="relative flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em]">
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-shimmer" />
+                        <span className="relative flex items-center gap-2 text-base font-black uppercase tracking-[0.2em]">
                             {isBotRunning ? (
-                                <>PARAR OPERAÇÕES<Power className="h-3.5 w-3.5" /></>
+                                <>PARAR<Power className="h-4 w-4" /></>
                             ) : (
-                                <>INICIAR PILOTO AUTOMÁTICO<BrainCircuit className="h-3.5 w-3.5" /></>
+                                <>INICIAR<BrainCircuit className="h-4 w-4" /></>
                             )}
                         </span>
                     </Button>
 
                     {/* Seção de Entradas Manuais */}
-                    <div className="space-y-2 pt-1">
+                    <div className="space-y-3 pt-1">
                         <div className="flex items-center justify-between px-1">
-                            <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Entradas Manuais</span>
+                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Entradas Manuais</span>
                             {isTradePending && (
-                                <span className="text-[7px] font-bold text-cyan-400 animate-pulse uppercase">Operando...</span>
+                                <span className="text-[8px] font-bold text-cyan-400 animate-pulse uppercase">Operação em andamento...</span>
                             )}
                         </div>
                         
-                        <div className="grid grid-cols-2 gap-2">
+                        {/* Botões de Paridade */}
+                        <div className="grid grid-cols-2 gap-3">
                             <Button
                                 onClick={() => manualBuy('DIGITEVEN', 'Manual')}
                                 disabled={!isConnected || isTradePending}
-                                className="h-10 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/10 font-black uppercase tracking-wider text-[10px] flex items-center justify-center gap-1 transition-all duration-300 active:scale-95"
+                                className="h-12 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 font-black uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all duration-300 active:scale-95"
                             >
-                                <ArrowUpRight className="h-3.5 w-3.5" />
+                                <ArrowUpRight className="h-4 w-4" />
                                 PAR
                             </Button>
                             <Button
                                 onClick={() => manualBuy('DIGITODD', 'Manual')}
                                 disabled={!isConnected || isTradePending}
-                                className="h-10 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/10 font-black uppercase tracking-wider text-[10px] flex items-center justify-center gap-1 transition-all duration-300 active:scale-95"
+                                className="h-12 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 font-black uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all duration-300 active:scale-95"
                             >
-                                <ArrowDownRight className="h-3.5 w-3.5" />
+                                <ArrowDownRight className="h-4 w-4" />
                                 ÍMPAR
                             </Button>
                         </div>
                     </div>
 
                     {/* Wallet / Balance Section */}
-                    <div className="bg-slate-900/20 border border-white/5 rounded-xl p-3 flex items-center justify-between">
-                        <div className="flex items-center gap-2.5">
+                    <div className="bg-slate-900/40 border border-white/5 rounded-2xl p-3.5 flex items-center justify-between group hover:border-white/10 transition-colors">
+                        <div className="flex items-center gap-3">
                             <div className={cn(
-                                "h-8 w-8 rounded-lg flex items-center justify-center shadow-inner",
-                                accountType === 'real' ? "bg-emerald-500/10 text-emerald-400" : "bg-cyan-500/10 text-cyan-400"
+                                "h-10 w-10 rounded-xl flex items-center justify-center shadow-inner transition-colors duration-500",
+                                accountType === 'real' ? "bg-emerald-500/20 text-emerald-400" : "bg-cyan-500/20 text-cyan-400"
                             )}>
-                                <DollarSign className="h-4 w-4" />
+                                <DollarSign className="h-5 w-5" />
                             </div>
                             <div>
-                                <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest">
+                                <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-0.5">
                                     Saldo
                                 </p>
                                 <div className="flex items-baseline gap-0.5">
-                                    <span className="text-[9px] font-bold text-slate-400">$</span>
-                                    <p className="text-base font-black text-white tracking-tight">
+                                    <span className="text-[10px] font-bold text-slate-400">$</span>
+                                    <p className="text-xl font-black text-white tracking-tighter leading-none">
                                         {accountBalance?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
                                     </p>
                                 </div>
@@ -318,10 +419,10 @@ export const AIOperatingScreen = () => {
                         <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-7 w-7 rounded-lg bg-white/5 hover:bg-white/10 hover:rotate-180 transition-all duration-500" 
+                            className="h-8 w-8 rounded-lg bg-white/5 hover:bg-white/10 hover:rotate-180 transition-all duration-500" 
                             onClick={() => handleConnect(accountType, currentToken)}
                         >
-                            <RefreshCw className="h-3 w-3 text-slate-400" />
+                            <RefreshCw className="h-3.5 w-3.5 text-slate-400" />
                         </Button>
                     </div>
                 </CardContent>
@@ -329,41 +430,44 @@ export const AIOperatingScreen = () => {
 
             {/* AI Thought Stream */}
             {isBotRunning && (
-                <div className="bg-slate-950/40 backdrop-blur-xl rounded-2xl p-3 flex items-start gap-2.5 border border-white/5">
-                    <div className="mt-1 h-1 w-1 rounded-full bg-cyan-400 animate-ping" />
-                    <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1 mb-0.5">
-                            <MessageSquare className="h-3 w-3 text-cyan-400" />
-                            <span className="text-[7px] font-black text-cyan-400 uppercase tracking-widest">Fluxo_Cognitivo</span>
+                <div className="relative group">
+                    <div className="absolute -inset-0.5 bg-gradient-to-r from-cyan-500 to-indigo-500 rounded-2xl blur opacity-10" />
+                    <div className="relative bg-slate-950/60 backdrop-blur-xl rounded-2xl p-4 flex items-start gap-3 border border-white/10 shadow-2xl">
+                        <div className="mt-1 h-1.5 w-1.5 rounded-full bg-cyan-400 animate-ping" />
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 mb-1">
+                                <MessageSquare className="h-3 w-3 text-cyan-400" />
+                                <span className="text-[8px] font-black text-cyan-400 uppercase tracking-widest">Fluxo_Cognitivo</span>
+                            </div>
+                            <p className="text-xs font-medium text-slate-200 leading-relaxed italic">
+                                "{aiThought}"
+                                <span className="inline-block w-1 h-2.5 bg-cyan-400 ml-1 animate-pulse" />
+                            </p>
                         </div>
-                        <p className="text-[11px] font-medium text-slate-300 leading-relaxed italic">
-                            "{aiThought}"
-                            <span className="inline-block w-1 h-2.5 bg-cyan-400 ml-1 animate-pulse" />
-                        </p>
                     </div>
                 </div>
             )}
 
             {/* Monitor de Sinais - Versão Avançada e Discreta (Estilo Terminal de Operações) */}
-            <div className="bg-slate-950/40 backdrop-blur-md border border-white/5 rounded-2xl p-3 shadow-2xl">
-                <div className="flex items-center justify-between mb-2.5 px-1">
+            <div className="bg-slate-950/40 backdrop-blur-md border border-white/5 rounded-2xl p-3.5 shadow-2xl">
+                <div className="flex items-center justify-between mb-3 px-1">
                     <div className="flex items-center gap-2">
-                        <Terminal className="h-3 w-3 text-cyan-500/70" />
-                        <span className="text-[8px] font-mono font-bold text-slate-400 uppercase tracking-widest">NEURAL_CONSOLE_FEED</span>
-                        <span className="h-1 w-1 rounded-full bg-cyan-500 animate-pulse" />
+                        <Terminal className="h-3.5 w-3.5 text-cyan-500/70" />
+                        <span className="text-[9px] font-mono font-bold text-slate-400 uppercase tracking-widest">NEURAL_CONSOLE_FEED</span>
+                        <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse" />
                     </div>
                     <Button 
                         variant="ghost" 
                         size="icon" 
-                        className="h-6 w-6 rounded-md bg-white/5 hover:bg-white/10 border border-white/5 transition-all" 
+                        className="h-7 w-7 rounded-md bg-white/5 hover:bg-white/10 border border-white/5 transition-all" 
                         onClick={resetOperations}
                     >
-                        <RotateCcw className="h-2.5 w-2.5 text-slate-400" />
+                        <RotateCcw className="h-3 w-3 text-slate-400" />
                     </Button>
                 </div>
                 
-                <ScrollArea className="h-32 pr-1">
-                    <div className="space-y-1 font-mono text-[9px]">
+                <ScrollArea className="h-40 pr-1">
+                    <div className="space-y-1.5 font-mono text-[10px]">
                         {signals.length > 0 ? signals.map((s: any) => {
                             const label = getSignalLabel(s.signal, s.strategy);
                             const hasFinished = typeof s.profit === 'number';
@@ -372,7 +476,7 @@ export const AIOperatingScreen = () => {
                                 <div 
                                     key={s.id} 
                                     className={cn(
-                                        "flex items-center justify-between py-1 px-2 rounded-lg border transition-all duration-300",
+                                        "flex items-center justify-between py-1.5 px-2.5 rounded-lg border transition-all duration-300",
                                         !hasFinished 
                                             ? "bg-cyan-500/5 border-cyan-500/10 text-cyan-400" 
                                             : s.result === 'WIN' 
@@ -380,30 +484,30 @@ export const AIOperatingScreen = () => {
                                                 : "bg-rose-500/5 border-rose-500/10 text-rose-400"
                                     )}
                                 >
-                                    <div className="flex items-center gap-1.5 min-w-0">
-                                        <span className="text-slate-500 text-[8px]">{s.timestamp}</span>
-                                        <span className={cn("h-1 w-1 rounded-full shrink-0", label.dotColor)} />
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <span className="text-slate-500 text-[9px]">{s.timestamp}</span>
+                                        <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", label.dotColor)} />
                                         <span className="font-bold truncate max-w-[140px]">
                                             {label.text}
                                         </span>
                                         {label.isVirtual && (
-                                            <span className="text-[7px] text-cyan-500/60 font-semibold tracking-tighter">VRT</span>
+                                            <span className="text-[8px] text-cyan-500/60 font-semibold tracking-tighter">VRT</span>
                                         )}
                                     </div>
                                     
-                                    <div className="flex items-center gap-1 shrink-0 font-bold">
+                                    <div className="flex items-center gap-1.5 shrink-0 font-bold">
                                         {!hasFinished ? (
-                                            <span className="text-cyan-400 animate-pulse flex items-center gap-0.5">
+                                            <span className="text-cyan-400 animate-pulse flex items-center gap-1">
                                                 ANALISANDO
-                                                <span className="inline-block w-0.5 h-1.5 bg-cyan-400 animate-ping" />
+                                                <span className="inline-block w-1 h-2 bg-cyan-400 animate-ping" />
                                             </span>
                                         ) : (
                                             <span className={cn(
-                                                "flex items-center gap-0.5",
+                                                "flex items-center gap-1",
                                                 s.result === 'WIN' ? "text-emerald-400" : "text-rose-400"
                                             )}>
                                                 {s.profit > 0 ? '+' : ''}{s.profit.toFixed(2)}
-                                                <span className="text-[8px] opacity-80">
+                                                <span className="text-[9px] opacity-80">
                                                     {s.result === 'WIN' ? 'WIN' : 'LOSS'}
                                                 </span>
                                             </span>
@@ -412,8 +516,8 @@ export const AIOperatingScreen = () => {
                                 </div>
                             );
                         }) : (
-                            <div className="py-8 text-center border border-dashed border-white/5 rounded-xl">
-                                <p className="text-[8px] font-mono text-slate-500 uppercase tracking-widest">
+                            <div className="py-10 text-center border border-dashed border-white/5 rounded-xl">
+                                <p className="text-[9px] font-mono text-slate-500 uppercase tracking-widest">
                                     [AGUARDANDO_GATILHOS_NEURAIS]
                                 </p>
                             </div>
