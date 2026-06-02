@@ -60,14 +60,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // --- NOVO SISTEMA DE LOSS VIRTUAL AVANÇADO (2 LOSS + 1 WIN) ---
     const [virtualHistory, setVirtualHistory] = useState<('WIN' | 'LOSS')[]>([]);
-    const lastVirtualSignal = useRef<{
-        signalId: string;
-        contractType: ContractType;
-        strategyName: string;
-        symbol: string;
-        entryPrice: number;
-        entryDigit: number;
-    } | null>(null);
+    
+    // Mapa para gerenciar múltiplos sinais virtuais pendentes por ativo simultaneamente
+    const pendingVirtualSignals = useRef<Map<string, any>>(new Map());
 
     const {
         addLog, setAccountBalance, setLastDigits, setIsBotRunning,
@@ -153,10 +148,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, [isConnected, fetchDerivHistory]);
 
     // Resolve o sinal virtual anterior com base no tick atual
-    const evaluateVirtualSignal = useCallback((symbol: string, currentPrice: number, currentDigit: number) => {
-        if (!lastVirtualSignal.current || lastVirtualSignal.current.symbol !== symbol) return;
-
-        const trade = lastVirtualSignal.current;
+    const evaluateVirtualSignal = useCallback((symbol: string, currentPrice: number, currentDigit: number, trade: any) => {
         let isWin = false;
 
         switch (trade.contractType) {
@@ -200,7 +192,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return next;
         });
 
-        lastVirtualSignal.current = null;
+        pendingVirtualSignals.current.delete(symbol);
     }, [digitPrediction, updateSignalResult]);
 
     const processTickData = useCallback((tick: { quote: string, epoch: number, symbol: string }) => {
@@ -215,9 +207,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         pricesRef.current[symbol] = [price, ...pricesRef.current[symbol]].slice(0, 100);
 
-        // Resolve sinal virtual anterior se houver
-        if (lastVirtualSignal.current && lastVirtualSignal.current.symbol === symbol) {
-            evaluateVirtualSignal(symbol, price, lastDigit);
+        // Resolve sinal virtual anterior se houver para este ativo específico
+        const pendingVirtual = pendingVirtualSignals.current.get(symbol);
+        if (pendingVirtual) {
+            evaluateVirtualSignal(symbol, price, lastDigit, pendingVirtual);
         }
 
         setMultiAssetDigits((prev: Record<string, number[]>) => {
@@ -250,7 +243,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         lastWinProfit.current = 0.00;
         isManualSession.current = false;
         setVirtualHistory([]);
-        lastVirtualSignal.current = null;
+        pendingVirtualSignals.current.clear();
         setTradeStatus('IDLE');
         setAiThought("Bot Parado.");
         addLog(reason, 'INFO');
@@ -267,7 +260,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         lastWinProfit.current = 0.00;
         isManualSession.current = false;
         setVirtualHistory([]);
-        lastVirtualSignal.current = null;
+        pendingVirtualSignals.current.clear();
         setTradeStatus('IDLE');
         addLog("Resetado.", "INFO");
     }, [setTotalProfit, setWins, setLosses, setSignals, addLog, setTradeStatus]);
@@ -535,14 +528,14 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         // Se não for Gale, e não for compra manual, e o padrão não estiver completo: executa como VIRTUAL
         if (!bypassStudy && !isGaleMode && !isPatternMatched) {
-            lastVirtualSignal.current = {
+            pendingVirtualSignals.current.set(symbol, {
                 signalId, // Salva o ID do sinal para podermos atualizá-lo na interface depois!
                 contractType,
                 strategyName,
                 symbol,
                 entryPrice: pricesRef.current[symbol]?.[0] || 0,
                 entryDigit: multiAssetDigits[symbol]?.[0] || 0
-            };
+            });
             return;
         }
 
