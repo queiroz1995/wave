@@ -49,7 +49,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const lastContractType = useRef<ContractType | null>(null);
     const lastTradedAsset = useRef<string | null>(null);
     
-    const isGalePausedForFilter = useRef(false);
     const isManualSession = useRef(false); // Controla se a sessão atual foi iniciada manualmente
 
     const pendingContracts = useRef<Map<string, any>>(new Map());
@@ -144,8 +143,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     }, [isConnected, fetchDerivHistory]);
 
-    const [virtualTradePending, setVirtualTradePending] = useState<any>(null);
-
     const processTickData = useCallback((tick: { quote: string, epoch: number, symbol: string }) => {
         const symbol = tick.symbol;
         const price = parseFloat(tick.quote);
@@ -168,43 +165,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return { ...prev, [symbol]: newHistory };
         });
 
-        const { recommendedVirtualLosses } = getMarketState(symbol);
-
-        if (virtualTradePending && virtualTradePending.symbol === symbol) {
-            let win = false;
-            if (virtualTradePending.contract === 'DIGITEVEN') {
-                win = lastDigit % 2 === 0;
-            } else if (virtualTradePending.contract === 'DIGITODD') {
-                win = lastDigit % 2 !== 0;
-            } else if (virtualTradePending.contract === 'CALL') {
-                win = price > (virtualTradePending.entryPrice || 0);
-            } else if (virtualTradePending.contract === 'PUT') {
-                win = price < (virtualTradePending.entryPrice || 0);
-            }
-
-            if (win) {
-                setVirtualLossStreak(0);
-                updateSignalResult(virtualTradePending.signalId, 'WIN', 0, 0, lastDigit);
-                setAiThought(`Refração em ${symbol}. Reiniciando proteção.`);
-            } else {
-                const nextStreak = virtualLossStreak + 1;
-                setVirtualLossStreak(nextStreak);
-                updateSignalResult(virtualTradePending.signalId, 'LOSS', 0, 0, lastDigit);
-                
-                const target = isSmartModeActive ? recommendedVirtualLosses : virtualTargetLosses;
-                
-                if (nextStreak >= target) {
-                    setAiThought(`Proteção atingida em ${symbol}. Liberando Sniper!`);
-                    if (isGalePausedForFilter.current && symbol === lastTradedAsset.current) {
-                        isGalePausedForFilter.current = false;
-                    }
-                } else {
-                    setAiThought(`Filtro Anti-Manipulação: +${target - nextStreak} Loss Virtual.`);
-                }
-            }
-            setVirtualTradePending(null);
-        }
-
         if (isStudying && symbol === asset) {
             setStudyTicksCount((c: number) => {
                 const next = c + 1;
@@ -215,7 +175,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 return next;
             });
         }
-    }, [asset, getMarketState, isStudying, setIsStudying, setStudyTicksCount, virtualTradePending, virtualLossStreak, virtualTargetLosses, isSmartModeActive, updateSignalResult]);
+    }, [asset, isStudying, setIsStudying, setStudyTicksCount]);
 
     const stopBot = useCallback((reason: string) => {
         setIsBotRunning(false);
@@ -223,10 +183,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         martingaleLevel.current = 0;
         consecutiveWins.current = 0;
         lastWinProfit.current = 0.00;
-        isGalePausedForFilter.current = false;
         isManualSession.current = false;
         setVirtualLossStreak(0);
-        setVirtualTradePending(null);
         setTradeStatus('IDLE');
         setAiThought("Bot Parado.");
         addLog(reason, 'INFO');
@@ -241,10 +199,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         martingaleLevel.current = 0;
         consecutiveWins.current = 0;
         lastWinProfit.current = 0.00;
-        isGalePausedForFilter.current = false;
         isManualSession.current = false;
         setVirtualLossStreak(0);
-        setVirtualTradePending(null);
         setTradeStatus('IDLE');
         addLog("Resetado.", "INFO");
     }, [setTotalProfit, setWins, setLosses, setSignals, setVirtualLossStreak, addLog, setTradeStatus]);
@@ -332,7 +288,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             // Se atingiu o limite máximo de gales configurado
                             if (martingaleLevel.current > maxLevels) {
                                 martingaleLevel.current = 0;
-                                isGalePausedForFilter.current = false;
                                 if (isManualSession.current) {
                                     isManualSession.current = false;
                                     stopBot("Limite de Martingale atingido na operação manual.");
@@ -340,19 +295,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                     addLog("Limite de Martingale atingido. Resetando para stake inicial.", "INFO");
                                 }
                             } else {
-                                const { isStable } = getMarketState(savedData.symbol);
-                                if (!isStable) {
-                                    isGalePausedForFilter.current = true;
-                                    setVirtualLossStreak(0);
-                                    setAiThought("Ciclo instável detectado! Pausando Gale e ativando Filtro Virtual.");
-                                } else {
-                                    setAiThought("Mercado estável. Preparando Gale imediato.");
-                                }
+                                setAiThought("Derrota detectada. Iniciando reavaliação inteligente do mercado para a próxima entrada...");
                             }
                         } else {
                             setWins((prev: number) => prev + 1);
                             martingaleLevel.current = 0;
-                            isGalePausedForFilter.current = false;
                             setVirtualLossStreak(0);
                             
                             // --- GESTÃO DE SOROS AUTOMÁTICO ---
@@ -401,7 +348,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else if (event.type === 'close') {
             setIsConnecting(false);
         }
-    }, [processTickData, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, getMarketState, maxLevels, asset, isSorosActive, sorosLevels]);
+    }, [processTickData, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, maxLevels, isSorosActive, sorosLevels]);
 
     const ws = useTradingWebSocketManager({ isConnected, status, setIsConnected, setStatus, setAccountBalance, onMessage: handleWebSocketMessage, reconnectAttemptsRef });
     const { sendMessage, connect, disconnect } = ws;
@@ -411,20 +358,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const digits = multiAssetDigits[symbol] || [];
         const prices = pricesRef.current[symbol] || [];
         if (activeTrades.current.size > 0 || isStudying || digits.length < 4 || prices.length < 5) return null;
-
-        if (isGalePausedForFilter.current && symbol === lastTradedAsset.current) return null;
-
-        // Se for Gale/Recuperação, mantém a entrada para recuperar
-        if (martingaleLevel.current > 0 && lastTradedAsset.current === symbol) {
-            const contract = lastContractType.current || 'DIGITEVEN';
-            return { 
-                type: contract === 'DIGITEVEN' ? 'EVEN' : contract === 'DIGITODD' ? 'ODD' : contract === 'CALL' ? 'CALL' : 'PUT', 
-                contract, 
-                name: 'Recovery (Gale)', 
-                confidence: 99, 
-                symbol 
-            };
-        }
 
         // --- ESTRATÉGIA 3: SEQUÊNCIA AUTOMÁTICA PERSONALIZADA ---
         if (autoSequenceActive && symbol === asset && autoSequenceTrigger) {
@@ -586,33 +519,19 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         for (const symbol of SCANNER_ASSETS.map(a => a.value)) {
             const signal = calculateTradeSignal(symbol);
             if (signal) {
-                const { recommendedVirtualLosses } = getMarketState(symbol);
-                const target = isSmartModeActive ? recommendedVirtualLosses : virtualTargetLosses;
-                
-                const isRecovery = signal.name.includes('Recovery');
-                const needsVirtual = target > 0 && virtualLossStreak < target;
-                
-                if (needsVirtual) {
-                    if (!virtualTradePending) {
-                        const sId = addSignal({ 
-                            strategy: isRecovery ? `VIRTUAL (RECOVERY FILTER)` : `VIRTUAL (IA: ${target}L)`, 
-                            signal: signal.type as any, 
-                            details: isRecovery ? `Limpando ciclo para Gale seguro` : `Filtro dinâmico em ${symbol}`, 
-                            winRate: `${signal.confidence}%` 
-                        });
-                        setVirtualTradePending({ ...signal, signalId: sId, symbol });
-                    }
-                    break;
-                }
-                
                 if (activeTrades.current.size === 0) {
-                    const sId = addSignal({ strategy: signal.name, signal: signal.type as any, details: `Sniper Real em ${symbol}`, winRate: `${signal.confidence}%` });
+                    const sId = addSignal({ 
+                        strategy: signal.name, 
+                        signal: signal.type as any, 
+                        details: `Sniper Real em ${symbol}`, 
+                        winRate: `${signal.confidence}%` 
+                    });
                     executeBuy(signal.contract as ContractType, signal.name, sId, symbol);
                     break;
                 }
             }
         }
-    }, [isBotRunning, calculateTradeSignal, addSignal, executeBuy, isStudying, virtualTradePending, virtualLossStreak, virtualTargetLosses, isSmartModeActive, getMarketState, lastTickEpoch]);
+    }, [isBotRunning, calculateTradeSignal, addSignal, executeBuy, isStudying, lastTickEpoch]);
 
     const handleConnect = useCallback((targetType?: 'real' | 'demo', targetToken?: string) => {
         const type = targetType || accountType;
