@@ -4,19 +4,17 @@ import React from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Target, Zap, ShieldCheck } from 'lucide-react';
+import { Target, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export const VirtualLossDisplay = () => {
-    const { virtualHistory = [], isBotRunning } = useBotContext();
+    const { virtualHistory = [], isBotRunning, virtualTargetLosses, isVirtualLossActive } = useBotContext();
 
-    if (!isBotRunning) return null;
+    if (!isBotRunning || !isVirtualLossActive) return null;
 
     const len = virtualHistory.length;
-    const isPatternMatched = len >= 3 && 
-                             virtualHistory[len - 3] === 'LOSS' && 
-                             virtualHistory[len - 2] === 'LOSS' && 
-                             virtualHistory[len - 1] === 'WIN';
+    const isPatternMatched = len >= virtualTargetLosses && 
+                             virtualHistory.slice(-virtualTargetLosses).every(outcome => outcome === 'LOSS');
 
     return (
         <Card className={cn(
@@ -30,7 +28,7 @@ export const VirtualLossDisplay = () => {
                     <div className="flex items-center gap-2">
                         <Target className={cn("h-4 w-4 animate-pulse", isPatternMatched ? "text-emerald-400" : "text-cyan-400")} />
                         <span className={cn("text-[10px] font-black uppercase tracking-widest", isPatternMatched ? "text-emerald-400" : "text-primary")}>
-                            {isPatternMatched ? "Gatilho Real Confirmado" : "Aguardando Padrão [L L W]"}
+                            {isPatternMatched ? "Gatilho Real Confirmado" : `Aguardando ${virtualTargetLosses} Derrotas Virtuais`}
                         </span>
                     </div>
                     <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
@@ -66,7 +64,7 @@ export const VirtualLossDisplay = () => {
                     <span>
                         {isPatternMatched 
                             ? "Padrão detectado! Próxima entrada será com dinheiro real." 
-                            : "Buscando sequência de 2 derrotas seguidas e 1 vitória..."}
+                            : `Buscando sequência de ${virtualTargetLosses} derrotas seguidas...`}
                     </span>
                     <span className="flex items-center gap-1 text-primary font-black animate-pulse">
                         <Zap className="h-3 w-3 fill-current" /> Sincronizando...
