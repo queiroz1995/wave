@@ -55,7 +55,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const reconnectAttemptsRef = useRef(0);
     const sendMessageRef = useRef<(payload: any) => void>(() => {});
     
-    // Ref para armazenar o histórico de preços reais para análise de Sobe/Desce (Rise/Fall)
+    // Ref para armazenar o histórico de preços reais para análise
     const pricesRef = useRef<Record<string, number[]>>({});
 
     // --- NOVO SISTEMA DE LOSS VIRTUAL AVANÇADO (2 LOSS + 1 WIN) ---
@@ -163,12 +163,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 break;
             case 'DIGITUNDER':
                 isWin = currentDigit < digitPrediction;
-                break;
-            case 'CALL':
-                isWin = currentPrice > trade.entryPrice;
-                break;
-            case 'PUT':
-                isWin = currentPrice < trade.entryPrice;
                 break;
         }
 
@@ -414,8 +408,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const calculateTradeSignal = useCallback((symbol: string) => {
         const digits = multiAssetDigits[symbol] || [];
-        const prices = pricesRef.current[symbol] || [];
-        if (activeTrades.current.size > 0 || isStudying || digits.length < 4 || prices.length < 5) return null;
+        if (activeTrades.current.size > 0 || isStudying || digits.length < 4) return null;
 
         // --- ESTRATÉGIA 3: SEQUÊNCIA AUTOMÁTICA PERSONALIZADA ---
         if (autoSequenceActive && symbol === asset && autoSequenceTrigger) {
@@ -442,37 +435,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         // Se a sequência automática estiver ativa, não executa as outras estratégias para evitar conflito
         if (autoSequenceActive) return null;
-
-        // --- ESTRATÉGIA 1: SOBE / DESCE (RISE/FALL) ---
-        // Analisa a tendência de preços reais para Sobe/Desce
-        const pr0 = prices[0];
-        const pr1 = prices[1];
-        const pr2 = prices[2];
-        const pr3 = prices[3];
-
-        // Se houver 3 quedas consecutivas de preço, aposta em SOBE (CALL) - Reversão de micro-tendência
-        if (pr0 < pr1 && pr1 < pr2 && pr2 < pr3) {
-            return {
-                type: 'CALL',
-                contract: 'CALL',
-                name: 'WAVE (Sobe)',
-                confidence: 90,
-                symbol,
-                entryPrice: pr0
-            };
-        }
-
-        // Se houver 3 altas consecutivas de preço, aposta em DESCE (PUT) - Reversão de micro-tendência
-        if (pr0 > pr1 && pr1 > pr2 && pr2 > pr3) {
-            return {
-                type: 'PUT',
-                contract: 'PUT',
-                name: 'WAVE (Desce)',
-                confidence: 90,
-                symbol,
-                entryPrice: pr0
-            };
-        }
 
         // --- ESTRATÉGIA 2: DÍGITOS (PAR/ÍMPAR) ---
         // Evitar sequências de surf (sequências longas seguidas do mesmo dígito)
@@ -589,7 +551,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         const sId = addSignal({ 
             strategy: source, 
-            signal: contractType === 'DIGITEVEN' ? 'EVEN' : contractType === 'DIGITODD' ? 'ODD' : contractType === 'CALL' ? 'CALL' : 'PUT', 
+            signal: contractType === 'DIGITEVEN' ? 'EVEN' : 'ODD', 
             details: `Entrada manual via ${source}`, 
             winRate: '100%' 
         });

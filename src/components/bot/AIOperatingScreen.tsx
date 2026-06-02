@@ -146,14 +146,6 @@ export const AIOperatingScreen = () => {
                 text = 'ÍMPAR'; 
                 dotColor = isVirtual ? 'bg-cyan-400' : 'bg-rose-400';
                 break;
-            case 'CALL': 
-                text = 'SOBE'; 
-                dotColor = isVirtual ? 'bg-cyan-400' : 'bg-emerald-400';
-                break;
-            case 'PUT': 
-                text = 'DESCE'; 
-                dotColor = isVirtual ? 'bg-cyan-400' : 'bg-rose-400';
-                break;
             default: 
                 text = signal; 
                 dotColor = 'bg-slate-400';

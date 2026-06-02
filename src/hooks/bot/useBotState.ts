@@ -10,7 +10,7 @@ const DEFAULTS = {
     asset: '1HZ100V',
     duration: 1,
     initialStake: '0.35',
-    digitTradeMode: 'evenOdd' as 'evenOdd' | 'overUnder' | 'riseFall' | 'multimodal',
+    digitTradeMode: 'evenOdd' as 'evenOdd' | 'overUnder',
     attackMode: ['traditional'] as string[],
     digitPrediction: 4,
     overUnderDirection: 'OVER' as 'OVER' | 'UNDER',
@@ -67,7 +67,7 @@ export const useBotState = () => {
     const [asset, setAsset] = useState(initialState.asset);
     const [duration, setDuration] = useState(initialState.duration);
     const [initialStake, setInitialStake] = useState(initialState.initialStake);
-    const [digitTradeMode, setDigitTradeMode] = useState<'evenOdd' | 'overUnder' | 'riseFall' | 'multimodal'>(initialState.digitTradeMode);
+    const [digitTradeMode, setDigitTradeMode] = useState<'evenOdd' | 'overUnder'>(initialState.digitTradeMode);
     const [attackMode, setAttackMode] = useState<string[]>(initialState.attackMode);
     const [digitPrediction, setDigitPrediction] = useState<number>(initialState.digitPrediction);
     const [overUnderDirection, setOverUnderDirection] = useState<'OVER' | 'UNDER'>(initialState.overUnderDirection);
