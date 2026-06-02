@@ -409,14 +409,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             setAssetRankings(rankings);
 
-            // Se o bot estiver rodando e não houver operação ativa, muda automaticamente para o melhor ativo do ranking!
-            if (isBotRunning && rankings.length > 0 && activeTrades.current.size === 0 && martingaleLevel.current === 0) {
-                const bestAsset = rankings[0].symbol;
-                if (bestAsset !== asset) {
-                    setAsset(bestAsset);
-                    setAiThought(`I.A detectou melhor oportunidade em ${rankings[0].label}. Alternando foco.`);
-                }
-            }
+            // REMOVED: Auto-switch is disabled as requested. The bot will lock on the selected asset.
+            // O robô agora opera exclusivamente no mercado selecionado pelo usuário, sem alternar sozinho.
         }, 8000); // Atualiza a cada 8 segundos para evitar oscilações frenéticas
 
         return () => clearInterval(interval);
