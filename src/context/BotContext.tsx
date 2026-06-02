@@ -40,7 +40,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Estados globais para controle de modais
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
-    const [isWaitingForVirtualResult, setIsWaitingForVirtualResult] = useState(false);
 
     const activeTrades = useRef<Set<string>>(new Set());
     const totalProfitRef = useRef(0.00);
@@ -59,15 +58,14 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Ref para armazenar o histórico de preços reais para análise de Sobe/Desce (Rise/Fall)
     const pricesRef = useRef<Record<string, number[]>>({});
 
-    // Ref para rastrear operação virtual ativa
-    const activeVirtualTrade = useRef<{
-        id: string;
+    // --- NOVO SISTEMA DE LOSS VIRTUAL AVANÇADO (2 LOSS + 1 WIN) ---
+    const [virtualHistory, setVirtualHistory] = useState<('WIN' | 'LOSS')[]>([]);
+    const lastVirtualSignal = useRef<{
         contractType: ContractType;
         strategyName: string;
         symbol: string;
         entryPrice: number;
         entryDigit: number;
-        isRecovery: boolean;
     } | null>(null);
 
     const {
@@ -85,11 +83,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setDuration, duration,
         setNeuralPredictions,
         isStudying, setIsStudying, setStudyTicksCount,
-        virtualLossStreak, setVirtualLossStreak,
-        virtualTargetLosses, setVirtualTargetLosses,
         consecutiveTarget, setConsecutiveTarget, entryDirection, setEntryDirection,
         isSmartModeActive, setIsSmartModeActive,
-        isWaitingForRecoveryVirtual, setIsWaitingForRecoveryVirtual,
         setSignals, accountBalance, wins, losses,
         bankManagementInitialBankroll, setBankManagementInitialBankroll,
         bankManagementDailyGoalPercent, setBankManagementDailyGoalPercent,
@@ -156,11 +151,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     }, [isConnected, fetchDerivHistory]);
 
-    // Função para resolver operações virtuais no tick seguinte
-    const resolveVirtualTrade = useCallback((symbol: string, currentPrice: number, currentDigit: number) => {
-        if (!activeVirtualTrade.current || activeVirtualTrade.current.symbol !== symbol) return;
+    // Resolve o sinal virtual anterior com base no tick atual
+    const evaluateVirtualSignal = useCallback((symbol: string, currentPrice: number, currentDigit: number) => {
+        if (!lastVirtualSignal.current || lastVirtualSignal.current.symbol !== symbol) return;
 
-        const trade = activeVirtualTrade.current;
+        const trade = lastVirtualSignal.current;
         let isWin = false;
 
         switch (trade.contractType) {
@@ -184,40 +179,24 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 break;
         }
 
-        const virtualProfit = isWin ? 0.31 : -0.35;
-
-        // Atualiza o sinal na interface
-        updateSignalResult(trade.id, isWin ? 'WIN' : 'LOSS', virtualProfit, 0.35, currentDigit);
-        addLog(`[VIRTUAL] ${trade.strategyName} finalizada em ${isWin ? 'VITÓRIA' : 'DERROTA'}.`, isWin ? 'WIN' : 'LOSS', { profit: virtualProfit });
-
-        if (trade.isRecovery) {
-            // Se estávamos esperando uma derrota virtual pós-loss real
-            if (!isWin) {
-                setIsWaitingForRecoveryVirtual(false);
-                addLog("Derrota virtual detectada! Ciclo ruim absorvido. Próxima entrada real autorizada.", "INFO");
-                setAiThought("Ciclo de perdas absorvido virtualmente. Próxima entrada real armada com Martingale!");
+        const outcome: 'WIN' | 'LOSS' = isWin ? 'WIN' : 'LOSS';
+        
+        setVirtualHistory(prev => {
+            const next: ('WIN' | 'LOSS')[] = [...prev, outcome].slice(-10); // Mantém os últimos 10 resultados virtuais
+            
+            // Verifica se os últimos 3 resultados virtuais são exatamente LOSS -> LOSS -> WIN
+            const len = next.length;
+            if (len >= 3 && next[len - 3] === 'LOSS' && next[len - 2] === 'LOSS' && next[len - 1] === 'WIN') {
+                setAiThought("Padrão [LOSS -> LOSS -> WIN] detectado! Próxima entrada será REAL.");
             } else {
-                setAiThought("Vitória virtual detectada. Aguardando uma derrota virtual para segurança do Martingale...");
+                setAiThought(`Aguardando padrão [LOSS -> LOSS -> WIN]. Histórico: ${next.map(h => h === 'WIN' ? 'W' : 'L').join(' ')}`);
             }
-        } else {
-            // Fluxo de filtro de entrada inicial normal
-            if (!isWin) {
-                setVirtualLossStreak(prev => {
-                    const next = prev + 1;
-                    if (next >= virtualTargetLosses) {
-                        setAiThought(`Filtro de ${virtualTargetLosses} derrotas virtuais atingido! Próxima entrada será REAL.`);
-                    }
-                    return next;
-                });
-            } else {
-                setVirtualLossStreak(0);
-                setAiThought("Vitória virtual detectada. Reiniciando contagem de perdas virtuais para segurança.");
-            }
-        }
+            
+            return next;
+        });
 
-        activeVirtualTrade.current = null;
-        setIsWaitingForVirtualResult(false);
-    }, [digitPrediction, virtualTargetLosses, updateSignalResult, addLog, setVirtualLossStreak, setIsWaitingForRecoveryVirtual, setAiThought]);
+        lastVirtualSignal.current = null;
+    }, [digitPrediction]);
 
     const processTickData = useCallback((tick: { quote: string, epoch: number, symbol: string }) => {
         const symbol = tick.symbol;
@@ -231,9 +210,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         pricesRef.current[symbol] = [price, ...pricesRef.current[symbol]].slice(0, 100);
 
-        // Resolve trade virtual ativo se houver
-        if (activeVirtualTrade.current && activeVirtualTrade.current.symbol === symbol) {
-            resolveVirtualTrade(symbol, price, lastDigit);
+        // Resolve sinal virtual anterior se houver
+        if (lastVirtualSignal.current && lastVirtualSignal.current.symbol === symbol) {
+            evaluateVirtualSignal(symbol, price, lastDigit);
         }
 
         setMultiAssetDigits((prev: Record<string, number[]>) => {
@@ -256,7 +235,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 return next;
             });
         }
-    }, [asset, isStudying, setIsStudying, setStudyTicksCount, resolveVirtualTrade]);
+    }, [asset, isStudying, setIsStudying, setStudyTicksCount, evaluateVirtualSignal]);
 
     const stopBot = useCallback((reason: string) => {
         setIsBotRunning(false);
@@ -265,14 +244,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         consecutiveWins.current = 0;
         lastWinProfit.current = 0.00;
         isManualSession.current = false;
-        setVirtualLossStreak(0);
-        setIsWaitingForRecoveryVirtual(false);
-        activeVirtualTrade.current = null;
-        setIsWaitingForVirtualResult(false);
+        setVirtualHistory([]);
+        lastVirtualSignal.current = null;
         setTradeStatus('IDLE');
         setAiThought("Bot Parado.");
         addLog(reason, 'INFO');
-    }, [setIsBotRunning, addLog, setTradeStatus, setIsWaitingForRecoveryVirtual, setVirtualLossStreak]);
+    }, [setIsBotRunning, addLog, setTradeStatus]);
 
     const resetOperations = useCallback(() => {
         totalProfitRef.current = 0;
@@ -284,13 +261,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         consecutiveWins.current = 0;
         lastWinProfit.current = 0.00;
         isManualSession.current = false;
-        setVirtualLossStreak(0);
-        setIsWaitingForRecoveryVirtual(false);
-        activeVirtualTrade.current = null;
-        setIsWaitingForVirtualResult(false);
+        setVirtualHistory([]);
+        lastVirtualSignal.current = null;
         setTradeStatus('IDLE');
         addLog("Resetado.", "INFO");
-    }, [setTotalProfit, setWins, setLosses, setSignals, setVirtualLossStreak, addLog, setTradeStatus, setIsWaitingForRecoveryVirtual]);
+    }, [setTotalProfit, setWins, setLosses, setSignals, addLog, setTradeStatus]);
 
     const toggleBot = useCallback(() => {
         if (!isConnected) {
@@ -372,26 +347,20 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             consecutiveWins.current = 0;
                             lastWinProfit.current = 0.00;
                             
-                            // Se atingiu o limite máximo de gales configurado
-                            if (martingaleLevel.current > maxLevels) {
+                            // Se atingiu o limite máximo de gales configurado ou se o Gale deu LOSS
+                            if (martingaleLevel.current > 1) { // "sim de red volta mesma coisa" -> Se o Gale der LOSS, volta ao padrão inicial
                                 martingaleLevel.current = 0;
-                                if (isManualSession.current) {
-                                    isManualSession.current = false;
-                                    stopBot("Limite de Martingale atingido na operação manual.");
-                                } else {
-                                    addLog("Limite de Martingale atingido. Resetando para stake inicial.", "INFO");
-                                }
+                                setVirtualHistory([]); // Reseta o histórico virtual para recomeçar do zero
+                                addLog("Gale finalizado em LOSS. Retornando ao padrão inicial de segurança.", "ERROR");
+                                setAiThought("Gale deu LOSS. Retornando ao padrão inicial de segurança...");
                             } else {
-                                // ATIVA FILTRO DE RECUPERAÇÃO VIRTUAL PÓS-LOSS
-                                setIsWaitingForRecoveryVirtual(true);
-                                addLog("Derrota real detectada. Protocolo de Recuperação Virtual ativado para segurança.", "ERROR");
-                                setAiThought("Derrota detectada. Entrando em modo de Recuperação Virtual para absorver o ciclo ruim...");
+                                addLog("Entrada real finalizada em LOSS. Preparando Gale para a próxima entrada.", "ERROR");
+                                setAiThought("Entrada real deu LOSS. Preparando Gale para a próxima entrada...");
                             }
                         } else {
                             setWins((prev: number) => prev + 1);
                             martingaleLevel.current = 0;
-                            setVirtualLossStreak(0);
-                            setIsWaitingForRecoveryVirtual(false);
+                            setVirtualHistory([]); // Reseta o histórico virtual após vitória real
                             
                             // --- GESTÃO DE SOROS AUTOMÁTICO ---
                             if (isSorosActive) {
@@ -439,7 +408,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else if (event.type === 'close') {
             setIsConnecting(false);
         }
-    }, [processTickData, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, maxLevels, isSorosActive, sorosLevels, setIsWaitingForRecoveryVirtual, addLog]);
+    }, [processTickData, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, isSorosActive, sorosLevels, addLog]);
 
     const ws = useTradingWebSocketManager({ isConnected, status, setIsConnected, setStatus, setAccountBalance, onMessage: handleWebSocketMessage, reconnectAttemptsRef });
     const { sendMessage, connect, disconnect } = ws;
@@ -448,7 +417,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const calculateTradeSignal = useCallback((symbol: string) => {
         const digits = multiAssetDigits[symbol] || [];
         const prices = pricesRef.current[symbol] || [];
-        if (activeTrades.current.size > 0 || isStudying || digits.length < 4 || prices.length < 5 || isWaitingForVirtualResult) return null;
+        if (activeTrades.current.size > 0 || isStudying || digits.length < 4 || prices.length < 5) return null;
 
         // --- ESTRATÉGIA 3: SEQUÊNCIA AUTOMÁTICA PERSONALIZADA ---
         if (autoSequenceActive && symbol === asset && autoSequenceTrigger) {
@@ -544,29 +513,30 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         return null;
-    }, [multiAssetDigits, isStudying, autoSequenceActive, autoSequenceTrigger, autoSequenceEntry, asset, isWaitingForVirtualResult]);
+    }, [multiAssetDigits, isStudying, autoSequenceActive, autoSequenceTrigger, autoSequenceEntry, asset]);
 
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string, symbol: string, bypassStudy = false) => {
         if (!isConnected || (!bypassStudy && isStudying) || activeTrades.current.size > 0) return;
         
-        // --- VERIFICAÇÃO DE FILTROS VIRTUAIS (INTELIGÊNCIA AVANÇADA) ---
-        const isRecoveryMode = isWaitingForRecoveryVirtual;
-        const isInitialFilterActive = virtualTargetLosses > 0 && virtualLossStreak < virtualTargetLosses;
+        // --- VERIFICAÇÃO DE FILTROS VIRTUAIS (2 LOSS + 1 WIN) ---
+        const isGaleMode = martingaleLevel.current > 0;
+        
+        // Verifica se o histórico virtual tem exatamente LOSS -> LOSS -> WIN no final
+        const len = virtualHistory.length;
+        const isPatternMatched = len >= 3 && 
+                                 virtualHistory[len - 3] === 'LOSS' && 
+                                 virtualHistory[len - 2] === 'LOSS' && 
+                                 virtualHistory[len - 1] === 'WIN';
 
-        if (!bypassStudy && (isRecoveryMode || isInitialFilterActive)) {
-            // Executa como operação VIRTUAL
-            setIsWaitingForVirtualResult(true);
-            activeVirtualTrade.current = {
-                id: signalId,
+        // Se não for Gale, e não for compra manual, e o padrão não estiver completo: executa como VIRTUAL
+        if (!bypassStudy && !isGaleMode && !isPatternMatched) {
+            lastVirtualSignal.current = {
                 contractType,
                 strategyName,
                 symbol,
                 entryPrice: pricesRef.current[symbol]?.[0] || 0,
-                entryDigit: multiAssetDigits[symbol]?.[0] || 0,
-                isRecovery: isRecoveryMode
+                entryDigit: multiAssetDigits[symbol]?.[0] || 0
             };
-            
-            addLog(`[VIRTUAL] Iniciando simulação de ${strategyName} (${contractType === 'DIGITEVEN' ? 'Par' : 'Ímpar'}).`, 'TRADE');
             return;
         }
 
@@ -600,7 +570,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeTrades.current.add(signalId);
         setTradeStatus('SENDING');
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params, passthrough: { signalId, strategyName } });
-    }, [isConnected, initialStake, sendMessage, setTradeStatus, martingaleFactor, isStudying, isSorosActive, sorosLevels, sorosProfitPercentage, isWaitingForRecoveryVirtual, virtualTargetLosses, virtualLossStreak, addLog, multiAssetDigits]);
+    }, [isConnected, initialStake, sendMessage, setTradeStatus, martingaleFactor, isStudying, isSorosActive, sorosLevels, sorosProfitPercentage, virtualHistory, multiAssetDigits]);
 
     // Função para compra manual (usada por botões)
     const manualBuy = useCallback((contractType: ContractType, source: string = 'Manual') => {
@@ -633,12 +603,20 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         for (const symbol of SCANNER_ASSETS.map(a => a.value)) {
             const signal = calculateTradeSignal(symbol);
             if (signal) {
-                if (activeTrades.current.size === 0 && !isWaitingForVirtualResult) {
-                    const isVirtual = isWaitingForRecoveryVirtual || (virtualTargetLosses > 0 && virtualLossStreak < virtualTargetLosses);
+                if (activeTrades.current.size === 0) {
+                    const isGaleMode = martingaleLevel.current > 0;
+                    const len = virtualHistory.length;
+                    const isPatternMatched = len >= 3 && 
+                                             virtualHistory[len - 3] === 'LOSS' && 
+                                             virtualHistory[len - 2] === 'LOSS' && 
+                                             virtualHistory[len - 1] === 'WIN';
+
+                    const isReal = isGaleMode || isPatternMatched;
+
                     const sId = addSignal({ 
-                        strategy: isVirtual ? `VIRTUAL: ${signal.name}` : signal.name, 
+                        strategy: isReal ? signal.name : `VIRTUAL: ${signal.name}`, 
                         signal: signal.type as any, 
-                        details: isVirtual ? `Simulação em ${symbol}` : `Sniper Real em ${symbol}`, 
+                        details: isReal ? `Sniper Real em ${symbol}` : `Simulação em ${symbol}`, 
                         winRate: `${signal.confidence}%` 
                     });
                     executeBuy(signal.contract as ContractType, signal.name, sId, symbol);
@@ -646,7 +624,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             }
         }
-    }, [isBotRunning, calculateTradeSignal, addSignal, executeBuy, isStudying, lastTickEpoch, isWaitingForVirtualResult, isWaitingForRecoveryVirtual, virtualTargetLosses, virtualLossStreak]);
+    }, [isBotRunning, calculateTradeSignal, addSignal, executeBuy, isStudying, lastTickEpoch, virtualHistory]);
 
     const handleConnect = useCallback((targetType?: 'real' | 'demo', targetToken?: string) => {
         const type = targetType || accountType;
@@ -678,8 +656,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const contextValue = useMemo(() => ({
         ...stateAndSetters, isConnected, isConnecting, status, handleConnect, handleDisconnect: disconnect, 
         toggleBot, resetOperations, appFlow, setAppFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, aiThought,
-        manualBuy, isSettingsOpen, setIsSettingsOpen, isConfigModalOpen, setIsConfigModalOpen, isWaitingForVirtualResult
-    }), [stateAndSetters, isConnected, isConnecting, status, handleConnect, disconnect, toggleBot, resetOperations, appFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, aiThought, manualBuy, isSettingsOpen, isConfigModalOpen, isWaitingForVirtualResult]);
+        manualBuy, isSettingsOpen, setIsSettingsOpen, isConfigModalOpen, setIsConfigModalOpen, virtualHistory
+    }), [stateAndSetters, isConnected, isConnecting, status, handleConnect, disconnect, toggleBot, resetOperations, appFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, aiThought, manualBuy, isSettingsOpen, isConfigModalOpen, virtualHistory]);
 
     return <BotContext.Provider value={contextValue}>{children}</BotContext.Provider>;
 };

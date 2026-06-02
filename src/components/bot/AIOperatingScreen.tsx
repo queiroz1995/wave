@@ -11,6 +11,7 @@ import { QuickConfigModal } from './QuickConfigModal';
 import { SettingsSheet } from './SettingsSheet';
 import { RecentDigitsPanel } from './RecentDigitsPanel';
 import { DiagnosticsModal } from './DiagnosticsModal';
+import { VirtualLossDisplay } from './VirtualLossDisplay';
 import { Progress } from '@/components/ui/progress';
 import { sounds } from '@/utils/sounds';
 import confetti from 'canvas-confetti';
@@ -240,7 +241,10 @@ export const AIOperatingScreen = () => {
             {/* Painel Premium de 8 Dígitos Recentes */}
             <RecentDigitsPanel />
 
-            {/* NOVO: Barra de Progresso Neon da Meta Diária */}
+            {/* Painel de Monitoramento de Loss Virtual */}
+            <VirtualLossDisplay />
+
+            {/* Barra de Progresso Neon da Meta Diária */}
             {isBotRunning && (
                 <div className="bg-slate-950/60 backdrop-blur-xl border border-white/10 rounded-2xl p-3 space-y-1.5 shadow-lg">
                     <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-wider text-slate-400">
@@ -337,7 +341,7 @@ export const AIOperatingScreen = () => {
                         </div>
                     </div>
 
-                    {/* NOVO: Gráfico de Curva de Patrimônio (Equity Curve) */}
+                    {/* Gráfico de Curva de Patrimônio (Equity Curve) */}
                     {profitHistory.length > 1 && (
                         <div className="bg-slate-900/30 border border-white/5 rounded-xl p-2 space-y-1">
                             <div className="flex justify-between items-center text-[7px] font-bold text-slate-500 uppercase tracking-wider">
