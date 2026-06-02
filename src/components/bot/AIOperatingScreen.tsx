@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, Award, BarChart3, Volume2, VolumeX, Terminal } from 'lucide-react';
+import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, Award, BarChart3, Volume2, VolumeX, Terminal, Cpu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
@@ -230,108 +230,99 @@ export const AIOperatingScreen = () => {
                 )}
             </div>
 
-            {/* Painel Premium de 8 Dígitos Recentes */}
-            <RecentDigitsPanel />
-
-            {/* Painel de Monitoramento de Loss Virtual */}
-            <VirtualLossDisplay />
-
-            {/* Barra de Progresso Neon da Meta Diária */}
-            {isBotRunning && (
-                <div className="bg-slate-950/60 backdrop-blur-xl border border-white/10 rounded-2xl p-3 space-y-1.5 shadow-lg">
-                    <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-wider text-slate-400">
-                        <span className="flex items-center gap-1"><Award className="h-3 w-3 text-yellow-400" /> Progresso da Meta</span>
-                        <span className="text-cyan-400">{goalProgressPercentage.toFixed(0)}%</span>
-                    </div>
-                    <Progress 
-                        value={goalProgressPercentage} 
-                        className="h-1.5 bg-slate-900 [&>div]:bg-gradient-to-r [&>div]:from-cyan-500 [&>div]:to-emerald-500 shadow-[0_0_10px_rgba(34,211,238,0.2)]"
-                    />
-                    <div className="flex justify-between text-[8px] font-bold text-slate-500 uppercase">
-                        <span>Início: $0.00</span>
-                        <span>Meta: ${targetProfitValue.toFixed(2)}</span>
-                    </div>
-                </div>
-            )}
-
-            {/* Painel Central - Estética "Cyber-Luxury" */}
-            <Card className="relative overflow-hidden bg-slate-950/60 backdrop-blur-xl border border-white/10 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)] rounded-[2rem] transition-all duration-500 hover:border-cyan-500/20">
+            {/* Painel Central Unificado - Estética "Cyber-Luxury AI Core" */}
+            <Card className="relative overflow-hidden bg-slate-950/80 backdrop-blur-2xl border border-white/10 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] rounded-[2.5rem] transition-all duration-500 hover:border-cyan-500/30">
                 {/* Efeitos de Fundo Decorativos */}
-                <div className="absolute top-0 right-0 w-48 h-48 bg-cyan-500/10 rounded-full blur-[60px] -mr-24 -mt-24" />
-                <div className="absolute bottom-0 left-0 w-48 h-48 bg-emerald-500/5 rounded-full blur-[60px] -ml-24 -mb-24" />
+                <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/10 rounded-full blur-[80px] -mr-32 -mt-32 pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-[80px] -ml-32 -mb-32 pointer-events-none" />
+                <div className="absolute inset-0 ai-scanline opacity-5 pointer-events-none" />
                 
-                <CardContent className="p-4 sm:p-6 space-y-6 relative z-10">
+                <CardContent className="p-4 sm:p-5 space-y-4 relative z-10">
                     {/* Header com Branding */}
-                    <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-3">
+                    <div className="flex justify-between items-center border-b border-white/5 pb-3">
+                        <div className="flex items-center gap-2.5">
                             <div className="relative group">
                                 <div className="absolute -inset-1 bg-gradient-to-tr from-cyan-500 to-indigo-500 rounded-xl blur opacity-25" />
-                                <div className="h-12 w-12 bg-slate-900 rounded-xl p-0.5 shadow-2xl border border-white/10 overflow-hidden">
+                                <div className="h-10 w-10 bg-slate-900 rounded-xl p-0.5 shadow-2xl border border-white/10 overflow-hidden">
                                     {selectedAIInfo?.image ? (
                                         <img src={selectedAIInfo.image} alt="" className="w-full h-full object-cover rounded-lg" />
                                     ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-slate-800"><Bot className="h-5 w-5 text-cyan-400" /></div>
+                                        <div className="w-full h-full flex items-center justify-center bg-slate-800"><Bot className="h-4 w-4 text-cyan-400" /></div>
                                     )}
                                 </div>
                             </div>
                             <div>
                                 <div className="flex items-center gap-1">
-                                    <h2 className="text-base font-black text-white italic tracking-tighter">WAVE SNIPER</h2>
+                                    <h2 className="text-sm font-black text-white italic tracking-tighter">WAVE SNIPER</h2>
                                     <div className="px-1 py-0.5 bg-cyan-500/20 rounded border border-cyan-500/30">
-                                        <span className="text-[7px] font-black text-cyan-400 uppercase">PRO</span>
+                                        <span className="text-[6px] font-black text-cyan-400 uppercase">PRO</span>
                                     </div>
                                 </div>
-                                <p className="text-[8px] font-bold text-slate-500 uppercase tracking-[0.3em] mt-0.5">Neural Engine v2.4.0</p>
+                                <p className="text-[7px] font-bold text-slate-500 uppercase tracking-[0.3em] mt-0.5">Neural Engine v2.4.0</p>
                             </div>
                         </div>
                         
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1">
                             {/* Botão de Mute/Unmute */}
                             <Button 
                                 variant="ghost" 
                                 size="icon" 
-                                className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all"
+                                className="h-8 w-8 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-all"
                                 onClick={toggleMute}
                             >
                                 {isMuted ? (
-                                    <VolumeX className="h-3.5 w-3.5 text-rose-400" />
+                                    <VolumeX className="h-3 w-3 text-rose-400" />
                                 ) : (
-                                    <Volume2 className="h-3.5 w-3.5 text-emerald-400" />
+                                    <Volume2 className="h-3 w-3 text-emerald-400" />
                                 )}
                             </Button>
                             {/* Botão de Diagnóstico de Performance */}
                             <DiagnosticsModal />
                             <SettingsSheet trigger={
-                                <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
-                                    <FileSpreadsheet className="h-3.5 w-3.5 text-slate-300" />
+                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
+                                    <FileSpreadsheet className="h-3 w-3 text-slate-300" />
                                 </Button>
                             } />
-                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20 hover:bg-rose-500/20 transition-all" onClick={exitToSelection}>
-                                <Power className="h-3.5 w-3.5" />
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 hover:bg-rose-500/20 transition-all" onClick={exitToSelection}>
+                                <Power className="h-3 w-3" />
                             </Button>
                         </div>
                     </div>
 
                     {/* Display de Lucro Hero */}
-                    <div className="flex flex-col items-center py-2 relative">
+                    <div className="flex flex-col items-center py-1 relative">
                         <div className={cn(
-                            "absolute inset-0 blur-[80px] opacity-20 -z-10 transition-all duration-1000",
+                            "absolute inset-0 blur-[60px] opacity-15 -z-10 transition-all duration-1000",
                             isWin ? "bg-emerald-500" : "bg-rose-500"
                         )} />
                         
-                        <div className="flex items-center gap-1.5 mb-1">
-                            {isWin ? <TrendingUp className="h-3 w-3 text-emerald-400" /> : <TrendingDown className="h-3 w-3 text-rose-400" />}
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.4em]">Resultado da Sessão</span>
+                        <div className="flex items-center gap-1 mb-0.5">
+                            {isWin ? <TrendingUp className="h-2.5 w-2.5 text-emerald-400" /> : <TrendingDown className="h-2.5 w-2.5 text-rose-400" />}
+                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-[0.4em]">Resultado da Sessão</span>
                         </div>
                         
                         <div className={cn(
-                            "text-5xl sm:text-6xl font-black tracking-tighter leading-none transition-all duration-700 drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]",
+                            "text-4xl sm:text-5xl font-black tracking-tighter leading-none transition-all duration-700 drop-shadow-[0_10px_15px_rgba(0,0,0,0.5)]",
                             isWin ? "text-emerald-400" : "text-rose-400"
                         )}>
-                            <span className="text-2xl opacity-40 mr-0.5 font-medium font-sans">$</span>
+                            <span className="text-xl opacity-40 mr-0.5 font-medium font-sans">$</span>
                             {totalProfit.toFixed(2)}
                         </div>
                     </div>
+
+                    {/* Barra de Progresso Neon da Meta Diária (Integrada) */}
+                    {isBotRunning && (
+                        <div className="bg-slate-900/30 border border-white/5 rounded-xl p-2 space-y-1">
+                            <div className="flex justify-between items-center text-[8px] font-black uppercase tracking-wider text-slate-400">
+                                <span className="flex items-center gap-1"><Award className="h-2.5 w-2.5 text-yellow-400" /> Progresso da Meta</span>
+                                <span className="text-cyan-400">{goalProgressPercentage.toFixed(0)}%</span>
+                            </div>
+                            <Progress 
+                                value={goalProgressPercentage} 
+                                className="h-1 bg-slate-900 [&>div]:bg-gradient-to-r [&>div]:from-cyan-500 [&>div]:to-emerald-500 shadow-[0_0_8px_rgba(34,211,238,0.15)]"
+                            />
+                        </div>
+                    )}
 
                     {/* Gráfico de Curva de Patrimônio (Equity Curve) */}
                     {profitHistory.length > 1 && (
@@ -344,73 +335,174 @@ export const AIOperatingScreen = () => {
                         </div>
                     )}
 
+                    {/* Painel Premium de 8 Dígitos Recentes (Integrado) */}
+                    <RecentDigitsPanel />
+
+                    {/* Painel de Monitoramento de Loss Virtual (Integrado) */}
+                    <VirtualLossDisplay />
+
+                    {/* AI Thought Stream (Integrado) */}
+                    {isBotRunning && (
+                        <div className="relative bg-slate-900/30 rounded-xl p-3 flex items-start gap-2.5 border border-white/5">
+                            <div className="mt-1 h-1 w-1 rounded-full bg-cyan-400 animate-ping shrink-0" />
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1 mb-0.5">
+                                    <MessageSquare className="h-2.5 w-2.5 text-cyan-400" />
+                                    <span className="text-[7px] font-black text-cyan-400 uppercase tracking-widest">Fluxo_Cognitivo</span>
+                                </div>
+                                <p className="text-[10px] font-medium text-slate-300 leading-relaxed italic">
+                                    "{aiThought}"
+                                    <span className="inline-block w-1 h-2 bg-cyan-400 ml-1 animate-pulse" />
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Monitor de Sinais - Versão Avançada e Discreta (Estilo Terminal de Operações Integrado) */}
+                    <div className="bg-slate-900/30 border border-white/5 rounded-xl p-3 space-y-2">
+                        <div className="flex items-center justify-between px-1">
+                            <div className="flex items-center gap-1.5">
+                                <Terminal className="h-3 w-3 text-cyan-500/70" />
+                                <span className="text-[8px] font-mono font-bold text-slate-400 uppercase tracking-widest">NEURAL_CONSOLE_FEED</span>
+                                <span className="h-1 w-1 rounded-full bg-cyan-500 animate-pulse" />
+                            </div>
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-6 w-6 rounded bg-white/5 hover:bg-white/10 border border-white/5 transition-all" 
+                                onClick={resetOperations}
+                            >
+                                <RotateCcw className="h-2.5 w-2.5 text-slate-400" />
+                            </Button>
+                        </div>
+                        
+                        <ScrollArea className="h-28 pr-1">
+                            <div className="space-y-1 font-mono text-[9px]">
+                                {signals.length > 0 ? signals.map((s: any) => {
+                                    const label = getSignalLabel(s.signal, s.strategy);
+                                    const hasFinished = typeof s.profit === 'number';
+                                    
+                                    return (
+                                        <div 
+                                            key={s.id} 
+                                            className={cn(
+                                                "flex items-center justify-between py-1 px-2 rounded border transition-all duration-300",
+                                                !hasFinished 
+                                                    ? "bg-cyan-500/5 border-cyan-500/10 text-cyan-400" 
+                                                    : s.result === 'WIN' 
+                                                        ? "bg-emerald-500/5 border-emerald-500/10 text-emerald-400" 
+                                                        : "bg-rose-500/5 border-rose-500/10 text-rose-400"
+                                            )}
+                                        >
+                                            <div className="flex items-center gap-1.5 min-w-0">
+                                                <span className="text-slate-500 text-[8px]">{s.timestamp}</span>
+                                                <span className={cn("h-1 w-1 rounded-full shrink-0", label.dotColor)} />
+                                                <span className="font-bold truncate max-w-[120px]">
+                                                    {label.text}
+                                                </span>
+                                                {label.isVirtual && (
+                                                    <span className="text-[7px] text-cyan-500/60 font-semibold tracking-tighter">VRT</span>
+                                                )}
+                                            </div>
+                                            
+                                            <div className="flex items-center gap-1 shrink-0 font-bold">
+                                                {!hasFinished ? (
+                                                    <span className="text-cyan-400 animate-pulse flex items-center gap-0.5">
+                                                        ANALISANDO
+                                                        <span className="inline-block w-0.5 h-1.5 bg-cyan-400 animate-ping" />
+                                                    </span>
+                                                ) : (
+                                                    <span className={cn(
+                                                        "flex items-center gap-0.5",
+                                                        s.result === 'WIN' ? "text-emerald-400" : "text-rose-400"
+                                                    )}>
+                                                        {s.profit > 0 ? '+' : ''}{s.profit.toFixed(2)}
+                                                        <span className="text-[8px] opacity-80">
+                                                            {s.result === 'WIN' ? 'WIN' : 'LOSS'}
+                                                        </span>
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                }) : (
+                                    <div className="py-6 text-center border border-dashed border-white/5 rounded-lg">
+                                        <p className="text-[8px] font-mono text-slate-500 uppercase tracking-widest">
+                                            [AGUARDANDO_GATILHOS_NEURAIS]
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        </ScrollArea>
+                    </div>
+
                     {/* Botão de Ignição */}
                     <Button 
                         onClick={handleStartClick}
                         disabled={status.message.includes('Desconectado') || isPaused || isManipulationDetected}
                         className={cn(
-                            "group relative w-full h-16 rounded-2xl overflow-hidden transition-all duration-500 shadow-2xl active:scale-95",
+                            "group relative w-full h-14 rounded-xl overflow-hidden transition-all duration-500 shadow-2xl active:scale-95",
                             isBotRunning 
                                 ? "bg-rose-600 hover:bg-rose-700 shadow-rose-900/20" 
                                 : "bg-cyan-500 hover:bg-cyan-600 text-slate-950 shadow-cyan-500/20"
                         )}
                     >
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-shimmer" />
-                        <span className="relative flex items-center gap-2 text-base font-black uppercase tracking-[0.2em]">
+                        <span className="relative flex items-center justify-center gap-2 text-sm font-black uppercase tracking-[0.2em]">
                             {isBotRunning ? (
-                                <>PARAR<Power className="h-4 w-4" /></>
+                                <>PARAR<Power className="h-3.5 w-3.5" /></>
                             ) : (
-                                <>INICIAR<BrainCircuit className="h-4 w-4" /></>
+                                <>INICIAR<BrainCircuit className="h-3.5 w-3.5" /></>
                             )}
                         </span>
                     </Button>
 
                     {/* Seção de Entradas Manuais */}
-                    <div className="space-y-3 pt-1">
+                    <div className="space-y-2 pt-1">
                         <div className="flex items-center justify-between px-1">
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Entradas Manuais</span>
+                            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Entradas Manuais</span>
                             {isTradePending && (
-                                <span className="text-[8px] font-bold text-cyan-400 animate-pulse uppercase">Operação em andamento...</span>
+                                <span className="text-[7px] font-bold text-cyan-400 animate-pulse uppercase">Operação em andamento...</span>
                             )}
                         </div>
                         
                         {/* Botões de Paridade */}
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-2 gap-2">
                             <Button
                                 onClick={() => manualBuy('DIGITEVEN', 'Manual')}
                                 disabled={!isConnected || isTradePending}
-                                className="h-12 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 font-black uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all duration-300 active:scale-95"
+                                className="h-10 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 font-black uppercase tracking-wider text-[10px] flex items-center justify-center gap-1 transition-all duration-300 active:scale-95"
                             >
-                                <ArrowUpRight className="h-4 w-4" />
+                                <ArrowUpRight className="h-3.5 w-3.5" />
                                 PAR
                             </Button>
                             <Button
                                 onClick={() => manualBuy('DIGITODD', 'Manual')}
                                 disabled={!isConnected || isTradePending}
-                                className="h-12 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 font-black uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all duration-300 active:scale-95"
+                                className="h-10 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 font-black uppercase tracking-wider text-[10px] flex items-center justify-center gap-1 transition-all duration-300 active:scale-95"
                             >
-                                <ArrowDownRight className="h-4 w-4" />
+                                <ArrowDownRight className="h-3.5 w-3.5" />
                                 ÍMPAR
                             </Button>
                         </div>
                     </div>
 
                     {/* Wallet / Balance Section */}
-                    <div className="bg-slate-900/40 border border-white/5 rounded-2xl p-3.5 flex items-center justify-between group hover:border-white/10 transition-colors">
-                        <div className="flex items-center gap-3">
+                    <div className="bg-slate-900/40 border border-white/5 rounded-xl p-3 flex items-center justify-between group hover:border-white/10 transition-colors">
+                        <div className="flex items-center gap-2.5">
                             <div className={cn(
-                                "h-10 w-10 rounded-xl flex items-center justify-center shadow-inner transition-colors duration-500",
+                                "h-8 w-8 rounded-lg flex items-center justify-center shadow-inner transition-colors duration-500",
                                 accountType === 'real' ? "bg-emerald-500/20 text-emerald-400" : "bg-cyan-500/20 text-cyan-400"
                             )}>
-                                <DollarSign className="h-5 w-5" />
+                                <DollarSign className="h-4 w-4" />
                             </div>
                             <div>
-                                <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-0.5">
+                                <p className="text-[7px] font-black text-slate-500 uppercase tracking-widest mb-0.5">
                                     Saldo
                                 </p>
                                 <div className="flex items-baseline gap-0.5">
-                                    <span className="text-[10px] font-bold text-slate-400">$</span>
-                                    <p className="text-xl font-black text-white tracking-tighter leading-none">
+                                    <span className="text-[9px] font-bold text-slate-400">$</span>
+                                    <p className="text-base font-black text-white tracking-tighter leading-none">
                                         {accountBalance?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
                                     </p>
                                 </div>
@@ -419,112 +511,14 @@ export const AIOperatingScreen = () => {
                         <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-8 w-8 rounded-lg bg-white/5 hover:bg-white/10 hover:rotate-180 transition-all duration-500" 
+                            className="h-7 w-7 rounded bg-white/5 hover:bg-white/10 hover:rotate-180 transition-all duration-500" 
                             onClick={() => handleConnect(accountType, currentToken)}
                         >
-                            <RefreshCw className="h-3.5 w-3.5 text-slate-400" />
+                            <RefreshCw className="h-3 w-3 text-slate-400" />
                         </Button>
                     </div>
                 </CardContent>
             </Card>
-
-            {/* AI Thought Stream */}
-            {isBotRunning && (
-                <div className="relative group">
-                    <div className="absolute -inset-0.5 bg-gradient-to-r from-cyan-500 to-indigo-500 rounded-2xl blur opacity-10" />
-                    <div className="relative bg-slate-950/60 backdrop-blur-xl rounded-2xl p-4 flex items-start gap-3 border border-white/10 shadow-2xl">
-                        <div className="mt-1 h-1.5 w-1.5 rounded-full bg-cyan-400 animate-ping" />
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5 mb-1">
-                                <MessageSquare className="h-3 w-3 text-cyan-400" />
-                                <span className="text-[8px] font-black text-cyan-400 uppercase tracking-widest">Fluxo_Cognitivo</span>
-                            </div>
-                            <p className="text-xs font-medium text-slate-200 leading-relaxed italic">
-                                "{aiThought}"
-                                <span className="inline-block w-1 h-2.5 bg-cyan-400 ml-1 animate-pulse" />
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Monitor de Sinais - Versão Avançada e Discreta (Estilo Terminal de Operações) */}
-            <div className="bg-slate-950/40 backdrop-blur-md border border-white/5 rounded-2xl p-3.5 shadow-2xl">
-                <div className="flex items-center justify-between mb-3 px-1">
-                    <div className="flex items-center gap-2">
-                        <Terminal className="h-3.5 w-3.5 text-cyan-500/70" />
-                        <span className="text-[9px] font-mono font-bold text-slate-400 uppercase tracking-widest">NEURAL_CONSOLE_FEED</span>
-                        <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse" />
-                    </div>
-                    <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-7 w-7 rounded-md bg-white/5 hover:bg-white/10 border border-white/5 transition-all" 
-                        onClick={resetOperations}
-                    >
-                        <RotateCcw className="h-3 w-3 text-slate-400" />
-                    </Button>
-                </div>
-                
-                <ScrollArea className="h-40 pr-1">
-                    <div className="space-y-1.5 font-mono text-[10px]">
-                        {signals.length > 0 ? signals.map((s: any) => {
-                            const label = getSignalLabel(s.signal, s.strategy);
-                            const hasFinished = typeof s.profit === 'number';
-                            
-                            return (
-                                <div 
-                                    key={s.id} 
-                                    className={cn(
-                                        "flex items-center justify-between py-1.5 px-2.5 rounded-lg border transition-all duration-300",
-                                        !hasFinished 
-                                            ? "bg-cyan-500/5 border-cyan-500/10 text-cyan-400" 
-                                            : s.result === 'WIN' 
-                                                ? "bg-emerald-500/5 border-emerald-500/10 text-emerald-400" 
-                                                : "bg-rose-500/5 border-rose-500/10 text-rose-400"
-                                    )}
-                                >
-                                    <div className="flex items-center gap-2 min-w-0">
-                                        <span className="text-slate-500 text-[9px]">{s.timestamp}</span>
-                                        <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", label.dotColor)} />
-                                        <span className="font-bold truncate max-w-[140px]">
-                                            {label.text}
-                                        </span>
-                                        {label.isVirtual && (
-                                            <span className="text-[8px] text-cyan-500/60 font-semibold tracking-tighter">VRT</span>
-                                        )}
-                                    </div>
-                                    
-                                    <div className="flex items-center gap-1.5 shrink-0 font-bold">
-                                        {!hasFinished ? (
-                                            <span className="text-cyan-400 animate-pulse flex items-center gap-1">
-                                                ANALISANDO
-                                                <span className="inline-block w-1 h-2 bg-cyan-400 animate-ping" />
-                                            </span>
-                                        ) : (
-                                            <span className={cn(
-                                                "flex items-center gap-1",
-                                                s.result === 'WIN' ? "text-emerald-400" : "text-rose-400"
-                                            )}>
-                                                {s.profit > 0 ? '+' : ''}{s.profit.toFixed(2)}
-                                                <span className="text-[9px] opacity-80">
-                                                    {s.result === 'WIN' ? 'WIN' : 'LOSS'}
-                                                </span>
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        }) : (
-                            <div className="py-10 text-center border border-dashed border-white/5 rounded-xl">
-                                <p className="text-[9px] font-mono text-slate-500 uppercase tracking-widest">
-                                    [AGUARDANDO_GATILHOS_NEURAIS]
-                                </p>
-                            </div>
-                        )}
-                    </div>
-                </ScrollArea>
-            </div>
 
             <QuickConfigModal isOpen={isConfigModalOpen} onClose={() => setIsConfigModalOpen(false)} onConfirm={confirmStart} />
         </div>
