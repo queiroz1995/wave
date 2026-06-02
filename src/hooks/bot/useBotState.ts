@@ -29,40 +29,19 @@ const DEFAULTS = {
     hybridWinsRequired: 2,
     scoreThreshold: 55,
     marketStabilityThreshold: '60',
-    
-    // Configurações de Banca Separadas
-    realInitialBankroll: '100.00',
-    demoInitialBankroll: '10000.00',
-    realDailyGoalPercent: '5.0',
-    demoDailyGoalPercent: '10.0',
-    realDailyStopPercent: '15.0',
-    demoDailyStopPercent: '50.0',
-    realCurrentDay: 1,
-    demoCurrentDay: 1,
-    realActualBankroll: '100.00',
-    demoActualBankroll: '10000.00',
-    
-    // Históricos Separados
-    realBankHistory: [] as Array<{ day: number; initial: number; final: number; profit: number; status: 'win' | 'loss'; date: string }>,
-    demoBankHistory: [] as Array<{ day: number; initial: number; final: number; profit: number; status: 'win' | 'loss'; date: string }>,
-    
-    // Resultados Separados
-    realTotalProfit: 0.00,
-    demoTotalProfit: 0.00,
-    realWins: 0,
-    demoWins: 0,
-    realLosses: 0,
-    demoLosses: 0,
-    realSignals: [] as SignalEntry[],
-    demoSignals: [] as SignalEntry[],
-
+    bankManagementInitialBankroll: '20.00',
+    bankManagementDailyGoalPercent: '10.0',
+    bankManagementDailyStopPercent: '50.0',
+    bankManagementCurrentDay: 1,
+    bankManagementActualBankroll: '20.00',
     isSmartModeActive: true,
     isSorosActive: false,
     sorosLevels: 2,
     sorosProfitPercentage: 50,
+    // Configurações da Sequência Automática
     autoSequenceActive: false,
-    autoSequenceTrigger: 'O,O,O', 
-    autoSequenceEntry: 'EVEN' as 'EVEN' | 'ODD', 
+    autoSequenceTrigger: 'O,O,O', // Padrão: 3 Ímpares
+    autoSequenceEntry: 'EVEN' as 'EVEN' | 'ODD', // Padrão: Entra Par
 };
 
 const getInitialState = () => {
@@ -99,23 +78,16 @@ export const useBotState = () => {
     const [stopLoss, setStopLoss] = useState(initialState.stopLoss);
     const [isMartingaleActive, setIsMartingaleActive] = useState(initialState.isMartingaleActive);
     const [isBotRunning, setIsBotRunning] = useState(false);
-    
-    // Estados de Resultados Separados (Real vs Demo)
-    const [realTotalProfit, setRealTotalProfit] = useState(initialState.realTotalProfit);
-    const [demoTotalProfit, setDemoTotalProfit] = useState(initialState.demoTotalProfit);
-    const [realWins, setRealWins] = useState(initialState.realWins);
-    const [demoWins, setDemoWins] = useState(initialState.demoWins);
-    const [realLosses, setRealLosses] = useState(initialState.realLosses);
-    const [demoLosses, setDemoLosses] = useState(initialState.demoLosses);
-    const [realSignals, setRealSignals] = useState<SignalEntry[]>(initialState.realSignals);
-    const [demoSignals, setDemoSignals] = useState<SignalEntry[]>(initialState.demoSignals);
-
+    const [totalProfit, setTotalProfit] = useState(0.00);
+    const [wins, setWins] = useState(0);
+    const [losses, setLosses] = useState(0);
     const [consecutiveLosses, setConsecutiveLosses] = useState(0);
     const [lastDigits, setLastDigits] = useState<number[]>([]);
     const [multiAssetDigits, setMultiAssetDigits] = useState<Record<string, number[]>>({});
     
     const [lastTickEpoch, setLastTickEpoch] = useState<number | null>(null);
     const [logs, setLogs] = useState<LogEntry[]>([]);
+    const [signals, setSignals] = useState<SignalEntry[]>([]);
     const [accountBalance, setAccountBalance] = useState<number | null>(null);
     const [tradeStatus, setTradeStatus] = useState<'IDLE' | 'SENDING' | 'ACTIVE'>('IDLE');
     const [isStudying, setIsStudying] = useState(false);
@@ -128,44 +100,43 @@ export const useBotState = () => {
     const [hybridWinsRequired, setHybridWinsRequired] = useState(initialState.hybridWinsRequired);
     const [isSmartModeActive, setIsSmartModeActive] = useState(initialState.isSmartModeActive);
     
+    // Soros State
     const [isSorosActive, setIsSorosActive] = useState(initialState.isSorosActive);
     const [sorosLevels, setSorosLevels] = useState(initialState.sorosLevels);
     const [sorosProfitPercentage, setSorosProfitPercentage] = useState(initialState.sorosProfitPercentage);
 
+    // Novo: Filtro de Segurança Pós-Loss
     const [isWaitingForRecoveryVirtual, setIsWaitingForRecoveryVirtual] = useState(false);
 
     const [analyzerWindowSize, setAnalyzerWindowSize] = useState(initialState.analyzerWindowSize);
     const [learningData, setLearningData] = useState<any>(null);
     const [scoreThreshold, setScoreThreshold] = useState(initialState.scoreThreshold);
     const [marketStabilityThreshold, setMarketStabilityThreshold] = useState(initialState.marketStabilityThreshold);
-    
-    // Gestão de Banca Separada (Real vs Demo)
-    const [realInitialBankroll, setRealInitialBankroll] = useState(initialState.realInitialBankroll);
-    const [demoInitialBankroll, setDemoInitialBankroll] = useState(initialState.demoInitialBankroll);
-    const [realDailyGoalPercent, setRealDailyGoalPercent] = useState(initialState.realDailyGoalPercent);
-    const [demoDailyGoalPercent, setDemoDailyGoalPercent] = useState(initialState.demoDailyGoalPercent);
-    const [realDailyStopPercent, setRealDailyStopPercent] = useState(initialState.realDailyStopPercent);
-    const [demoDailyStopPercent, setDemoDailyStopPercent] = useState(initialState.demoDailyStopPercent);
-    const [realCurrentDay, setRealCurrentDay] = useState(initialState.realCurrentDay);
-    const [demoCurrentDay, setDemoCurrentDay] = useState(initialState.demoCurrentDay);
-    const [realActualBankroll, setRealActualBankroll] = useState(initialState.realActualBankroll);
-    const [demoActualBankroll, setDemoActualBankroll] = useState(initialState.demoActualBankroll);
-    const [realBankHistory, setRealBankHistory] = useState<Array<{ day: number; initial: number; final: number; profit: number; status: 'win' | 'loss'; date: string }>>(initialState.realBankHistory || []);
-    const [demoBankHistory, setDemoBankHistory] = useState<Array<{ day: number; initial: number; final: number; profit: number; status: 'win' | 'loss'; date: string }>>(initialState.demoBankHistory || []);
-
+    const [bankManagementInitialBankroll, setBankManagementInitialBankroll] = useState(initialState.bankManagementInitialBankroll);
+    const [bankManagementDailyGoalPercent, setBankManagementDailyGoalPercent] = useState(initialState.bankManagementDailyGoalPercent);
+    const [bankManagementDailyStopPercent, setBankManagementDailyStopPercent] = useState(initialState.bankManagementDailyStopPercent);
+    const [bankManagementCurrentDay, setBankManagementCurrentDay] = useState(initialState.bankManagementCurrentDay);
+    const [bankManagementActualBankroll, setBankManagementActualBankroll] = useState(initialState.bankManagementActualBankroll);
     const [activeStrategy, setActiveStrategy] = useState<string | null>(null);
     const [neuralPredictions, setNeuralPredictions] = useState<number[]>([]);
 
+    // Sequência Automática
     const [autoSequenceActive, setAutoSequenceActive] = useState(initialState.autoSequenceActive);
     const [autoSequenceTrigger, setAutoSequenceTrigger] = useState(initialState.autoSequenceTrigger);
     const [autoSequenceEntry, setAutoSequenceEntry] = useState<'EVEN' | 'ODD'>(initialState.autoSequenceEntry);
 
-    // NOVOS ESTADOS: Detecção de Manipulação
-    const [isManipulationDetected, setIsManipulationDetected] = useState(false);
-    const [manipulationScore, setManipulationScore] = useState(0);
-
     const addLog = useCallback((message: string, type: LogType, details?: any) => {
         setLogs(prev => [{ timestamp: new Date().toLocaleTimeString('pt-BR', { hour12: false }), message, type, ...details }, ...prev].slice(0, 50));
+    }, []);
+
+    const addSignal = useCallback((signal: Omit<SignalEntry, 'timestamp' | 'id'>) => {
+        const newSignal: SignalEntry = { ...signal, id: generateSignalId(), timestamp: new Date().toLocaleTimeString('pt-BR', { hour12: false }) };
+        setSignals(prev => [newSignal, ...prev].slice(0, 100));
+        return newSignal.id;
+    }, []);
+
+    const updateSignalResult = useCallback((id: string, result: 'WIN' | 'LOSS', profit: number, stake: number | undefined, exitDigit?: number) => {
+        setSignals(prev => prev.map(s => s.id === id ? { ...s, result, profit, stake, exitDigit } : s));
     }, []);
 
     return {
@@ -175,22 +146,12 @@ export const useBotState = () => {
         isMartingaleActive, setIsMartingaleActive, martingaleFactor, setMartingaleFactor, maxLevels, setMaxLevels,
         takeProfit, setTakeProfit, stopLoss, setStopLoss,
         isBotRunning, setIsBotRunning, isManualMode, setIsManualMode,
-        
-        // Expondo estados separados
-        realTotalProfit, setRealTotalProfit,
-        demoTotalProfit, setDemoTotalProfit,
-        realWins, setRealWins,
-        demoWins, setDemoWins,
-        realLosses, setRealLosses,
-        demoLosses, setDemoLosses,
-        realSignals, setRealSignals,
-        demoSignals, setDemoSignals,
-
+        totalProfit, setTotalProfit, wins, setWins, losses, setLosses,
         consecutiveLosses, setConsecutiveLosses,
         lastDigits, setLastDigits, 
         multiAssetDigits, setMultiAssetDigits,
-        lastTickEpoch, setLastTickEpoch, logs, setLogs, accountBalance, setAccountBalance,
-        tradeStatus, setTradeStatus, addLog,
+        lastTickEpoch, setLastTickEpoch, logs, setLogs, signals, setSignals, accountBalance, setAccountBalance,
+        tradeStatus, setTradeStatus, addLog, addSignal, updateSignalResult,
         overUnderDirection, setOverUnderDirection,
         isStudying, setIsStudying, studyTicksCount, setStudyTicksCount,
         consecutiveTarget, setConsecutiveTarget, entryDirection, setEntryDirection,
@@ -200,30 +161,16 @@ export const useBotState = () => {
         isWaitingForRecoveryVirtual, setIsWaitingForRecoveryVirtual,
         analyzerWindowSize, setAnalyzerWindowSize, learningData, setLearningData,
         scoreThreshold, setScoreThreshold, marketStabilityThreshold, setMarketStabilityThreshold,
-        
-        // Expondo estados de banca separados
-        realInitialBankroll, setRealInitialBankroll,
-        demoInitialBankroll, setDemoInitialBankroll,
-        realDailyGoalPercent, setRealDailyGoalPercent,
-        demoDailyGoalPercent, setDemoDailyGoalPercent,
-        realDailyStopPercent, setRealDailyStopPercent,
-        demoDailyStopPercent, setDemoDailyStopPercent,
-        realCurrentDay, setRealCurrentDay,
-        demoCurrentDay, setDemoCurrentDay,
-        realActualBankroll, setRealActualBankroll,
-        demoActualBankroll, setDemoActualBankroll,
-        realBankHistory, setRealBankHistory,
-        demoBankHistory, setDemoBankHistory,
-
+        bankManagementInitialBankroll, setBankManagementInitialBankroll,
+        bankManagementDailyGoalPercent, setBankManagementDailyGoalPercent,
+        bankManagementDailyStopPercent, setBankManagementDailyStopPercent,
+        bankManagementCurrentDay, setBankManagementCurrentDay,
+        bankManagementActualBankroll, setBankManagementActualBankroll,
         activeStrategy, setActiveStrategy, neuralPredictions, setNeuralPredictions,
         isSorosActive, setIsSorosActive, sorosLevels, setSorosLevels, sorosProfitPercentage, setSorosProfitPercentage,
+        // Sequência Automática
         autoSequenceActive, setAutoSequenceActive,
         autoSequenceTrigger, setAutoSequenceTrigger,
-        autoSequenceEntry, setAutoSequenceEntry,
-        generateSignalId,
-
-        // Expondo novos estados de manipulação
-        isManipulationDetected, setIsManipulationDetected,
-        manipulationScore, setManipulationScore
+        autoSequenceEntry, setAutoSequenceEntry
     };
 };

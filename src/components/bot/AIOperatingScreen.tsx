@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, Award, BarChart3, Volume2, VolumeX, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, ArrowUp, ArrowDown, Award, ShieldAlert, BarChart3, Volume2, VolumeX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
@@ -14,19 +14,6 @@ import { DiagnosticsModal } from './DiagnosticsModal';
 import { Progress } from '@/components/ui/progress';
 import { sounds } from '@/utils/sounds';
 import confetti from 'canvas-confetti';
-
-const ASSET_LABELS: Record<string, string> = {
-    '1HZ100V': 'Volatility 100 (1s) Index',
-    '1HZ75V': 'Volatility 75 (1s) Index',
-    '1HZ50V': 'Volatility 50 (1s) Index',
-    '1HZ25V': 'Volatility 25 (1s) Index',
-    '1HZ10V': 'Volatility 10 (1s) Index',
-    'R_100': 'Volatility 100 Index',
-    'R_75': 'Volatility 75 Index',
-    'R_50': 'Volatility 50 Index',
-    'R_25': 'Volatility 25 Index',
-    'R_10': 'Volatility 10 Index',
-};
 
 export const AIOperatingScreen = () => {
     const { 
@@ -43,10 +30,7 @@ export const AIOperatingScreen = () => {
         isConfigModalOpen, setIsConfigModalOpen,
         manualBuy,
         tradeStatus,
-        isConnected,
-        assetRankings,
-        asset,
-        setAsset
+        isConnected
     } = useBotContext();
 
     const hasTriggeredGoalConfettiRef = useRef(false);
@@ -161,6 +145,14 @@ export const AIOperatingScreen = () => {
                 text = 'ÍMPAR'; 
                 baseColor = isVirtual ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20';
                 break;
+            case 'CALL': 
+                text = 'SOBE'; 
+                baseColor = isVirtual ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+                break;
+            case 'PUT': 
+                text = 'DESCE'; 
+                baseColor = isVirtual ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+                break;
             default: 
                 text = signal; 
                 baseColor = 'bg-slate-500/10 text-slate-400 border-slate-500/20';
@@ -248,65 +240,7 @@ export const AIOperatingScreen = () => {
             {/* Painel Premium de 8 Dígitos Recentes */}
             <RecentDigitsPanel />
 
-            {/* Scanner de Ativos (100 a 10) - Ranking em Tempo Real */}
-            {isConnected && assetRankings.length > 0 && (
-                <div className="bg-slate-950/80 backdrop-blur-xl border border-white/10 rounded-[2rem] p-4 shadow-lg space-y-3">
-                    <div className="flex items-center justify-between px-1">
-                        <div className="flex items-center gap-1.5">
-                            <BrainCircuit className="h-3.5 w-3.5 text-cyan-400 animate-pulse" />
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Scanner de Paridade (100 a 10)</span>
-                        </div>
-                        <span className="text-[8px] font-black text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-500/20 uppercase tracking-wider">Auto-Switch</span>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-1.5 max-h-32 overflow-y-auto custom-scrollbar pr-1">
-                        {assetRankings.slice(0, 4).map((item, index) => {
-                            const isActive = item.symbol === asset;
-                            return (
-                                <div 
-                                    key={item.symbol}
-                                    onClick={() => !isBotRunning && setAsset(item.symbol)}
-                                    className={cn(
-                                        "flex items-center justify-between p-2 rounded-xl border transition-all duration-300 cursor-pointer",
-                                        isActive 
-                                            ? "bg-cyan-500/10 border-cyan-500/30 shadow-[0_0_10px_rgba(34,211,238,0.1)]" 
-                                            : "bg-slate-900/40 border-white/5 hover:border-white/10"
-                                    )}
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-[10px] font-black text-slate-500">#{index + 1}</span>
-                                        <div className="flex flex-col">
-                                            <span className={cn("text-[10px] font-black uppercase tracking-tight", isActive ? "text-cyan-400" : "text-white")}>
-                                                {item.label}
-                                            </span>
-                                            <span className="text-[7px] font-bold text-slate-500 uppercase tracking-wider">
-                                                Confiança: {item.confidence}%
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-2">
-                                        {item.isManipulated ? (
-                                            <span className="flex items-center gap-0.5 text-[7px] font-black text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20 uppercase">
-                                                <ShieldAlert className="h-2.5 w-2.5" /> Manipulado
-                                            </span>
-                                        ) : (
-                                            <span className="flex items-center gap-0.5 text-[7px] font-black text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 uppercase">
-                                                <ShieldCheck className="h-2.5 w-2.5" /> Estável
-                                            </span>
-                                        )}
-                                        <span className="text-[10px] font-black text-cyan-400 font-mono">
-                                            {item.score} pts
-                                        </span>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
-
-            {/* Barra de Progresso Neon da Meta Diária */}
+            {/* NOVO: Barra de Progresso Neon da Meta Diária */}
             {isBotRunning && (
                 <div className="bg-slate-950/60 backdrop-blur-xl border border-white/10 rounded-2xl p-3 space-y-1.5 shadow-lg">
                     <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-wider text-slate-400">
@@ -351,9 +285,7 @@ export const AIOperatingScreen = () => {
                                         <span className="text-[7px] font-black text-cyan-400 uppercase">PRO</span>
                                     </div>
                                 </div>
-                                <p className="text-[9px] font-black text-cyan-400 uppercase tracking-wider mt-0.5">
-                                    {ASSET_LABELS[asset] || asset}
-                                </p>
+                                <p className="text-[8px] font-bold text-slate-500 uppercase tracking-[0.3em] mt-0.5">Neural Engine v2.4.0</p>
                             </div>
                         </div>
                         
@@ -405,7 +337,7 @@ export const AIOperatingScreen = () => {
                         </div>
                     </div>
 
-                    {/* Gráfico de Curva de Patrimônio (Equity Curve) */}
+                    {/* NOVO: Gráfico de Curva de Patrimônio (Equity Curve) */}
                     {profitHistory.length > 1 && (
                         <div className="bg-slate-900/30 border border-white/5 rounded-xl p-2 space-y-1">
                             <div className="flex justify-between items-center text-[7px] font-bold text-slate-500 uppercase tracking-wider">
@@ -463,6 +395,26 @@ export const AIOperatingScreen = () => {
                             >
                                 <ArrowDownRight className="h-4 w-4" />
                                 ÍMPAR
+                            </Button>
+                        </div>
+
+                        {/* Botões de Sobe / Desce */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <Button
+                                onClick={() => manualBuy('CALL', 'Manual')}
+                                disabled={!isConnected || isTradePending}
+                                className="h-12 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 font-black uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all duration-300 active:scale-95"
+                            >
+                                <ArrowUp className="h-4 w-4" />
+                                SOBE
+                            </Button>
+                            <Button
+                                onClick={() => manualBuy('PUT', 'Manual')}
+                                disabled={!isConnected || isTradePending}
+                                className="h-12 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 font-black uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all duration-300 active:scale-95"
+                            >
+                                <ArrowDown className="h-4 w-4" />
+                                DESCE
                             </Button>
                         </div>
                     </div>
