@@ -10,16 +10,16 @@ import { toast } from "sonner";
 const BotContext = createContext<any>(undefined);
 
 const SCANNER_ASSETS = [
-    { value: '1HZ10V', label: 'Volatility 10 (1s)' },
-    { value: '1HZ25V', label: 'Volatility 25 (1s)' },
-    { value: '1HZ50V', label: 'Volatility 50 (1s)' },
-    { value: '1HZ75V', label: 'Volatility 75 (1s)' },
     { value: '1HZ100V', label: 'Volatility 100 (1s)' },
-    { value: 'R_10', label: 'Volatility 10' },
-    { value: 'R_25', label: 'Volatility 25' },
-    { value: 'R_50', label: 'Volatility 50' },
-    { value: 'R_75', label: 'Volatility 75' },
+    { value: '1HZ75V', label: 'Volatility 75 (1s)' },
+    { value: '1HZ50V', label: 'Volatility 50 (1s)' },
+    { value: '1HZ25V', label: 'Volatility 25 (1s)' },
+    { value: '1HZ10V', label: 'Volatility 10 (1s)' },
     { value: 'R_100', label: 'Volatility 100' },
+    { value: 'R_75', label: 'Volatility 75' },
+    { value: 'R_50', label: 'Volatility 50' },
+    { value: 'R_25', label: 'Volatility 25' },
+    { value: 'R_10', label: 'Volatility 10' },
 ];
 
 export const useBotContext = () => {
@@ -36,6 +36,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [selectedAIInfo, setSelectedAIInfo] = useState<any>(null);
     const [aiThought, setAiThought] = useState("Sincronizando I.A...");
     const [isConnecting, setIsConnecting] = useState(false);
+    const [assetRankings, setAssetRankings] = useState<any[]>([]);
 
     // Estados globais para controle de modais
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -381,6 +382,45 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             });
         }
     }, [asset, getMarketState, isStudying, setIsStudying, setStudyTicksCount, virtualTradePending, virtualLossStreak, virtualTargetLosses, isSmartModeActive, updateSignalResult]);
+
+    // --- SCANNER DE ATIVOS EM TEMPO REAL (100 A 10) ---
+    // Analisa todos os ativos e gera um ranking de estabilidade e assertividade
+    useEffect(() => {
+        if (!isConnected) return;
+
+        const interval = setInterval(() => {
+            const rankings = SCANNER_ASSETS.map(item => {
+                const state = getMarketState(item.value);
+                const manip = detectMarketManipulation(item.value);
+                
+                // Score de Operabilidade: Confiança menos a taxa de manipulação
+                const score = Math.max(0, state.confidence - manip.score);
+
+                return {
+                    symbol: item.value,
+                    label: item.label,
+                    score,
+                    confidence: state.confidence,
+                    manipulationScore: manip.score,
+                    isStable: state.isStable && !manip.isManipulated,
+                    isManipulated: manip.isManipulated
+                };
+            }).sort((a, b) => b.score - a.score);
+
+            setAssetRankings(rankings);
+
+            // Se o bot estiver rodando e não houver operação ativa, muda automaticamente para o melhor ativo do ranking!
+            if (isBotRunning && rankings.length > 0 && activeTrades.current.size === 0 && martingaleLevel.current === 0) {
+                const bestAsset = rankings[0].symbol;
+                if (bestAsset !== asset) {
+                    setAsset(bestAsset);
+                    setAiThought(`I.A detectou melhor oportunidade em ${rankings[0].label}. Alternando foco.`);
+                }
+            }
+        }, 8000); // Atualiza a cada 8 segundos para evitar oscilações frenéticas
+
+        return () => clearInterval(interval);
+    }, [isConnected, isBotRunning, getMarketState, detectMarketManipulation, asset, setAsset]);
 
     // Função auxiliar para salvar o dia concluído no histórico persistente
     const saveDayToHistory = useCallback((status: 'win' | 'loss', profit: number) => {
@@ -868,7 +908,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const contextValue = useMemo(() => ({
         ...stateAndSetters, isConnected, isConnecting, status, handleConnect, handleDisconnect: disconnect, 
         toggleBot, resetOperations, appFlow, setAppFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, aiThought,
-        manualBuy, isSettingsOpen, setIsSettingsOpen, isConfigModalOpen, setIsConfigModalOpen, saveDayToHistory,
+        manualBuy, isSettingsOpen, setIsSettingsOpen, isConfigModalOpen, setIsConfigModalOpen, saveDayToHistory, assetRankings,
         
         // Expondo dinamicamente os estados ativos
         totalProfit, wins, losses, signals,
@@ -877,7 +917,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setTotalProfit, setWins, setLosses, setSignals,
         setBankManagementInitialBankroll, setBankManagementDailyGoalPercent, setBankManagementDailyStopPercent,
         setBankManagementCurrentDay, setBankManagementActualBankroll, setBankManagementHistory
-    }), [stateAndSetters, isConnected, isConnecting, status, handleConnect, disconnect, toggleBot, resetOperations, appFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, aiThought, manualBuy, isSettingsOpen, isConfigModalOpen, saveDayToHistory,
+    }), [stateAndSetters, isConnected, isConnecting, status, handleConnect, disconnect, toggleBot, resetOperations, appFlow, selectedAIInfo, selectAI, exitToSelection, currentConfidence, aiThought, manualBuy, isSettingsOpen, isConfigModalOpen, saveDayToHistory, assetRankings,
         totalProfit, wins, losses, signals,
         bankManagementInitialBankroll, bankManagementDailyGoalPercent, bankManagementDailyStopPercent,
         bankManagementCurrentDay, bankManagementActualBankroll, bankManagementHistory,

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, Award, BarChart3, Volume2, VolumeX } from 'lucide-react';
+import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, Award, BarChart3, Volume2, VolumeX, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
@@ -30,7 +30,10 @@ export const AIOperatingScreen = () => {
         isConfigModalOpen, setIsConfigModalOpen,
         manualBuy,
         tradeStatus,
-        isConnected
+        isConnected,
+        assetRankings,
+        asset,
+        setAsset
     } = useBotContext();
 
     const hasTriggeredGoalConfettiRef = useRef(false);
@@ -231,6 +234,64 @@ export const AIOperatingScreen = () => {
 
             {/* Painel Premium de 8 Dígitos Recentes */}
             <RecentDigitsPanel />
+
+            {/* Scanner de Ativos (100 a 10) - Ranking em Tempo Real */}
+            {isConnected && assetRankings.length > 0 && (
+                <div className="bg-slate-950/80 backdrop-blur-xl border border-white/10 rounded-[2rem] p-4 shadow-lg space-y-3">
+                    <div className="flex items-center justify-between px-1">
+                        <div className="flex items-center gap-1.5">
+                            <BrainCircuit className="h-3.5 w-3.5 text-cyan-400 animate-pulse" />
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Scanner de Paridade (100 a 10)</span>
+                        </div>
+                        <span className="text-[8px] font-black text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-500/20 uppercase tracking-wider">Auto-Switch</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-1.5 max-h-32 overflow-y-auto custom-scrollbar pr-1">
+                        {assetRankings.slice(0, 4).map((item, index) => {
+                            const isActive = item.symbol === asset;
+                            return (
+                                <div 
+                                    key={item.symbol}
+                                    onClick={() => !isBotRunning && setAsset(item.symbol)}
+                                    className={cn(
+                                        "flex items-center justify-between p-2 rounded-xl border transition-all duration-300 cursor-pointer",
+                                        isActive 
+                                            ? "bg-cyan-500/10 border-cyan-500/30 shadow-[0_0_10px_rgba(34,211,238,0.1)]" 
+                                            : "bg-slate-900/40 border-white/5 hover:border-white/10"
+                                    )}
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-black text-slate-500">#{index + 1}</span>
+                                        <div className="flex flex-col">
+                                            <span className={cn("text-[10px] font-black uppercase tracking-tight", isActive ? "text-cyan-400" : "text-white")}>
+                                                {item.label}
+                                            </span>
+                                            <span className="text-[7px] font-bold text-slate-500 uppercase tracking-wider">
+                                                Confiança: {item.confidence}%
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                        {item.isManipulated ? (
+                                            <span className="flex items-center gap-0.5 text-[7px] font-black text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20 uppercase">
+                                                <ShieldAlert className="h-2.5 w-2.5" /> Manipulado
+                                            </span>
+                                        ) : (
+                                            <span className="flex items-center gap-0.5 text-[7px] font-black text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 uppercase">
+                                                <ShieldCheck className="h-2.5 w-2.5" /> Estável
+                                            </span>
+                                        )}
+                                        <span className="text-[10px] font-black text-cyan-400 font-mono">
+                                            {item.score} pts
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
 
             {/* Barra de Progresso Neon da Meta Diária */}
             {isBotRunning && (
