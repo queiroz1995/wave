@@ -544,14 +544,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                     addLog("Limite de Martingale atingido. Resetando para stake inicial.", "INFO");
                                 }
                             } else {
-                                const { isStable } = getMarketState(savedData.symbol);
-                                if (!isStable) {
-                                    isGalePausedForFilter.current = true;
-                                    setVirtualLossStreak(0);
-                                    setAiThought("Ciclo instável detectado! Pausando Gale e ativando Filtro Virtual.");
-                                } else {
-                                    setAiThought("Recuperação inteligente ativada: Dígito abaixo de 8.");
-                                }
+                                // Para a recuperação inteligente, mantemos o fluxo direto e imediato
+                                setAiThought("Recuperação inteligente ativada: Dígito abaixo de 8.");
                             }
                         } else {
                             setWins((prev: number) => prev + 1);
@@ -620,11 +614,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const digits = multiAssetDigits[symbol] || [];
         if (activeTrades.current.size > 0 || isStudying || digits.length < 50) return null;
 
-        if (isGalePausedForFilter.current && symbol === lastTradedAsset.current) return null;
-
         // --- RECUPERAÇÃO INTELIGENTE (MARTINGALE ABAIXO DE 8) ---
         // Se estiver em Gale, muda o contrato para Dígito Abaixo de 8 (DIGITUNDER com barreira 8)
-        if (martingaleLevel.current > 0 && lastTradedAsset.current === symbol) {
+        const isRecoveryActive = martingaleLevel.current > 0 && lastTradedAsset.current === symbol;
+        if (isRecoveryActive) {
             return { 
                 type: 'UNDER', 
                 contract: 'DIGITUNDER', 
@@ -634,6 +627,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 symbol 
             };
         }
+
+        if (isGalePausedForFilter.current && symbol === lastTradedAsset.current) return null;
 
         // --- ESTRATÉGIA 3: SEQUÊNCIA AUTOMÁTICA PERSONALIZADA ---
         if (autoSequenceActive && symbol === asset && autoSequenceTrigger) {
@@ -819,14 +814,15 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 const target = isSmartModeActive ? recommendedVirtualLosses : virtualTargetLosses;
                 
                 const isRecovery = signal.name.includes('Recovery');
-                const needsVirtual = target > 0 && virtualLossStreak < target;
+                // Se for recuperação, NUNCA espera por perdas virtuais! Executa imediatamente!
+                const needsVirtual = !isRecovery && target > 0 && virtualLossStreak < target;
                 
                 if (needsVirtual) {
                     if (!virtualTradePending) {
                         const sId = addSignal({ 
-                            strategy: isRecovery ? `VIRTUAL (RECOVERY FILTER)` : `VIRTUAL (IA: ${target}L)`, 
+                            strategy: `VIRTUAL (IA: ${target}L)`, 
                             signal: signal.type as any, 
-                            details: isRecovery ? `Limpando ciclo para Gale seguro` : `Filtro dinâmico em ${symbol}`, 
+                            details: `Filtro dinâmico em ${symbol}`, 
                             winRate: `${signal.confidence}%` 
                         });
                         setVirtualTradePending({ ...signal, signalId: sId, symbol });
@@ -835,7 +831,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
                 
                 if (activeTrades.current.size === 0) {
-                    const sId = addSignal({ strategy: signal.name, signal: signal.type as any, details: `Sniper Real em ${symbol}`, winRate: `${signal.confidence}%` });
+                    const sId = addSignal({ strategy: signal.name, signal: signal.type as any, details: isRecovery ? `Recuperação Sniper em ${symbol}` : `Sniper Real em ${symbol}`, winRate: `${signal.confidence}%` });
                     executeBuy(signal.contract as ContractType, signal.name, sId, symbol, false, (signal as any).barrier);
                     break;
                 }
