@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, ArrowUp, ArrowDown, Award, ShieldAlert, BarChart3, Volume2, VolumeX } from 'lucide-react';
+import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, ArrowUp, ArrowDown, Award, ShieldAlert, BarChart3, Volume2, VolumeX, Terminal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
@@ -134,32 +134,32 @@ export const AIOperatingScreen = () => {
 
     const getSignalLabel = (signal: string, strategy: string) => {
         const isVirtual = strategy.includes('VIRTUAL');
-        let baseColor = '';
+        let dotColor = '';
         let text = '';
 
         switch (signal) {
             case 'EVEN': 
                 text = 'PAR'; 
-                baseColor = isVirtual ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+                dotColor = isVirtual ? 'bg-cyan-400' : 'bg-emerald-400';
                 break;
             case 'ODD': 
                 text = 'ÍMPAR'; 
-                baseColor = isVirtual ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+                dotColor = isVirtual ? 'bg-cyan-400' : 'bg-rose-400';
                 break;
             case 'CALL': 
                 text = 'SOBE'; 
-                baseColor = isVirtual ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+                dotColor = isVirtual ? 'bg-cyan-400' : 'bg-emerald-400';
                 break;
             case 'PUT': 
                 text = 'DESCE'; 
-                baseColor = isVirtual ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+                dotColor = isVirtual ? 'bg-cyan-400' : 'bg-rose-400';
                 break;
             default: 
                 text = signal; 
-                baseColor = 'bg-slate-500/10 text-slate-400 border-slate-500/20';
+                dotColor = 'bg-slate-400';
         }
 
-        return { text: isVirtual ? `VIRTUAL: ${text}` : text, color: baseColor };
+        return { text: isVirtual ? `VIRTUAL: ${text}` : text, dotColor, isVirtual };
     };
 
     const isTradePending = tradeStatus === 'SENDING' || tradeStatus === 'ACTIVE';
@@ -476,51 +476,78 @@ export const AIOperatingScreen = () => {
                 </div>
             )}
 
-            {/* Monitor de Sinais - Versão Dark Integrada */}
-            <div className="bg-slate-950/60 backdrop-blur-xl border border-white/10 rounded-[2rem] p-4 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)]">
-                <div className="flex items-center justify-between mb-4 px-1">
-                    <div className="flex items-center gap-1.5">
-                        <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Feed de Operações</span>
+            {/* Monitor de Sinais - Versão Avançada e Discreta (Estilo Terminal de Operações) */}
+            <div className="bg-slate-950/40 backdrop-blur-md border border-white/5 rounded-2xl p-3.5 shadow-2xl">
+                <div className="flex items-center justify-between mb-3 px-1">
+                    <div className="flex items-center gap-2">
+                        <Terminal className="h-3.5 w-3.5 text-cyan-500/70" />
+                        <span className="text-[9px] font-mono font-bold text-slate-400 uppercase tracking-widest">NEURAL_CONSOLE_FEED</span>
+                        <span className="h-1.5 w-1.5 rounded-full bg-cyan-500 animate-pulse" />
                     </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5" onClick={resetOperations}>
-                        <RotateCcw className="h-3.5 w-3.5 text-slate-400" />
+                    <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-7 w-7 rounded-md bg-white/5 hover:bg-white/10 border border-white/5 transition-all" 
+                        onClick={resetOperations}
+                    >
+                        <RotateCcw className="h-3 w-3 text-slate-400" />
                     </Button>
                 </div>
                 
-                <ScrollArea className="h-44 pr-2">
-                    <div className="space-y-2">
+                <ScrollArea className="h-40 pr-1">
+                    <div className="space-y-1.5 font-mono text-[10px]">
                         {signals.length > 0 ? signals.map((s: any) => {
                             const label = getSignalLabel(s.signal, s.strategy);
                             const hasFinished = typeof s.profit === 'number';
                             
                             return (
-                                <div key={s.id} className="group relative flex items-center justify-between p-2.5 bg-slate-900/40 hover:bg-slate-900/80 rounded-xl border border-white/5 transition-all duration-300">
-                                    <div className="flex items-center gap-2.5">
-                                        <span className="text-[9px] font-mono text-slate-500">{s.timestamp}</span>
-                                        <div className={cn("px-2 py-0.5 rounded text-[9px] font-black uppercase border transition-all duration-300", label.color)}>
+                                <div 
+                                    key={s.id} 
+                                    className={cn(
+                                        "flex items-center justify-between py-1.5 px-2.5 rounded-lg border transition-all duration-300",
+                                        !hasFinished 
+                                            ? "bg-cyan-500/5 border-cyan-500/10 text-cyan-400" 
+                                            : s.result === 'WIN' 
+                                                ? "bg-emerald-500/5 border-emerald-500/10 text-emerald-400" 
+                                                : "bg-rose-500/5 border-rose-500/10 text-rose-400"
+                                    )}
+                                >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <span className="text-slate-500 text-[9px]">{s.timestamp}</span>
+                                        <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", label.dotColor)} />
+                                        <span className="font-bold truncate max-w-[140px]">
                                             {label.text}
-                                        </div>
+                                        </span>
+                                        {label.isVirtual && (
+                                            <span className="text-[8px] text-cyan-500/60 font-semibold tracking-tighter">VRT</span>
+                                        )}
                                     </div>
-                                    <div className={cn(
-                                        "text-sm font-black tracking-tighter", 
-                                        !hasFinished ? "text-cyan-400 animate-pulse" : (s.result === 'WIN' ? "text-emerald-400" : "text-rose-400")
-                                    )}>
-                                        {hasFinished ? (
-                                            <span className="flex items-center gap-0.5">
-                                                {s.profit > 0 ? '+' : ''}{s.profit.toFixed(2)}
-                                                {s.result === 'WIN' ? '⚡' : '💀'}
+                                    
+                                    <div className="flex items-center gap-1.5 shrink-0 font-bold">
+                                        {!hasFinished ? (
+                                            <span className="text-cyan-400 animate-pulse flex items-center gap-1">
+                                                ANALISANDO
+                                                <span className="inline-block w-1 h-2 bg-cyan-400 animate-ping" />
                                             </span>
-                                        ) : 'ANALISANDO...'}
+                                        ) : (
+                                            <span className={cn(
+                                                "flex items-center gap-1",
+                                                s.result === 'WIN' ? "text-emerald-400" : "text-rose-400"
+                                            )}>
+                                                {s.profit > 0 ? '+' : ''}{s.profit.toFixed(2)}
+                                                <span className="text-[9px] opacity-80">
+                                                    {s.result === 'WIN' ? 'WIN' : 'LOSS'}
+                                                </span>
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                             );
                         }) : (
-                            <div className="py-12 text-center">
-                                <div className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-white/5 mb-2 border border-white/5">
-                                    <Target className="h-4 w-4 text-slate-500" />
-                                </div>
-                                <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em] italic">Aguardando gatilhos neurais...</p>
+                            <div className="py-10 text-center border border-dashed border-white/5 rounded-xl">
+                                <p className="text-[9px] font-mono text-slate-500 uppercase tracking-widest">
+                                    [AGUARDANDO_GATILHOS_NEURAIS]
+                                </p>
                             </div>
                         )}
                     </div>
