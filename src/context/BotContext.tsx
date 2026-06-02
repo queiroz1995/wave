@@ -61,6 +61,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // --- NOVO SISTEMA DE LOSS VIRTUAL AVANÇADO (2 LOSS + 1 WIN) ---
     const [virtualHistory, setVirtualHistory] = useState<('WIN' | 'LOSS')[]>([]);
     const lastVirtualSignal = useRef<{
+        signalId: string;
         contractType: ContractType;
         strategyName: string;
         symbol: string;
@@ -180,6 +181,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         const outcome: 'WIN' | 'LOSS' = isWin ? 'WIN' : 'LOSS';
+        const virtualProfit = isWin ? 0.31 : -0.35;
+
+        // Atualiza o sinal na interface para mostrar o resultado em tempo real!
+        updateSignalResult(trade.signalId, outcome, virtualProfit, 0.35, currentDigit);
         
         setVirtualHistory(prev => {
             const next: ('WIN' | 'LOSS')[] = [...prev, outcome].slice(-10); // Mantém os últimos 10 resultados virtuais
@@ -196,7 +201,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
 
         lastVirtualSignal.current = null;
-    }, [digitPrediction]);
+    }, [digitPrediction, updateSignalResult]);
 
     const processTickData = useCallback((tick: { quote: string, epoch: number, symbol: string }) => {
         const symbol = tick.symbol;
@@ -531,6 +536,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Se não for Gale, e não for compra manual, e o padrão não estiver completo: executa como VIRTUAL
         if (!bypassStudy && !isGaleMode && !isPatternMatched) {
             lastVirtualSignal.current = {
+                signalId, // Salva o ID do sinal para podermos atualizá-lo na interface depois!
                 contractType,
                 strategyName,
                 symbol,
