@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, Award, BarChart3, Volume2, VolumeX, Terminal, Cpu } from 'lucide-react';
+import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, Award, BarChart3, Volume2, VolumeX, Terminal, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
@@ -37,6 +37,7 @@ export const AIOperatingScreen = () => {
     const hasTriggeredGoalConfettiRef = useRef(false);
     const [profitHistory, setProfitHistory] = useState<number[]>([0]);
     const [isMuted, setIsMuted] = useState(sounds.isMuted());
+    const [showConsole, setShowConsole] = useState(false); // Estado para ocultar/mostrar painéis avançados
 
     // Atualiza o histórico de lucro para desenhar o gráfico de curva de patrimônio (Equity Curve)
     useEffect(() => {
@@ -310,131 +311,136 @@ export const AIOperatingScreen = () => {
                         </div>
                     </div>
 
-                    {/* Barra de Progresso Neon da Meta Diária (Integrada) */}
-                    {isBotRunning && (
-                        <div className="bg-slate-900/30 border border-white/5 rounded-xl p-2 space-y-1">
-                            <div className="flex justify-between items-center text-[8px] font-black uppercase tracking-wider text-slate-400">
-                                <span className="flex items-center gap-1"><Award className="h-2.5 w-2.5 text-yellow-400" /> Progresso da Meta</span>
-                                <span className="text-cyan-400">{goalProgressPercentage.toFixed(0)}%</span>
-                            </div>
-                            <Progress 
-                                value={goalProgressPercentage} 
-                                className="h-1 bg-slate-900 [&>div]:bg-gradient-to-r [&>div]:from-cyan-500 [&>div]:to-emerald-500 shadow-[0_0_8px_rgba(34,211,238,0.15)]"
-                            />
-                        </div>
-                    )}
-
-                    {/* Gráfico de Curva de Patrimônio (Equity Curve) */}
-                    {profitHistory.length > 1 && (
-                        <div className="bg-slate-900/30 border border-white/5 rounded-xl p-2 space-y-1">
-                            <div className="flex justify-between items-center text-[7px] font-bold text-slate-500 uppercase tracking-wider">
-                                <span className="flex items-center gap-1"><BarChart3 className="h-2.5 w-2.5" /> Curva de Patrimônio</span>
-                                <span>Tempo Real</span>
-                            </div>
-                            {renderEquityCurve()}
-                        </div>
-                    )}
-
-                    {/* Painel Premium de 8 Dígitos Recentes (Integrado) */}
+                    {/* Painel Premium de 8 Dígitos Recentes (Sempre Visível) */}
                     <RecentDigitsPanel />
 
-                    {/* Painel de Monitoramento de Loss Virtual (Integrado) */}
-                    <VirtualLossDisplay />
-
-                    {/* AI Thought Stream (Integrado) */}
-                    {isBotRunning && (
-                        <div className="relative bg-slate-900/30 rounded-xl p-3 flex items-start gap-2.5 border border-white/5">
-                            <div className="mt-1 h-1 w-1 rounded-full bg-cyan-400 animate-ping shrink-0" />
-                            <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1 mb-0.5">
-                                    <MessageSquare className="h-2.5 w-2.5 text-cyan-400" />
-                                    <span className="text-[7px] font-black text-cyan-400 uppercase tracking-widest">Fluxo_Cognitivo</span>
+                    {/* --- PAINÉIS AVANÇADOS OCULTÁVEIS (CONSOLE INTELIGENTE) --- */}
+                    {showConsole && (
+                        <div className="space-y-4 pt-2 border-t border-white/5 animate-in fade-in slide-in-from-top-4 duration-500">
+                            {/* Barra de Progresso Neon da Meta Diária */}
+                            {isBotRunning && (
+                                <div className="bg-slate-900/30 border border-white/5 rounded-xl p-2 space-y-1">
+                                    <div className="flex justify-between items-center text-[8px] font-black uppercase tracking-wider text-slate-400">
+                                        <span className="flex items-center gap-1"><Award className="h-2.5 w-2.5 text-yellow-400" /> Progresso da Meta</span>
+                                        <span className="text-cyan-400">{goalProgressPercentage.toFixed(0)}%</span>
+                                    </div>
+                                    <Progress 
+                                        value={goalProgressPercentage} 
+                                        className="h-1 bg-slate-900 [&>div]:bg-gradient-to-r [&>div]:from-cyan-500 [&>div]:to-emerald-500 shadow-[0_0_8px_rgba(34,211,238,0.15)]"
+                                    />
                                 </div>
-                                <p className="text-[10px] font-medium text-slate-300 leading-relaxed italic">
-                                    "{aiThought}"
-                                    <span className="inline-block w-1 h-2 bg-cyan-400 ml-1 animate-pulse" />
-                                </p>
+                            )}
+
+                            {/* Gráfico de Curva de Patrimônio (Equity Curve) */}
+                            {profitHistory.length > 1 && (
+                                <div className="bg-slate-900/30 border border-white/5 rounded-xl p-2 space-y-1">
+                                    <div className="flex justify-between items-center text-[7px] font-bold text-slate-500 uppercase tracking-wider">
+                                        <span className="flex items-center gap-1"><BarChart3 className="h-2.5 w-2.5" /> Curva de Patrimônio</span>
+                                        <span>Tempo Real</span>
+                                    </div>
+                                    {renderEquityCurve()}
+                                </div>
+                            )}
+
+                            {/* Painel de Monitoramento de Loss Virtual */}
+                            <VirtualLossDisplay />
+
+                            {/* AI Thought Stream */}
+                            {isBotRunning && (
+                                <div className="relative bg-slate-900/30 rounded-xl p-3 flex items-start gap-2.5 border border-white/5">
+                                    <div className="mt-1 h-1 w-1 rounded-full bg-cyan-400 animate-ping shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-1 mb-0.5">
+                                            <MessageSquare className="h-2.5 w-2.5 text-cyan-400" />
+                                            <span className="text-[7px] font-black text-cyan-400 uppercase tracking-widest">Fluxo_Cognitivo</span>
+                                        </div>
+                                        <p className="text-[10px] font-medium text-slate-300 leading-relaxed italic">
+                                            "{aiThought}"
+                                            <span className="inline-block w-1 h-2 bg-cyan-400 ml-1 animate-pulse" />
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Monitor de Sinais - Versão Avançada e Discreta (Estilo Terminal de Operações) */}
+                            <div className="bg-slate-900/30 border border-white/5 rounded-xl p-3 space-y-2">
+                                <div className="flex items-center justify-between px-1">
+                                    <div className="flex items-center gap-1.5">
+                                        <Terminal className="h-3 w-3 text-cyan-500/70" />
+                                        <span className="text-[8px] font-mono font-bold text-slate-400 uppercase tracking-widest">NEURAL_CONSOLE_FEED</span>
+                                        <span className="h-1 w-1 rounded-full bg-cyan-500 animate-pulse" />
+                                    </div>
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="h-6 w-6 rounded bg-white/5 hover:bg-white/10 border border-white/5 transition-all" 
+                                        onClick={resetOperations}
+                                    >
+                                        <RotateCcw className="h-2.5 w-2.5 text-slate-400" />
+                                    </Button>
+                                </div>
+                                
+                                <ScrollArea className="h-28 pr-1">
+                                    <div className="space-y-1 font-mono text-[9px]">
+                                        {signals.length > 0 ? signals.map((s: any) => {
+                                            const label = getSignalLabel(s.signal, s.strategy);
+                                            const hasFinished = typeof s.profit === 'number';
+                                            
+                                            return (
+                                                <div 
+                                                    key={s.id} 
+                                                    className={cn(
+                                                        "flex items-center justify-between py-1 px-2 rounded border transition-all duration-300",
+                                                        !hasFinished 
+                                                            ? "bg-cyan-500/5 border-cyan-500/10 text-cyan-400" 
+                                                            : s.result === 'WIN' 
+                                                                ? "bg-emerald-500/5 border-emerald-500/10 text-emerald-400" 
+                                                                : "bg-rose-500/5 border-rose-500/10 text-rose-400"
+                                                    )}
+                                                >
+                                                    <div className="flex items-center gap-1.5 min-w-0">
+                                                        <span className="text-slate-500 text-[8px]">{s.timestamp}</span>
+                                                        <span className={cn("h-1 w-1 rounded-full shrink-0", label.dotColor)} />
+                                                        <span className="font-bold truncate max-w-[120px]">
+                                                            {label.text}
+                                                        </span>
+                                                        {label.isVirtual && (
+                                                            <span className="text-[7px] text-cyan-500/60 font-semibold tracking-tighter">VRT</span>
+                                                        )}
+                                                    </div>
+                                                    
+                                                    <div className="flex items-center gap-1 shrink-0 font-bold">
+                                                        {!hasFinished ? (
+                                                            <span className="text-cyan-400 animate-pulse flex items-center gap-0.5">
+                                                                ANALISANDO
+                                                                <span className="inline-block w-0.5 h-1.5 bg-cyan-400 animate-ping" />
+                                                            </span>
+                                                        ) : (
+                                                            <span className={cn(
+                                                                "flex items-center gap-0.5",
+                                                                s.result === 'WIN' ? "text-emerald-400" : "text-rose-400"
+                                                            )}>
+                                                                {s.profit > 0 ? '+' : ''}{s.profit.toFixed(2)}
+                                                                <span className="text-[8px] opacity-80">
+                                                                    {s.result === 'WIN' ? 'WIN' : 'LOSS'}
+                                                                </span>
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        }) : (
+                                            <div className="py-6 text-center border border-dashed border-white/5 rounded-lg">
+                                                <p className="text-[8px] font-mono text-slate-500 uppercase tracking-widest">
+                                                    [AGUARDANDO_GATILHOS_NEURAIS]
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </ScrollArea>
                             </div>
                         </div>
                     )}
-
-                    {/* Monitor de Sinais - Versão Avançada e Discreta (Estilo Terminal de Operações Integrado) */}
-                    <div className="bg-slate-900/30 border border-white/5 rounded-xl p-3 space-y-2">
-                        <div className="flex items-center justify-between px-1">
-                            <div className="flex items-center gap-1.5">
-                                <Terminal className="h-3 w-3 text-cyan-500/70" />
-                                <span className="text-[8px] font-mono font-bold text-slate-400 uppercase tracking-widest">NEURAL_CONSOLE_FEED</span>
-                                <span className="h-1 w-1 rounded-full bg-cyan-500 animate-pulse" />
-                            </div>
-                            <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-6 w-6 rounded bg-white/5 hover:bg-white/10 border border-white/5 transition-all" 
-                                onClick={resetOperations}
-                            >
-                                <RotateCcw className="h-2.5 w-2.5 text-slate-400" />
-                            </Button>
-                        </div>
-                        
-                        <ScrollArea className="h-28 pr-1">
-                            <div className="space-y-1 font-mono text-[9px]">
-                                {signals.length > 0 ? signals.map((s: any) => {
-                                    const label = getSignalLabel(s.signal, s.strategy);
-                                    const hasFinished = typeof s.profit === 'number';
-                                    
-                                    return (
-                                        <div 
-                                            key={s.id} 
-                                            className={cn(
-                                                "flex items-center justify-between py-1 px-2 rounded border transition-all duration-300",
-                                                !hasFinished 
-                                                    ? "bg-cyan-500/5 border-cyan-500/10 text-cyan-400" 
-                                                    : s.result === 'WIN' 
-                                                        ? "bg-emerald-500/5 border-emerald-500/10 text-emerald-400" 
-                                                        : "bg-rose-500/5 border-rose-500/10 text-rose-400"
-                                            )}
-                                        >
-                                            <div className="flex items-center gap-1.5 min-w-0">
-                                                <span className="text-slate-500 text-[8px]">{s.timestamp}</span>
-                                                <span className={cn("h-1 w-1 rounded-full shrink-0", label.dotColor)} />
-                                                <span className="font-bold truncate max-w-[120px]">
-                                                    {label.text}
-                                                </span>
-                                                {label.isVirtual && (
-                                                    <span className="text-[7px] text-cyan-500/60 font-semibold tracking-tighter">VRT</span>
-                                                )}
-                                            </div>
-                                            
-                                            <div className="flex items-center gap-1 shrink-0 font-bold">
-                                                {!hasFinished ? (
-                                                    <span className="text-cyan-400 animate-pulse flex items-center gap-0.5">
-                                                        ANALISANDO
-                                                        <span className="inline-block w-0.5 h-1.5 bg-cyan-400 animate-ping" />
-                                                    </span>
-                                                ) : (
-                                                    <span className={cn(
-                                                        "flex items-center gap-0.5",
-                                                        s.result === 'WIN' ? "text-emerald-400" : "text-rose-400"
-                                                    )}>
-                                                        {s.profit > 0 ? '+' : ''}{s.profit.toFixed(2)}
-                                                        <span className="text-[8px] opacity-80">
-                                                            {s.result === 'WIN' ? 'WIN' : 'LOSS'}
-                                                        </span>
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    );
-                                }) : (
-                                    <div className="py-6 text-center border border-dashed border-white/5 rounded-lg">
-                                        <p className="text-[8px] font-mono text-slate-500 uppercase tracking-widest">
-                                            [AGUARDANDO_GATILHOS_NEURAIS]
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
-                        </ScrollArea>
-                    </div>
 
                     {/* Botão de Ignição */}
                     <Button 
@@ -515,6 +521,19 @@ export const AIOperatingScreen = () => {
                             onClick={() => handleConnect(accountType, currentToken)}
                         >
                             <RefreshCw className="h-3 w-3 text-slate-400" />
+                        </Button>
+                    </div>
+
+                    {/* Botão de Alternância do Console Avançado */}
+                    <div className="flex justify-center pt-1 border-t border-white/5">
+                        <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => setShowConsole(!showConsole)}
+                            className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 hover:text-cyan-400 transition-colors gap-1.5 h-7"
+                        >
+                            <Terminal className="h-3 w-3" />
+                            {showConsole ? "Ocultar Console I.A" : "Mostrar Console I.A"}
                         </Button>
                     </div>
                 </CardContent>
