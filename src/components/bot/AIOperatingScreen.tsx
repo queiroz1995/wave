@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, ArrowUp, ArrowDown, Award, ShieldAlert, BarChart3, Volume2, VolumeX, Terminal } from 'lucide-react';
+import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, Award, BarChart3, Volume2, VolumeX, Terminal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
@@ -399,26 +399,6 @@ export const AIOperatingScreen = () => {
                             >
                                 <ArrowDownRight className="h-4 w-4" />
                                 ÍMPAR
-                            </Button>
-                        </div>
-
-                        {/* Botões de Sobe / Desce */}
-                        <div className="grid grid-cols-2 gap-3">
-                            <Button
-                                onClick={() => manualBuy('CALL', 'Manual')}
-                                disabled={!isConnected || isTradePending}
-                                className="h-12 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 font-black uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all duration-300 active:scale-95"
-                            >
-                                <ArrowUp className="h-4 w-4" />
-                                SOBE
-                            </Button>
-                            <Button
-                                onClick={() => manualBuy('PUT', 'Manual')}
-                                disabled={!isConnected || isTradePending}
-                                className="h-12 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 font-black uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all duration-300 active:scale-95"
-                            >
-                                <ArrowDown className="h-4 w-4" />
-                                DESCE
                             </Button>
                         </div>
                     </div>
