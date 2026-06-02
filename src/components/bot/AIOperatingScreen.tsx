@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, Award, BarChart3, Volume2, VolumeX, Terminal, Settings, ShieldAlert, Plus, Trash2, Save, Sparkles, Layers } from 'lucide-react';
+import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, Award, BarChart3, Volume2, VolumeX, Terminal, Settings, ShieldAlert, Plus, Trash2, Save, Sparkles, Layers, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
@@ -50,6 +50,7 @@ export const AIOperatingScreen = () => {
     const [profitHistory, setProfitHistory] = useState<number[]>([0]);
     const [isMuted, setIsMuted] = useState(sounds.isMuted());
     const [showConsole, setShowConsole] = useState(false); // Estado para ocultar/mostrar o terminal de sinais
+    const [showSettings, setShowSettings] = useState(false); // Estado para ocultar/mostrar os ajustes de estratégia
 
     // Estados locais para edição do padrão personalizado
     const [patternInput, setPatternInput] = useState(autoSequenceTrigger || 'O,O,O');
@@ -299,27 +300,6 @@ export const AIOperatingScreen = () => {
                 )}
             </div>
 
-            {/* Botão de Ignição Principal - FORA DO CARD (No Topo) */}
-            <Button 
-                onClick={handleStartClick}
-                disabled={status.message.includes('Desconectado') || isPaused || isManipulationDetected}
-                className={cn(
-                    "group relative w-full h-14 rounded-2xl overflow-hidden transition-all duration-500 shadow-2xl active:scale-95 border border-white/10",
-                    isBotRunning 
-                        ? "bg-rose-600 hover:bg-rose-700 shadow-rose-900/20" 
-                        : "bg-cyan-500 hover:bg-cyan-600 text-slate-950 shadow-cyan-500/20"
-                )}
-            >
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-shimmer" />
-                <span className="relative flex items-center justify-center gap-2 text-sm font-black uppercase tracking-[0.2em]">
-                    {isBotRunning ? (
-                        <>PARAR AUTOMAÇÃO<Power className="h-3.5 w-3.5" /></>
-                    ) : (
-                        <>INICIAR AUTOMAÇÃO<BrainCircuit className="h-3.5 w-3.5" /></>
-                    )}
-                </span>
-            </Button>
-
             {/* Painel Central Unificado - Estética "Cyber-Luxury AI Core" */}
             <Card className="relative overflow-hidden bg-slate-950/80 backdrop-blur-2xl border border-white/10 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] rounded-[2.5rem] transition-all duration-500 hover:border-cyan-500/30">
                 {/* Efeitos de Fundo Decorativos */}
@@ -425,6 +405,27 @@ export const AIOperatingScreen = () => {
                         </div>
                     )}
 
+                    {/* Botão de Ignição Principal - INTEGRADO NO PAINEL */}
+                    <Button 
+                        onClick={handleStartClick}
+                        disabled={status.message.includes('Desconectado') || isPaused || isManipulationDetected}
+                        className={cn(
+                            "group relative w-full h-12 rounded-2xl overflow-hidden transition-all duration-500 shadow-lg active:scale-95 border border-white/10",
+                            isBotRunning 
+                                ? "bg-rose-600 hover:bg-rose-700 shadow-rose-900/20" 
+                                : "bg-cyan-500 hover:bg-cyan-600 text-slate-950 shadow-cyan-500/20"
+                        )}
+                    >
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-shimmer" />
+                        <span className="relative flex items-center justify-center gap-2 text-xs font-black uppercase tracking-[0.2em]">
+                            {isBotRunning ? (
+                                <>PARAR AUTOMAÇÃO<Power className="h-3.5 w-3.5" /></>
+                            ) : (
+                                <>INICIAR AUTOMAÇÃO<BrainCircuit className="h-3.5 w-3.5" /></>
+                            )}
+                        </span>
+                    </Button>
+
                     {/* Painel Premium de 8 Dígitos Recentes (Integrado) */}
                     <RecentDigitsPanel />
 
@@ -448,165 +449,175 @@ export const AIOperatingScreen = () => {
                         </div>
                     )}
 
-                    {/* CONFIGURAÇÕES DE ESTRATÉGIA (SEMPRE VISÍVEL) */}
-                    <div className="bg-slate-900/40 border border-white/10 rounded-2xl p-4 space-y-4 shadow-inner">
-                        <div className="flex items-center gap-2 border-b border-white/5 pb-2">
-                            <Settings className="h-4 w-4 text-cyan-400" />
-                            <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Ajustes de Estratégia</span>
-                        </div>
-
-                        {/* Toggles Principais em Grid */}
-                        <div className="grid grid-cols-1 gap-3 bg-slate-950/40 p-3 rounded-xl border border-white/5">
-                            <div className="flex items-center justify-between">
-                                <div className="flex flex-col">
-                                    <span className="text-[10px] font-bold text-white flex items-center gap-1">
-                                        <ShieldAlert className="h-3.5 w-3.5 text-cyan-400" /> Loss Virtual (L L W)
-                                    </span>
-                                    <span className="text-[8px] text-slate-400">Simula 2 perdas e 1 vitória antes de entrar real</span>
-                                </div>
-                                <Switch 
-                                    checked={isVirtualLossActive} 
-                                    onCheckedChange={setIsVirtualLossActive} 
-                                />
+                    {/* CONFIGURAÇÕES DE ESTRATÉGIA (COLAPSÁVEL PARA DEIXAR O PAINEL LIMPO) */}
+                    <div className="bg-slate-900/40 border border-white/10 rounded-2xl overflow-hidden shadow-inner">
+                        <button 
+                            onClick={() => setShowSettings(!showSettings)}
+                            className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors"
+                        >
+                            <div className="flex items-center gap-2">
+                                <Settings className="h-4 w-4 text-cyan-400" />
+                                <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Ajustes de Estratégia</span>
                             </div>
+                            {showSettings ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
+                        </button>
 
-                            <div className="h-px bg-white/5" />
-
-                            <div className="flex items-center justify-between">
-                                <div className="flex flex-col">
-                                    <span className="text-[10px] font-bold text-white flex items-center gap-1">
-                                        <Layers className="h-3.5 w-3.5 text-cyan-400" /> Padrão Personalizado
-                                    </span>
-                                    <span className="text-[8px] text-slate-400">Ativa o criador de sequências de Par/Ímpar</span>
-                                </div>
-                                <Switch 
-                                    checked={autoSequenceActive} 
-                                    onCheckedChange={setAutoSequenceActive} 
-                                />
-                            </div>
-                        </div>
-
-                        {/* Criador de Padrões Personalizados */}
-                        {autoSequenceActive && (
-                            <div className="space-y-3.5 pt-3 border-t border-white/5 animate-in fade-in duration-300">
-                                <div className="flex items-center gap-1.5">
-                                    <Sparkles className="h-3.5 w-3.5 text-cyan-400 animate-pulse" />
-                                    <span className="text-[9px] font-black text-cyan-400 uppercase tracking-wider">Criador de Estratégia</span>
-                                </div>
-
-                                <div className="space-y-1.5">
-                                    <span className="text-[8px] font-bold text-slate-400 uppercase">Nome da Estratégia</span>
-                                    <Input 
-                                        value={strategyNameInput}
-                                        onChange={(e) => setStrategyNameInput(e.target.value)}
-                                        placeholder="Ex: Sniper de Pares"
-                                        className="h-9 text-[10px] bg-slate-950/80 border-white/10 text-white rounded-xl focus-visible:ring-cyan-500/30"
-                                    />
-                                </div>
-
-                                <div className="space-y-1.5">
-                                    <span className="text-[8px] font-bold text-slate-400 uppercase">Sequência de Entrada</span>
-                                    <div className="flex items-center gap-1.5 p-2.5 rounded-xl bg-slate-950/80 border border-white/10 min-h-[40px] flex-wrap">
-                                        {patternInput ? patternInput.split(',').map((char, idx) => (
-                                            <span 
-                                                key={idx} 
-                                                className={cn(
-                                                    "text-[9px] font-black px-2 py-0.5 rounded-lg shadow-sm",
-                                                    char === 'E' ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-rose-500/20 text-rose-400 border border-rose-500/30"
-                                                )}
-                                            >
-                                                {char === 'E' ? 'PAR' : 'ÍMPAR'}
+                        {showSettings && (
+                            <div className="p-4 pt-0 space-y-4 border-t border-white/5 animate-in fade-in duration-300">
+                                {/* Toggles Principais em Grid */}
+                                <div className="grid grid-cols-1 gap-3 bg-slate-950/40 p-3 rounded-xl border border-white/5 mt-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] font-bold text-white flex items-center gap-1">
+                                                <ShieldAlert className="h-3.5 w-3.5 text-cyan-400" /> Loss Virtual (L L W)
                                             </span>
-                                        )) : (
-                                            <span className="text-[8px] text-slate-500 italic">Monte sua sequência abaixo...</span>
-                                        )}
+                                            <span className="text-[8px] text-slate-400">Simula 2 perdas e 1 vitória antes de entrar real</span>
+                                        </div>
+                                        <Switch 
+                                            checked={isVirtualLossActive} 
+                                            onCheckedChange={setIsVirtualLossActive} 
+                                        />
+                                    </div>
+
+                                    <div className="h-px bg-white/5" />
+
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] font-bold text-white flex items-center gap-1">
+                                                <Layers className="h-3.5 w-3.5 text-cyan-400" /> Padrão Personalizado
+                                            </span>
+                                            <span className="text-[8px] text-slate-400">Ativa o criador de sequências de Par/Ímpar</span>
+                                        </div>
+                                        <Switch 
+                                            checked={autoSequenceActive} 
+                                            onCheckedChange={setAutoSequenceActive} 
+                                        />
                                     </div>
                                 </div>
 
-                                {/* Teclado de Montagem de Sequência */}
-                                <div className="grid grid-cols-3 gap-2">
-                                    <Button 
-                                        size="sm" 
-                                        variant="outline" 
-                                        onClick={() => handleAddPatternChar('E')}
-                                        className="h-9 text-[9px] font-black uppercase border-white/10 hover:bg-emerald-500/10 hover:text-emerald-400 rounded-xl transition-all"
-                                    >
-                                        <Plus className="h-3.5 w-3.5 mr-1 text-emerald-400" /> PAR
-                                    </Button>
-                                    <Button 
-                                        size="sm" 
-                                        variant="outline" 
-                                        onClick={() => handleAddPatternChar('O')}
-                                        className="h-9 text-[9px] font-black uppercase border-white/10 hover:bg-rose-500/10 hover:text-rose-400 rounded-xl transition-all"
-                                    >
-                                        <Plus className="h-3.5 w-3.5 mr-1 text-rose-400" /> ÍMPAR
-                                    </Button>
-                                    <Button 
-                                        size="sm" 
-                                        variant="ghost" 
-                                        onClick={handleClearPattern}
-                                        className="h-9 text-[9px] font-black uppercase text-rose-400 hover:bg-rose-500/10 rounded-xl"
-                                    >
-                                        <Trash2 className="h-3.5 w-3.5 mr-1" /> Limpar
-                                    </Button>
-                                </div>
+                                {/* Criador de Padrões Personalizados */}
+                                {autoSequenceActive && (
+                                    <div className="space-y-3.5 pt-3 border-t border-white/5 animate-in fade-in duration-300">
+                                        <div className="flex items-center gap-1.5">
+                                            <Sparkles className="h-3.5 w-3.5 text-cyan-400 animate-pulse" />
+                                            <span className="text-[9px] font-black text-cyan-400 uppercase tracking-wider">Criador de Estratégia</span>
+                                        </div>
 
-                                {/* Ação após a sequência */}
-                                <div className="space-y-1.5">
-                                    <span className="text-[8px] font-bold text-slate-400 uppercase">Ação após sequência</span>
-                                    <Select value={autoSequenceEntry} onValueChange={(v) => setAutoSequenceEntry(v as 'EVEN' | 'ODD')}>
-                                        <SelectTrigger className="h-9 text-[9px] font-bold uppercase bg-slate-950/80 border-white/10 rounded-xl">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent className="bg-slate-950 border-white/10 text-white">
-                                            <SelectItem value="EVEN" className="text-[9px] font-bold">Apostar em PAR</SelectItem>
-                                            <SelectItem value="ODD" className="text-[9px] font-bold">Apostar em ÍMPAR</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
+                                        <div className="space-y-1.5">
+                                            <span className="text-[8px] font-bold text-slate-400 uppercase">Nome da Estratégia</span>
+                                            <Input 
+                                                value={strategyNameInput}
+                                                onChange={(e) => setStrategyNameInput(e.target.value)}
+                                                placeholder="Ex: Sniper de Pares"
+                                                className="h-9 text-[10px] bg-slate-950/80 border-white/10 text-white rounded-xl focus-visible:ring-cyan-500/30"
+                                            />
+                                        </div>
 
-                                {/* Botão de Salvar Estratégia */}
-                                <Button 
-                                    onClick={handleSaveStrategy}
-                                    className="w-full h-10 text-[10px] font-black uppercase tracking-wider bg-cyan-500 hover:bg-cyan-600 text-slate-950 rounded-xl shadow-lg shadow-cyan-500/10 transition-all"
-                                >
-                                    <Save className="h-4 w-4 mr-1.5" /> Salvar Estratégia
-                                </Button>
+                                        <div className="space-y-1.5">
+                                            <span className="text-[8px] font-bold text-slate-400 uppercase">Sequência de Entrada</span>
+                                            <div className="flex items-center gap-1.5 p-2.5 rounded-xl bg-slate-950/80 border border-white/10 min-h-[40px] flex-wrap">
+                                                {patternInput ? patternInput.split(',').map((char, idx) => (
+                                                    <span 
+                                                        key={idx} 
+                                                        className={cn(
+                                                            "text-[9px] font-black px-2 py-0.5 rounded-lg shadow-sm",
+                                                            char === 'E' ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-rose-500/20 text-rose-400 border border-rose-500/30"
+                                                        )}
+                                                    >
+                                                        {char === 'E' ? 'PAR' : 'ÍMPAR'}
+                                                    </span>
+                                                )) : (
+                                                    <span className="text-[8px] text-slate-500 italic">Monte sua sequência abaixo...</span>
+                                                )}
+                                            </div>
+                                        </div>
 
-                                {/* Lista de Estratégias Salvas */}
-                                <div className="space-y-2 pt-3 border-t border-white/5">
-                                    <span className="text-[8px] font-bold text-slate-400 uppercase">Estratégias Salvas</span>
-                                    <div className="space-y-2 max-h-36 overflow-y-auto custom-scrollbar pr-1">
-                                        {savedCustomStrategies && savedCustomStrategies.length > 0 ? (
-                                            savedCustomStrategies.map((strat: any) => (
-                                                <div key={strat.id} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950/60 border border-white/5 hover:border-white/10 transition-all">
-                                                    <div className="flex flex-col min-w-0">
-                                                        <span className="text-[10px] font-bold text-white truncate">{strat.name}</span>
-                                                        <span className="text-[8px] text-slate-400 truncate mt-0.5">
-                                                            Seq: {strat.trigger} → {strat.entry === 'EVEN' ? 'PAR' : 'ÍMPAR'}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex items-center gap-2.5 shrink-0">
-                                                        <Switch 
-                                                            checked={strat.isActive}
-                                                            onCheckedChange={(checked) => handleToggleStrategy(strat.id, checked)}
-                                                        />
-                                                        <Button 
-                                                            size="icon" 
-                                                            variant="ghost" 
-                                                            className="h-7 w-7 text-rose-400 hover:bg-rose-500/10 rounded-lg"
-                                                            onClick={() => handleDeleteStrategy(strat.id)}
-                                                        >
-                                                            <Trash2 className="h-3.5 w-3.5" />
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <p className="text-[8px] text-slate-500 italic text-center py-3">Nenhuma estratégia salva.</p>
-                                        )}
+                                        {/* Teclado de Montagem de Sequência */}
+                                        <div className="grid grid-cols-3 gap-2">
+                                            <Button 
+                                                size="sm" 
+                                                variant="outline" 
+                                                onClick={() => handleAddPatternChar('E')}
+                                                className="h-9 text-[9px] font-black uppercase border-white/10 hover:bg-emerald-500/10 hover:text-emerald-400 rounded-xl transition-all"
+                                            >
+                                                <Plus className="h-3.5 w-3.5 mr-1 text-emerald-400" /> PAR
+                                            </Button>
+                                            <Button 
+                                                size="sm" 
+                                                variant="outline" 
+                                                onClick={() => handleAddPatternChar('O')}
+                                                className="h-9 text-[9px] font-black uppercase border-white/10 hover:bg-rose-500/10 hover:text-rose-400 rounded-xl transition-all"
+                                            >
+                                                <Plus className="h-3.5 w-3.5 mr-1 text-rose-400" /> ÍMPAR
+                                            </Button>
+                                            <Button 
+                                                size="sm" 
+                                                variant="ghost" 
+                                                onClick={handleClearPattern}
+                                                className="h-9 text-[9px] font-black uppercase text-rose-400 hover:bg-rose-500/10 rounded-xl"
+                                            >
+                                                <Trash2 className="h-3.5 w-3.5 mr-1" /> Limpar
+                                            </Button>
+                                        </div>
+
+                                        {/* Ação após a sequência */}
+                                        <div className="space-y-1.5">
+                                            <span className="text-[8px] font-bold text-slate-400 uppercase">Ação após sequência</span>
+                                            <Select value={autoSequenceEntry} onValueChange={(v) => setAutoSequenceEntry(v as 'EVEN' | 'ODD')}>
+                                                <SelectTrigger className="h-9 text-[9px] font-bold uppercase bg-slate-950/80 border-white/10 rounded-xl">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent className="bg-slate-950 border-white/10 text-white">
+                                                    <SelectItem value="EVEN" className="text-[9px] font-bold">Apostar em PAR</SelectItem>
+                                                    <SelectItem value="ODD" className="text-[9px] font-bold">Apostar em ÍMPAR</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        {/* Botão de Salvar Estratégia */}
+                                        <Button 
+                                            onClick={handleSaveStrategy}
+                                            className="w-full h-10 text-[10px] font-black uppercase tracking-wider bg-cyan-500 hover:bg-cyan-600 text-slate-950 rounded-xl shadow-lg shadow-cyan-500/10 transition-all"
+                                        >
+                                            <Save className="h-4 w-4 mr-1.5" /> Salvar Estratégia
+                                        </Button>
+
+                                        {/* Lista de Estratégias Salvas */}
+                                        <div className="space-y-2 pt-3 border-t border-white/5">
+                                            <span className="text-[8px] font-bold text-slate-400 uppercase">Estratégias Salvas</span>
+                                            <div className="space-y-2 max-h-36 overflow-y-auto custom-scrollbar pr-1">
+                                                {savedCustomStrategies && savedCustomStrategies.length > 0 ? (
+                                                    savedCustomStrategies.map((strat: any) => (
+                                                        <div key={strat.id} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950/60 border border-white/5 hover:border-white/10 transition-all">
+                                                            <div className="flex flex-col min-w-0">
+                                                                <span className="text-[10px] font-bold text-white truncate">{strat.name}</span>
+                                                                <span className="text-[8px] text-slate-400 truncate mt-0.5">
+                                                                    Seq: {strat.trigger} → {strat.entry === 'EVEN' ? 'PAR' : 'ÍMPAR'}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2.5 shrink-0">
+                                                                <Switch 
+                                                                    checked={strat.isActive}
+                                                                    onCheckedChange={(checked) => handleToggleStrategy(strat.id, checked)}
+                                                                />
+                                                                <Button 
+                                                                    size="icon" 
+                                                                    variant="ghost" 
+                                                                    className="h-7 w-7 text-rose-400 hover:bg-rose-500/10 rounded-lg"
+                                                                    onClick={() => handleDeleteStrategy(strat.id)}
+                                                                >
+                                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <p className="text-[8px] text-slate-500 italic text-center py-3">Nenhuma estratégia salva.</p>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
+                                )}
                             </div>
                         )}
                     </div>
