@@ -299,6 +299,27 @@ export const AIOperatingScreen = () => {
                 )}
             </div>
 
+            {/* Botão de Ignição Principal - FORA DO CARD (No Topo) */}
+            <Button 
+                onClick={handleStartClick}
+                disabled={status.message.includes('Desconectado') || isPaused || isManipulationDetected}
+                className={cn(
+                    "group relative w-full h-14 rounded-2xl overflow-hidden transition-all duration-500 shadow-2xl active:scale-95 border border-white/10",
+                    isBotRunning 
+                        ? "bg-rose-600 hover:bg-rose-700 shadow-rose-900/20" 
+                        : "bg-cyan-500 hover:bg-cyan-600 text-slate-950 shadow-cyan-500/20"
+                )}
+            >
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-shimmer" />
+                <span className="relative flex items-center justify-center gap-2 text-sm font-black uppercase tracking-[0.2em]">
+                    {isBotRunning ? (
+                        <>PARAR AUTOMAÇÃO<Power className="h-3.5 w-3.5" /></>
+                    ) : (
+                        <>INICIAR AUTOMAÇÃO<BrainCircuit className="h-3.5 w-3.5" /></>
+                    )}
+                </span>
+            </Button>
+
             {/* Painel Central Unificado - Estética "Cyber-Luxury AI Core" */}
             <Card className="relative overflow-hidden bg-slate-950/80 backdrop-blur-2xl border border-white/10 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] rounded-[2.5rem] transition-all duration-500 hover:border-cyan-500/30">
                 {/* Efeitos de Fundo Decorativos */}
@@ -673,27 +694,6 @@ export const AIOperatingScreen = () => {
                             </div>
                         </div>
                     )}
-
-                    {/* Botão de Ignição */}
-                    <Button 
-                        onClick={handleStartClick}
-                        disabled={status.message.includes('Desconectado') || isPaused || isManipulationDetected}
-                        className={cn(
-                            "group relative w-full h-14 rounded-xl overflow-hidden transition-all duration-500 shadow-2xl active:scale-95",
-                            isBotRunning 
-                                ? "bg-rose-600 hover:bg-rose-700 shadow-rose-900/20" 
-                                : "bg-cyan-500 hover:bg-cyan-600 text-slate-950 shadow-cyan-500/20"
-                        )}
-                    >
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-shimmer" />
-                        <span className="relative flex items-center justify-center gap-2 text-sm font-black uppercase tracking-[0.2em]">
-                            {isBotRunning ? (
-                                <>PARAR<Power className="h-3.5 w-3.5" /></>
-                            ) : (
-                                <>INICIAR<BrainCircuit className="h-3.5 w-3.5" /></>
-                            )}
-                        </span>
-                    </Button>
 
                     {/* Seção de Entradas Manuais */}
                     <div className="space-y-2 pt-1">
