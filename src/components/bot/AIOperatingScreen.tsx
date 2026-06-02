@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, Award, BarChart3, Volume2, VolumeX, Terminal, Settings, ShieldAlert, Plus, Trash2 } from 'lucide-react';
+import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, Award, BarChart3, Volume2, VolumeX, Terminal, Settings, ShieldAlert, Plus, Trash2, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
@@ -17,6 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { sounds } from '@/utils/sounds';
+import { toast } from "sonner";
 import confetti from 'canvas-confetti';
 
 export const AIOperatingScreen = () => {
@@ -40,7 +41,9 @@ export const AIOperatingScreen = () => {
         autoSequenceTrigger, setAutoSequenceTrigger,
         autoSequenceEntry, setAutoSequenceEntry,
         // Loss Virtual Toggle
-        isVirtualLossActive, setIsVirtualLossActive
+        isVirtualLossActive, setIsVirtualLossActive,
+        // Estratégias Salvas
+        savedCustomStrategies, setSavedCustomStrategies
     } = useBotContext();
 
     const hasTriggeredGoalConfettiRef = useRef(false);
@@ -50,6 +53,7 @@ export const AIOperatingScreen = () => {
 
     // Estados locais para edição do padrão personalizado
     const [patternInput, setPatternInput] = useState(autoSequenceTrigger || 'O,O,O');
+    const [strategyNameInput, setStrategyNameInput] = useState('');
 
     // Atualiza o histórico de lucro para desenhar o gráfico de curva de patrimônio (Equity Curve)
     useEffect(() => {
@@ -225,6 +229,41 @@ export const AIOperatingScreen = () => {
     const handleClearPattern = () => {
         setPatternInput('');
         setAutoSequenceTrigger('');
+    };
+
+    // Salva a estratégia personalizada na lista
+    const handleSaveStrategy = () => {
+        if (!strategyNameInput.trim()) {
+            toast.error("Por favor, dê um nome para a sua estratégia.");
+            return;
+        }
+        if (!patternInput) {
+            toast.error("Por favor, monte uma sequência de entrada.");
+            return;
+        }
+
+        const newStrategy = {
+            id: `custom-${Date.now()}`,
+            name: strategyNameInput.trim(),
+            trigger: patternInput,
+            entry: autoSequenceEntry,
+            isActive: true
+        };
+
+        setSavedCustomStrategies((prev: any) => [...prev, newStrategy]);
+        setStrategyNameInput('');
+        toast.success(`Estratégia "${newStrategy.name}" salva com sucesso!`);
+    };
+
+    // Exclui uma estratégia personalizada
+    const handleDeleteStrategy = (id: string) => {
+        setSavedCustomStrategies((prev: any) => prev.filter((s: any) => s.id !== id));
+        toast.info("Estratégia excluída.");
+    };
+
+    // Alterna o status ativo de uma estratégia
+    const handleToggleStrategy = (id: string, isActive: boolean) => {
+        setSavedCustomStrategies((prev: any) => prev.map((s: any) => s.id === id ? { ...s, isActive } : s));
     };
 
     return (
@@ -427,6 +466,16 @@ export const AIOperatingScreen = () => {
                                 {autoSequenceActive && (
                                     <div className="space-y-2.5 pt-2 border-t border-white/5 animate-in fade-in duration-300">
                                         <div className="space-y-1">
+                                            <span className="text-[8px] font-bold text-slate-400 uppercase">Nome da Estratégia</span>
+                                            <Input 
+                                                value={strategyNameInput}
+                                                onChange={(e) => setStrategyNameInput(e.target.value)}
+                                                placeholder="Ex: Sniper de Pares"
+                                                className="h-8 text-[10px] bg-slate-950/60 border-white/5 text-white"
+                                            />
+                                        </div>
+
+                                        <div className="space-y-1">
                                             <span className="text-[8px] font-bold text-slate-400 uppercase">Sequência de Entrada</span>
                                             <div className="flex items-center gap-1.5 p-2 rounded-lg bg-slate-950/60 border border-white/5 min-h-[36px] flex-wrap">
                                                 {patternInput ? patternInput.split(',').map((char, idx) => (
@@ -485,6 +534,49 @@ export const AIOperatingScreen = () => {
                                                     <SelectItem value="ODD" className="text-[9px] font-bold">Apostar em ÍMPAR</SelectItem>
                                                 </SelectContent>
                                             </Select>
+                                        </div>
+
+                                        {/* Botão de Salvar Estratégia */}
+                                        <Button 
+                                            onClick={handleSaveStrategy}
+                                            className="w-full h-8 text-[9px] font-black uppercase tracking-wider bg-cyan-500 hover:bg-cyan-600 text-slate-950 rounded-lg"
+                                        >
+                                            <Save className="h-3.5 w-3.5 mr-1.5" /> Salvar Estratégia na Memória
+                                        </Button>
+
+                                        {/* Lista de Estratégias Salvas */}
+                                        <div className="space-y-1.5 pt-2 border-t border-white/5">
+                                            <span className="text-[8px] font-bold text-slate-400 uppercase">Estratégias Salvas</span>
+                                            <div className="space-y-1.5 max-h-32 overflow-y-auto custom-scrollbar">
+                                                {savedCustomStrategies && savedCustomStrategies.length > 0 ? (
+                                                    savedCustomStrategies.map((strat: any) => (
+                                                        <div key={strat.id} className="flex items-center justify-between p-2 rounded-lg bg-slate-950/40 border border-white/5">
+                                                            <div className="flex flex-col min-w-0">
+                                                                <span className="text-[10px] font-bold text-white truncate">{strat.name}</span>
+                                                                <span className="text-[8px] text-slate-400 truncate">
+                                                                    Seq: {strat.trigger} → {strat.entry === 'EVEN' ? 'PAR' : 'ÍMPAR'}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2 shrink-0">
+                                                                <Switch 
+                                                                    checked={strat.isActive}
+                                                                    onCheckedChange={(checked) => handleToggleStrategy(strat.id, checked)}
+                                                                />
+                                                                <Button 
+                                                                    size="icon" 
+                                                                    variant="ghost" 
+                                                                    className="h-6 w-6 text-rose-400 hover:bg-rose-500/10"
+                                                                    onClick={() => handleDeleteStrategy(strat.id)}
+                                                                >
+                                                                    <Trash2 className="h-3 w-3" />
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <p className="text-[8px] text-slate-500 italic text-center py-2">Nenhuma estratégia salva.</p>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 )}

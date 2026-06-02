@@ -95,7 +95,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         autoSequenceTrigger, setAutoSequenceTrigger,
         autoSequenceEntry, setAutoSequenceEntry,
         // Loss Virtual Toggle
-        isVirtualLossActive, setIsVirtualLossActive
+        isVirtualLossActive, setIsVirtualLossActive,
+        // Estratégias Salvas
+        savedCustomStrategies, setSavedCustomStrategies
     } = stateAndSetters;
 
     const [isConnected, setIsConnected] = useState(false);
@@ -412,25 +414,30 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const digits = multiAssetDigits[symbol] || [];
         if (activeTrades.current.size > 0 || isStudying || digits.length < 4) return null;
 
-        // --- ESTRATÉGIA 3: SEQUÊNCIA AUTOMÁTICA PERSONALIZADA ---
-        if (autoSequenceActive && symbol === asset && autoSequenceTrigger) {
-            const triggerArray = autoSequenceTrigger.split(',').map(s => s.trim().toUpperCase());
-            const len = triggerArray.length;
-            if (digits.length >= len) {
-                // Pega os últimos 'len' dígitos e inverte para ordem cronológica (mais antigo para o mais recente)
-                const recentDigitsChronological = digits.slice(0, len).reverse();
-                const currentParities = recentDigitsChronological.map(d => d % 2 === 0 ? 'E' : 'O');
+        // --- ESTRATÉGIA 3: SEQUÊNCIAS AUTOMÁTICAS PERSONALIZADAS SALVAS ---
+        if (autoSequenceActive && symbol === asset && savedCustomStrategies && savedCustomStrategies.length > 0) {
+            for (const strat of savedCustomStrategies) {
+                if (!strat.isActive) continue;
                 
-                const match = triggerArray.every((val, idx) => val === currentParities[idx]);
+                const triggerArray = strat.trigger.split(',').map(s => s.trim().toUpperCase());
+                const len = triggerArray.length;
+                
+                if (digits.length >= len) {
+                    // Pega os últimos 'len' dígitos e inverte para ordem cronológica (mais antigo para o mais recente)
+                    const recentDigitsChronological = digits.slice(0, len).reverse();
+                    const currentParities = recentDigitsChronological.map(d => d % 2 === 0 ? 'E' : 'O');
+                    
+                    const match = triggerArray.every((val, idx) => val === currentParities[idx]);
 
-                if (match) {
-                    return {
-                        type: autoSequenceEntry,
-                        contract: autoSequenceEntry === 'EVEN' ? 'DIGITEVEN' : 'DIGITODD',
-                        name: `Seq: ${autoSequenceTrigger}`,
-                        confidence: 99,
-                        symbol
-                    };
+                    if (match) {
+                        return {
+                            type: strat.entry,
+                            contract: strat.entry === 'EVEN' ? 'DIGITEVEN' : 'DIGITODD',
+                            name: strat.name,
+                            confidence: 99,
+                            symbol
+                        };
+                    }
                 }
             }
         }
@@ -475,7 +482,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         return null;
-    }, [multiAssetDigits, isStudying, autoSequenceActive, autoSequenceTrigger, autoSequenceEntry, asset]);
+    }, [multiAssetDigits, isStudying, autoSequenceActive, savedCustomStrategies, asset]);
 
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string, symbol: string, bypassStudy = false) => {
         if (!isConnected || (!bypassStudy && isStudying) || activeTrades.current.size > 0) return;

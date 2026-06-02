@@ -14,7 +14,7 @@ export const useBotPersistence = (state: ReturnType<typeof useBotState>) => {
         bankManagementDailyStopPercent, bankManagementCurrentDay,
         bankManagementActualBankroll,
         autoSequenceActive, autoSequenceTrigger, autoSequenceEntry,
-        isVirtualLossActive
+        isVirtualLossActive, savedCustomStrategies
     } = state;
     
     useEffect(() => {
@@ -28,7 +28,7 @@ export const useBotPersistence = (state: ReturnType<typeof useBotState>) => {
             bankManagementDailyStopPercent, bankManagementCurrentDay,
             bankManagementActualBankroll,
             autoSequenceActive, autoSequenceTrigger, autoSequenceEntry,
-            isVirtualLossActive
+            isVirtualLossActive, savedCustomStrategies
         };
         localStorage.setItem('derivBotState', JSON.stringify(stateToSave));
     }, [
@@ -41,6 +41,6 @@ export const useBotPersistence = (state: ReturnType<typeof useBotState>) => {
         bankManagementDailyStopPercent, bankManagementCurrentDay,
         bankManagementActualBankroll,
         autoSequenceActive, autoSequenceTrigger, autoSequenceEntry,
-        isVirtualLossActive
+        isVirtualLossActive, savedCustomStrategies
     ]);
 };

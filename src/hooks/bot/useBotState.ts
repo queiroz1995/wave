@@ -3,6 +3,14 @@
 import { useState, useCallback } from 'react';
 import { LogEntry, LogType, SignalEntry } from '@/types/bot';
 
+export interface CustomStrategy {
+    id: string;
+    name: string;
+    trigger: string;
+    entry: 'EVEN' | 'ODD';
+    isActive: boolean;
+}
+
 const DEFAULTS = {
     realToken: '',
     demoToken: '',
@@ -43,6 +51,10 @@ const DEFAULTS = {
     autoSequenceTrigger: 'O,O,O', // Padrão: 3 Ímpares
     autoSequenceEntry: 'EVEN' as 'EVEN' | 'ODD', // Padrão: Entra Par
     isVirtualLossActive: true, // Loss Virtual ativo por padrão
+    savedCustomStrategies: [
+        { id: 'default-1', name: 'Três Ímpares Reversão', trigger: 'O,O,O', entry: 'EVEN', isActive: true },
+        { id: 'default-2', name: 'Três Pares Reversão', trigger: 'E,E,E', entry: 'ODD', isActive: true }
+    ] as CustomStrategy[]
 };
 
 const getInitialState = () => {
@@ -129,6 +141,9 @@ export const useBotState = () => {
     // Loss Virtual Toggle
     const [isVirtualLossActive, setIsVirtualLossActive] = useState(initialState.isVirtualLossActive);
 
+    // Estratégias Salvas
+    const [savedCustomStrategies, setSavedCustomStrategies] = useState<CustomStrategy[]>(initialState.savedCustomStrategies);
+
     const addLog = useCallback((message: string, type: LogType, details?: any) => {
         setLogs(prev => [{ timestamp: new Date().toLocaleTimeString('pt-BR', { hour12: false }), message, type, ...details }, ...prev].slice(0, 50));
     }, []);
@@ -177,6 +192,8 @@ export const useBotState = () => {
         autoSequenceTrigger, setAutoSequenceTrigger,
         autoSequenceEntry, setAutoSequenceEntry,
         // Loss Virtual Toggle
-        isVirtualLossActive, setIsVirtualLossActive
+        isVirtualLossActive, setIsVirtualLossActive,
+        // Estratégias Salvas
+        savedCustomStrategies, setSavedCustomStrategies
     };
 };
