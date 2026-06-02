@@ -44,6 +44,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const activeTrades = useRef<Set<string>>(new Set());
     const totalProfitRef = useRef(0.00);
     const martingaleLevel = useRef(0);
+    const accumulatedLoss = useRef(0.00); // Prejuízo acumulado no ciclo atual de Gale
     const consecutiveWins = useRef(0);
     const lastWinProfit = useRef(0.00);
     const lastContractType = useRef<ContractType | null>(null);
@@ -342,6 +343,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 win = lastDigit % 2 === 0;
             } else if (virtualTradePending.contract === 'DIGITODD') {
                 win = lastDigit % 2 !== 0;
+            } else if (virtualTradePending.contract === 'DIGITUNDER') {
+                win = lastDigit < (virtualTradePending.barrier || 8);
             }
 
             if (win) {
@@ -409,6 +412,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsBotRunning(false);
         activeTrades.current.clear();
         martingaleLevel.current = 0;
+        accumulatedLoss.current = 0.00;
         consecutiveWins.current = 0;
         lastWinProfit.current = 0.00;
         isGalePausedForFilter.current = false;
@@ -427,6 +431,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setLosses(0);
         setSignals([]);
         martingaleLevel.current = 0;
+        accumulatedLoss.current = 0.00;
         consecutiveWins.current = 0;
         lastWinProfit.current = 0.00;
         isGalePausedForFilter.current = false;
@@ -493,7 +498,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         pendingContracts.current.set(data.buy.contract_id, {
                             signalId,
                             stake: data.echo_req.price,
-                            symbol: data.echo_req.parameters.symbol
+                            symbol: data.echo_req.parameters.symbol,
+                            barrier: data.echo_req.passthrough?.barrier
                         });
                     }
                     setTradeStatus('ACTIVE'); 
@@ -511,6 +517,15 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         totalProfitRef.current += profitValue;
                         setTotalProfit(totalProfitRef.current);
 
+                        // Adiciona o log detalhado no terminal de dados
+                        addLog(isLoss ? "Derrota" : "Vitória", isLoss ? "LOSS" : "WIN", { 
+                            profit: profitValue, 
+                            stake: savedData.stake, 
+                            exitDigit, 
+                            contractType: lastContractType.current, 
+                            barrier: savedData.barrier 
+                        });
+
                         if (isLoss) {
                             setLosses((prev: number) => prev + 1);
                             martingaleLevel.current += 1;
@@ -520,6 +535,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             // Se atingiu o limite máximo de gales configurado
                             if (martingaleLevel.current > maxLevels) {
                                 martingaleLevel.current = 0;
+                                accumulatedLoss.current = 0.00;
                                 isGalePausedForFilter.current = false;
                                 if (isManualSession.current) {
                                     isManualSession.current = false;
@@ -534,12 +550,13 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                     setVirtualLossStreak(0);
                                     setAiThought("Ciclo instável detectado! Pausando Gale e ativando Filtro Virtual.");
                                 } else {
-                                    setAiThought("Mercado estável. Preparando Gale imediato.");
+                                    setAiThought("Recuperação inteligente ativada: Dígito abaixo de 8.");
                                 }
                             }
                         } else {
                             setWins((prev: number) => prev + 1);
                             martingaleLevel.current = 0;
+                            accumulatedLoss.current = 0.00; // Reseta prejuízo acumulado ao vencer
                             isGalePausedForFilter.current = false;
                             setVirtualLossStreak(0);
                             
@@ -592,7 +609,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else if (event.type === 'close') {
             setIsConnecting(false);
         }
-    }, [processTickData, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, getMarketState, maxLevels, asset, isSorosActive, sorosLevels, saveDayToHistory]);
+    }, [processTickData, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, getMarketState, maxLevels, asset, isSorosActive, sorosLevels, saveDayToHistory, addLog]);
 
     const ws = useTradingWebSocketManager({ isConnected, status, setIsConnected, setStatus, setAccountBalance, onMessage: handleWebSocketMessage, reconnectAttemptsRef });
     const { sendMessage, connect, disconnect } = ws;
@@ -605,13 +622,14 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (isGalePausedForFilter.current && symbol === lastTradedAsset.current) return null;
 
-        // Se for Gale/Recuperação, mantém a entrada para recuperar
+        // --- RECUPERAÇÃO INTELIGENTE (MARTINGALE ABAIXO DE 8) ---
+        // Se estiver em Gale, muda o contrato para Dígito Abaixo de 8 (DIGITUNDER com barreira 8)
         if (martingaleLevel.current > 0 && lastTradedAsset.current === symbol) {
-            const contract = lastContractType.current || 'DIGITEVEN';
             return { 
-                type: contract === 'DIGITEVEN' ? 'EVEN' : 'ODD', 
-                contract, 
-                name: 'Recovery (Gale)', 
+                type: 'UNDER', 
+                contract: 'DIGITUNDER', 
+                barrier: 8,
+                name: 'Recovery (Abaixo de 8)', 
                 confidence: 99, 
                 symbol 
             };
@@ -714,23 +732,38 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return null;
     }, [multiAssetDigits, isStudying, autoSequenceActive, autoSequenceTrigger, autoSequenceEntry, asset]);
 
-    const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string, symbol: string, bypassStudy = false) => {
+    const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string, symbol: string, bypassStudy = false, customBarrier?: number) => {
         if (!isConnected || (!bypassStudy && isStudying) || activeTrades.current.size > 0) return;
         const baseStake = parseFloat(initialStake) || 0.35;
         const mgFactor = parseFloat(martingaleFactor) || 2.1; 
         
         let stakeToUse = baseStake;
+        let barrierToUse = customBarrier;
 
         // 1. Se estiver em Martingale (Recuperação de perda)
         if (martingaleLevel.current > 0) {
-            stakeToUse = baseStake * Math.pow(mgFactor, martingaleLevel.current);
+            // Se for recuperação abaixo de 8, calcula o stake dinamicamente para recuperar o prejuízo acumulado
+            if (contractType === 'DIGITUNDER' && barrierToUse === 8) {
+                stakeToUse = accumulatedLoss.current / 0.235;
+                // Garante um valor mínimo de stake (ex: 0.35)
+                if (stakeToUse < 0.35) stakeToUse = 0.35;
+            } else {
+                stakeToUse = baseStake * Math.pow(mgFactor, martingaleLevel.current);
+            }
         } 
         // 2. Se estiver em Soros (Alavancagem de vitória)
         else if (isSorosActive && consecutiveWins.current > 0 && consecutiveWins.current <= sorosLevels) {
             stakeToUse = baseStake + (lastWinProfit.current * (sorosProfitPercentage / 100));
         }
 
-        const params = { 
+        // Registra o stake atual no prejuízo acumulado antes de enviar a ordem
+        if (martingaleLevel.current === 0) {
+            accumulatedLoss.current = stakeToUse;
+        } else {
+            accumulatedLoss.current += stakeToUse;
+        }
+
+        const params: any = { 
             amount: parseFloat(stakeToUse.toFixed(2)), 
             basis: 'stake', 
             contract_type: contractType, 
@@ -740,11 +773,15 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             symbol 
         };
 
+        if (barrierToUse !== undefined) {
+            params.barrier = String(barrierToUse);
+        }
+
         lastContractType.current = contractType;
         lastTradedAsset.current = symbol;
         activeTrades.current.add(signalId);
         setTradeStatus('SENDING');
-        sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params, passthrough: { signalId, strategyName } });
+        sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params, passthrough: { signalId, strategyName, barrier: barrierToUse } });
     }, [isConnected, initialStake, sendMessage, setTradeStatus, martingaleFactor, isStudying, isSorosActive, sorosLevels, sorosProfitPercentage]);
 
     // Função para compra manual (usada por botões)
@@ -799,7 +836,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 
                 if (activeTrades.current.size === 0) {
                     const sId = addSignal({ strategy: signal.name, signal: signal.type as any, details: `Sniper Real em ${symbol}`, winRate: `${signal.confidence}%` });
-                    executeBuy(signal.contract as ContractType, signal.name, sId, symbol);
+                    executeBuy(signal.contract as ContractType, signal.name, sId, symbol, false, (signal as any).barrier);
                     break;
                 }
             }
