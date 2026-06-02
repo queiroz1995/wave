@@ -42,6 +42,7 @@ const DEFAULTS = {
     autoSequenceActive: false,
     autoSequenceTrigger: 'O,O,O', // Padrão: 3 Ímpares
     autoSequenceEntry: 'EVEN' as 'EVEN' | 'ODD', // Padrão: Entra Par
+    isVirtualLossActive: true, // Loss Virtual ativo por padrão
 };
 
 const getInitialState = () => {
@@ -125,6 +126,9 @@ export const useBotState = () => {
     const [autoSequenceTrigger, setAutoSequenceTrigger] = useState(initialState.autoSequenceTrigger);
     const [autoSequenceEntry, setAutoSequenceEntry] = useState<'EVEN' | 'ODD'>(initialState.autoSequenceEntry);
 
+    // Loss Virtual Toggle
+    const [isVirtualLossActive, setIsVirtualLossActive] = useState(initialState.isVirtualLossActive);
+
     const addLog = useCallback((message: string, type: LogType, details?: any) => {
         setLogs(prev => [{ timestamp: new Date().toLocaleTimeString('pt-BR', { hour12: false }), message, type, ...details }, ...prev].slice(0, 50));
     }, []);
@@ -171,6 +175,8 @@ export const useBotState = () => {
         // Sequência Automática
         autoSequenceActive, setAutoSequenceActive,
         autoSequenceTrigger, setAutoSequenceTrigger,
-        autoSequenceEntry, setAutoSequenceEntry
+        autoSequenceEntry, setAutoSequenceEntry,
+        // Loss Virtual Toggle
+        isVirtualLossActive, setIsVirtualLossActive
     };
 };

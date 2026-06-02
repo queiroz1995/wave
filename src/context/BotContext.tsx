@@ -93,7 +93,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Sequência Automática
         autoSequenceActive, setAutoSequenceActive,
         autoSequenceTrigger, setAutoSequenceTrigger,
-        autoSequenceEntry, setAutoSequenceEntry
+        autoSequenceEntry, setAutoSequenceEntry,
+        // Loss Virtual Toggle
+        isVirtualLossActive, setIsVirtualLossActive
     } = stateAndSetters;
 
     const [isConnected, setIsConnected] = useState(false);
@@ -488,8 +490,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                  virtualHistory[len - 2] === 'LOSS' && 
                                  virtualHistory[len - 1] === 'WIN';
 
-        // Se não for Gale, e não for compra manual, e o padrão não estiver completo: executa como VIRTUAL
-        if (!bypassStudy && !isGaleMode && !isPatternMatched) {
+        // Se o Loss Virtual estiver ativo, não for Gale, não for compra manual, e o padrão não estiver completo: executa como VIRTUAL
+        if (isVirtualLossActive && !bypassStudy && !isGaleMode && !isPatternMatched) {
             pendingVirtualSignals.current.set(symbol, {
                 signalId, // Salva o ID do sinal para podermos atualizá-lo na interface depois!
                 contractType,
@@ -531,7 +533,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeTrades.current.add(signalId);
         setTradeStatus('SENDING');
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params, passthrough: { signalId, strategyName } });
-    }, [isConnected, initialStake, sendMessage, setTradeStatus, martingaleFactor, isStudying, isSorosActive, sorosLevels, sorosProfitPercentage, virtualHistory, multiAssetDigits]);
+    }, [isConnected, initialStake, sendMessage, setTradeStatus, martingaleFactor, isStudying, isSorosActive, sorosLevels, sorosProfitPercentage, virtualHistory, multiAssetDigits, isVirtualLossActive]);
 
     // Função para compra manual (usada por botões)
     const manualBuy = useCallback((contractType: ContractType, source: string = 'Manual') => {
@@ -572,7 +574,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                              virtualHistory[len - 2] === 'LOSS' && 
                                              virtualHistory[len - 1] === 'WIN';
 
-                    const isReal = isGaleMode || isPatternMatched;
+                    const isReal = !isVirtualLossActive || isGaleMode || isPatternMatched;
 
                     const sId = addSignal({ 
                         strategy: isReal ? signal.name : `VIRTUAL: ${signal.name}`, 
@@ -585,7 +587,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             }
         }
-    }, [isBotRunning, calculateTradeSignal, addSignal, executeBuy, isStudying, lastTickEpoch, virtualHistory]);
+    }, [isBotRunning, calculateTradeSignal, addSignal, executeBuy, isStudying, lastTickEpoch, virtualHistory, isVirtualLossActive]);
 
     const handleConnect = useCallback((targetType?: 'real' | 'demo', targetToken?: string) => {
         const type = targetType || accountType;

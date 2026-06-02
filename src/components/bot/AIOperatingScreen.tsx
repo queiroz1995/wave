@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, Award, BarChart3, Volume2, VolumeX, Terminal, Eye, EyeOff } from 'lucide-react';
+import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, Award, BarChart3, Volume2, VolumeX, Terminal, Settings, ShieldAlert, Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
@@ -13,6 +13,9 @@ import { RecentDigitsPanel } from './RecentDigitsPanel';
 import { DiagnosticsModal } from './DiagnosticsModal';
 import { VirtualLossDisplay } from './VirtualLossDisplay';
 import { Progress } from '@/components/ui/progress';
+import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { sounds } from '@/utils/sounds';
 import confetti from 'canvas-confetti';
 
@@ -31,13 +34,22 @@ export const AIOperatingScreen = () => {
         isConfigModalOpen, setIsConfigModalOpen,
         manualBuy,
         tradeStatus,
-        isConnected
+        isConnected,
+        // Sequência Automática
+        autoSequenceActive, setAutoSequenceActive,
+        autoSequenceTrigger, setAutoSequenceTrigger,
+        autoSequenceEntry, setAutoSequenceEntry,
+        // Loss Virtual Toggle
+        isVirtualLossActive, setIsVirtualLossActive
     } = useBotContext();
 
     const hasTriggeredGoalConfettiRef = useRef(false);
     const [profitHistory, setProfitHistory] = useState<number[]>([0]);
     const [isMuted, setIsMuted] = useState(sounds.isMuted());
     const [showConsole, setShowConsole] = useState(false); // Estado para ocultar/mostrar painéis avançados
+
+    // Estados locais para edição do padrão personalizado
+    const [patternInput, setPatternInput] = useState(autoSequenceTrigger || 'O,O,O');
 
     // Atualiza o histórico de lucro para desenhar o gráfico de curva de patrimônio (Equity Curve)
     useEffect(() => {
@@ -198,6 +210,23 @@ export const AIOperatingScreen = () => {
         );
     };
 
+    // Adiciona um caractere ao padrão personalizado
+    const handleAddPatternChar = (char: 'E' | 'O') => {
+        const currentArray = patternInput ? patternInput.split(',').map(s => s.trim()) : [];
+        if (currentArray.length < 8) {
+            const nextArray = [...currentArray, char];
+            const nextString = nextArray.join(',');
+            setPatternInput(nextString);
+            setAutoSequenceTrigger(nextString);
+        }
+    };
+
+    // Limpa o padrão personalizado
+    const handleClearPattern = () => {
+        setPatternInput('');
+        setAutoSequenceTrigger('');
+    };
+
     return (
         <div className="w-full max-w-md mx-auto space-y-3 animate-in fade-in slide-in-from-bottom-8 duration-1000 px-1 pb-6">
             
@@ -311,56 +340,155 @@ export const AIOperatingScreen = () => {
                         </div>
                     </div>
 
-                    {/* Painel Premium de 8 Dígitos Recentes (Sempre Visível) */}
+                    {/* Barra de Progresso Neon da Meta Diária (Integrada) */}
+                    {isBotRunning && (
+                        <div className="bg-slate-900/30 border border-white/5 rounded-xl p-2 space-y-1">
+                            <div className="flex justify-between items-center text-[8px] font-black uppercase tracking-wider text-slate-400">
+                                <span className="flex items-center gap-1"><Award className="h-2.5 w-2.5 text-yellow-400" /> Progresso da Meta</span>
+                                <span className="text-cyan-400">{goalProgressPercentage.toFixed(0)}%</span>
+                            </div>
+                            <Progress 
+                                value={goalProgressPercentage} 
+                                className="h-1 bg-slate-900 [&>div]:bg-gradient-to-r [&>div]:from-cyan-500 [&>div]:to-emerald-500 shadow-[0_0_8px_rgba(34,211,238,0.15)]"
+                            />
+                        </div>
+                    )}
+
+                    {/* Gráfico de Curva de Patrimônio (Equity Curve) */}
+                    {profitHistory.length > 1 && (
+                        <div className="bg-slate-900/30 border border-white/5 rounded-xl p-2 space-y-1">
+                            <div className="flex justify-between items-center text-[7px] font-bold text-slate-500 uppercase tracking-wider">
+                                <span className="flex items-center gap-1"><BarChart3 className="h-2.5 w-2.5" /> Curva de Patrimônio</span>
+                                <span>Tempo Real</span>
+                            </div>
+                            {renderEquityCurve()}
+                        </div>
+                    )}
+
+                    {/* Painel Premium de 8 Dígitos Recentes (Integrado) */}
                     <RecentDigitsPanel />
+
+                    {/* Painel de Monitoramento de Loss Virtual (Integrado) */}
+                    <VirtualLossDisplay />
+
+                    {/* AI Thought Stream (Integrado) */}
+                    {isBotRunning && (
+                        <div className="relative bg-slate-900/30 rounded-xl p-3 flex items-start gap-2.5 border border-white/5">
+                            <div className="mt-1 h-1 w-1 rounded-full bg-cyan-400 animate-ping shrink-0" />
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1 mb-0.5">
+                                    <MessageSquare className="h-2.5 w-2.5 text-cyan-400" />
+                                    <span className="text-[7px] font-black text-cyan-400 uppercase tracking-widest">Fluxo_Cognitivo</span>
+                                </div>
+                                <p className="text-[10px] font-medium text-slate-300 leading-relaxed italic">
+                                    "{aiThought}"
+                                    <span className="inline-block w-1 h-2 bg-cyan-400 ml-1 animate-pulse" />
+                                </p>
+                            </div>
+                        </div>
+                    )}
 
                     {/* --- PAINÉIS AVANÇADOS OCULTÁVEIS (CONSOLE INTELIGENTE) --- */}
                     {showConsole && (
                         <div className="space-y-4 pt-2 border-t border-white/5 animate-in fade-in slide-in-from-top-4 duration-500">
-                            {/* Barra de Progresso Neon da Meta Diária */}
-                            {isBotRunning && (
-                                <div className="bg-slate-900/30 border border-white/5 rounded-xl p-2 space-y-1">
-                                    <div className="flex justify-between items-center text-[8px] font-black uppercase tracking-wider text-slate-400">
-                                        <span className="flex items-center gap-1"><Award className="h-2.5 w-2.5 text-yellow-400" /> Progresso da Meta</span>
-                                        <span className="text-cyan-400">{goalProgressPercentage.toFixed(0)}%</span>
+                            
+                            {/* CONFIGURAÇÕES DE ESTRATÉGIA (NOVO) */}
+                            <div className="bg-slate-900/30 border border-white/5 rounded-xl p-3 space-y-3">
+                                <div className="flex items-center gap-1.5 border-b border-white/5 pb-1.5">
+                                    <Settings className="h-3.5 w-3.5 text-cyan-400" />
+                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Ajustes de Estratégia</span>
+                                </div>
+
+                                {/* Toggle Loss Virtual */}
+                                <div className="flex items-center justify-between">
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] font-bold text-white">Loss Virtual (L L W)</span>
+                                        <span className="text-[8px] text-slate-400">Simula 2 perdas e 1 vitória antes de entrar real</span>
                                     </div>
-                                    <Progress 
-                                        value={goalProgressPercentage} 
-                                        className="h-1 bg-slate-900 [&>div]:bg-gradient-to-r [&>div]:from-cyan-500 [&>div]:to-emerald-500 shadow-[0_0_8px_rgba(34,211,238,0.15)]"
+                                    <Switch 
+                                        checked={isVirtualLossActive} 
+                                        onCheckedChange={setIsVirtualLossActive} 
                                     />
                                 </div>
-                            )}
 
-                            {/* Gráfico de Curva de Patrimônio (Equity Curve) */}
-                            {profitHistory.length > 1 && (
-                                <div className="bg-slate-900/30 border border-white/5 rounded-xl p-2 space-y-1">
-                                    <div className="flex justify-between items-center text-[7px] font-bold text-slate-500 uppercase tracking-wider">
-                                        <span className="flex items-center gap-1"><BarChart3 className="h-2.5 w-2.5" /> Curva de Patrimônio</span>
-                                        <span>Tempo Real</span>
+                                {/* Toggle Padrão Personalizado */}
+                                <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] font-bold text-white">Padrão Personalizado</span>
+                                        <span className="text-[8px] text-slate-400">Crie sua própria sequência de Par/Ímpar</span>
                                     </div>
-                                    {renderEquityCurve()}
+                                    <Switch 
+                                        checked={autoSequenceActive} 
+                                        onCheckedChange={setAutoSequenceActive} 
+                                    />
                                 </div>
-                            )}
 
-                            {/* Painel de Monitoramento de Loss Virtual */}
-                            <VirtualLossDisplay />
-
-                            {/* AI Thought Stream */}
-                            {isBotRunning && (
-                                <div className="relative bg-slate-900/30 rounded-xl p-3 flex items-start gap-2.5 border border-white/5">
-                                    <div className="mt-1 h-1 w-1 rounded-full bg-cyan-400 animate-ping shrink-0" />
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-1 mb-0.5">
-                                            <MessageSquare className="h-2.5 w-2.5 text-cyan-400" />
-                                            <span className="text-[7px] font-black text-cyan-400 uppercase tracking-widest">Fluxo_Cognitivo</span>
+                                {/* Configuração do Padrão Personalizado */}
+                                {autoSequenceActive && (
+                                    <div className="space-y-2.5 pt-2 border-t border-white/5 animate-in fade-in duration-300">
+                                        <div className="space-y-1">
+                                            <span className="text-[8px] font-bold text-slate-400 uppercase">Sequência de Entrada</span>
+                                            <div className="flex items-center gap-1.5 p-2 rounded-lg bg-slate-950/60 border border-white/5 min-h-[36px] flex-wrap">
+                                                {patternInput ? patternInput.split(',').map((char, idx) => (
+                                                    <span 
+                                                        key={idx} 
+                                                        className={cn(
+                                                            "text-[9px] font-black px-1.5 py-0.5 rounded",
+                                                            char === 'E' ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-rose-500/20 text-rose-400 border border-rose-500/30"
+                                                        )}
+                                                    >
+                                                        {char === 'E' ? 'PAR' : 'ÍMPAR'}
+                                                    </span>
+                                                )) : (
+                                                    <span className="text-[8px] text-slate-500 italic">Monte sua sequência abaixo...</span>
+                                                )}
+                                            </div>
                                         </div>
-                                        <p className="text-[10px] font-medium text-slate-300 leading-relaxed italic">
-                                            "{aiThought}"
-                                            <span className="inline-block w-1 h-2 bg-cyan-400 ml-1 animate-pulse" />
-                                        </p>
+
+                                        {/* Botões para montar a sequência */}
+                                        <div className="grid grid-cols-3 gap-1.5">
+                                            <Button 
+                                                size="sm" 
+                                                variant="outline" 
+                                                onClick={() => handleAddPatternChar('E')}
+                                                className="h-7 text-[8px] font-bold uppercase border-white/10 hover:bg-white/5"
+                                            >
+                                                <Plus className="h-3 w-3 mr-1 text-emerald-400" /> PAR
+                                            </Button>
+                                            <Button 
+                                                size="sm" 
+                                                variant="outline" 
+                                                onClick={() => handleAddPatternChar('O')}
+                                                className="h-7 text-[8px] font-bold uppercase border-white/10 hover:bg-white/5"
+                                            >
+                                                <Plus className="h-3 w-3 mr-1 text-rose-400" /> ÍMPAR
+                                            </Button>
+                                            <Button 
+                                                size="sm" 
+                                                variant="ghost" 
+                                                onClick={handleClearPattern}
+                                                className="h-7 text-[8px] font-bold uppercase text-rose-400 hover:bg-rose-500/10"
+                                            >
+                                                <Trash2 className="h-3 w-3 mr-1" /> Limpar
+                                            </Button>
+                                        </div>
+
+                                        {/* Aposta após a sequência */}
+                                        <div className="space-y-1">
+                                            <span className="text-[8px] font-bold text-slate-400 uppercase">Ação após sequência</span>
+                                            <Select value={autoSequenceEntry} onValueChange={(v) => setAutoSequenceEntry(v as 'EVEN' | 'ODD')}>
+                                                <SelectTrigger className="h-8 text-[9px] font-bold uppercase bg-slate-950/60 border-white/5">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent className="bg-slate-950 border-white/10 text-white">
+                                                    <SelectItem value="EVEN" className="text-[9px] font-bold">Apostar em PAR</SelectItem>
+                                                    <SelectItem value="ODD" className="text-[9px] font-bold">Apostar em ÍMPAR</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
                                     </div>
-                                </div>
-                            )}
+                                )}
+                            </div>
 
                             {/* Monitor de Sinais - Versão Avançada e Discreta (Estilo Terminal de Operações) */}
                             <div className="bg-slate-900/30 border border-white/5 rounded-xl p-3 space-y-2">
