@@ -132,6 +132,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 sendMessageRef.current({ ticks: item.value, subscribe: 1 });
                 fetchDerivHistory(item.value);
             });
+            // Subscribe globally to all proposal open contracts for instant updates
+            sendMessageRef.current({ proposal_open_contract: 1, subscribe: 1 });
         }
     }, [isConnected, fetchDerivHistory]);
 
@@ -261,67 +263,84 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         });
                     }
                     setTradeStatus('ACTIVE'); 
-                    sendMessageRef.current({ proposal_open_contract: 1, contract_id: data.buy.contract_id, subscribe: 1 });
+                    // No individual subscription needed anymore since we subscribed globally
                 }
             } else if (data?.msg_type === 'proposal_open_contract') {
                 const contract = data.proposal_open_contract;
-                if (contract?.is_sold) {
-                    const savedData = pendingContracts.current.get(contract.contract_id);
-                    if (savedData) {
-                        const isLoss = contract.status === 'lost';
-                        const profitValue = parseFloat(contract.profit);
-                        const exitDigit = contract.exit_tick ? parseInt(String(contract.exit_tick).slice(-1)) : undefined;
+                if (contract) {
+                    // Auto-register contract mapping if it comes from global stream before buy response
+                    const passthrough = contract.passthrough;
+                    const signalId = passthrough?.signalId;
+                    if (signalId && contract.contract_id && !pendingContracts.current.has(contract.contract_id)) {
+                        pendingContracts.current.set(contract.contract_id, {
+                            signalId,
+                            stake: contract.buy_price,
+                            symbol: contract.underlying
+                        });
+                    }
 
-                        totalProfitRef.current += profitValue;
-                        setTotalProfit(totalProfitRef.current);
-
-                        if (isLoss) {
-                            setLosses((prev: number) => prev + 1);
-                            martingaleLevel.current += 1;
+                    if (contract.is_sold) {
+                        const savedData = pendingContracts.current.get(contract.contract_id);
+                        if (savedData) {
+                            const isLoss = contract.status === 'lost';
+                            const profitValue = parseFloat(contract.profit);
                             
-                            // Se atingiu o limite máximo de gales configurado
-                            if (martingaleLevel.current > maxLevels) {
-                                martingaleLevel.current = 0;
-                                isGalePausedForFilter.current = false;
-                                if (isManualSession.current) {
-                                    isManualSession.current = false;
-                                    stopBot("Limite de Martingale atingido na operação manual.");
+                            // Correctly parse exit digit from exit_tick.quote object
+                            const exitDigit = contract.exit_tick?.quote !== undefined 
+                                ? parseInt(String(contract.exit_tick.quote).replace(/[^\d.]/g, '').slice(-1)) 
+                                : undefined;
+
+                            totalProfitRef.current += profitValue;
+                            setTotalProfit(totalProfitRef.current);
+
+                            if (isLoss) {
+                                setLosses((prev: number) => prev + 1);
+                                martingaleLevel.current += 1;
+                                
+                                // Se atingiu o limite máximo de gales configurado
+                                if (martingaleLevel.current > maxLevels) {
+                                    martingaleLevel.current = 0;
+                                    isGalePausedForFilter.current = false;
+                                    if (isManualSession.current) {
+                                        isManualSession.current = false;
+                                        stopBot("Limite de Martingale atingido na operação manual.");
+                                    } else {
+                                        addLog("Limite de Martingale atingido. Resetando para stake inicial.", "INFO");
+                                    }
                                 } else {
-                                    addLog("Limite de Martingale atingido. Resetando para stake inicial.", "INFO");
+                                    const { isStable } = getMarketState(savedData.symbol);
+                                    if (!isStable && !isManualSession.current) {
+                                        isGalePausedForFilter.current = true;
+                                        setVirtualLossStreak(0);
+                                        setAiThought("Ciclo instável detectado! Pausando Gale e ativando Filtro Virtual.");
+                                    } else {
+                                        setAiThought("Preparando Gale imediato.");
+                                    }
                                 }
                             } else {
-                                const { isStable } = getMarketState(savedData.symbol);
-                                if (!isStable && !isManualSession.current) {
-                                    isGalePausedForFilter.current = true;
-                                    setVirtualLossStreak(0);
-                                    setAiThought("Ciclo instável detectado! Pausando Gale e ativando Filtro Virtual.");
-                                } else {
-                                    setAiThought("Preparando Gale imediato.");
+                                setWins((prev: number) => prev + 1);
+                                martingaleLevel.current = 0;
+                                isGalePausedForFilter.current = false;
+                                setVirtualLossStreak(0);
+                                setAiThought("Operação Neutralizada com Sucesso.");
+
+                                // Se era uma sessão manual, para o bot de forma inteligente após a vitória
+                                if (isManualSession.current) {
+                                    isManualSession.current = false;
+                                    stopBot("Operação manual finalizada com vitória.");
                                 }
                             }
-                        } else {
-                            setWins((prev: number) => prev + 1);
-                            martingaleLevel.current = 0;
-                            isGalePausedForFilter.current = false;
-                            setVirtualLossStreak(0);
-                            setAiThought("Operação Neutralizada com Sucesso.");
 
-                            // Se era uma sessão manual, para o bot de forma inteligente após a vitória
-                            if (isManualSession.current) {
-                                isManualSession.current = false;
-                                stopBot("Operação manual finalizada com vitória.");
+                            updateSignalResult(savedData.signalId, isLoss ? 'LOSS' : 'WIN', profitValue, savedData.stake, exitDigit);
+                            activeTrades.current.delete(savedData.signalId);
+                            pendingContracts.current.delete(contract.contract_id);
+                            setTradeStatus('IDLE'); 
+
+                            if (totalProfitRef.current >= parseFloat(takeProfit)) {
+                                stopBot(`Meta batida!`);
+                            } else if (totalProfitRef.current <= -Math.abs(parseFloat(stopLoss))) {
+                                stopBot(`Stop Loss atingido.`);
                             }
-                        }
-
-                        updateSignalResult(savedData.signalId, isLoss ? 'LOSS' : 'WIN', profitValue, savedData.stake, exitDigit);
-                        activeTrades.current.delete(savedData.signalId);
-                        pendingContracts.current.delete(contract.contract_id);
-                        setTradeStatus('IDLE'); 
-
-                        if (totalProfitRef.current >= parseFloat(takeProfit)) {
-                            stopBot(`Meta batida!`);
-                        } else if (totalProfitRef.current <= -Math.abs(parseFloat(stopLoss))) {
-                            stopBot(`Stop Loss atingido.`);
                         }
                     }
                 }
