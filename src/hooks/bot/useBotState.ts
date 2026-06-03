@@ -16,7 +16,8 @@ const DEFAULTS = {
     demoToken: '',
     accountType: 'demo' as 'real' | 'demo',
     asset: '1HZ100V',
-    duration: 1,
+    duration: 17,
+    durationUnit: 's' as 't' | 's',
     initialStake: '0.35',
     digitTradeMode: 'evenOdd' as 'evenOdd' | 'overUnder',
     attackMode: ['traditional'] as string[],
@@ -79,7 +80,8 @@ export const useBotState = () => {
     const [accountType, setAccountType] = useState<'real' | 'demo'>(initialState.accountType);
     const [asset, setAsset] = useState(initialState.asset);
     const [duration, setDuration] = useState(initialState.duration);
-    const [initialStake, setInitialStake] = useState(initialState.initialStake);
+    const [durationUnit, setDurationUnit] = useState<'t' | 's'>(initialState.durationUnit);
+    const [initialStake, setInitialStake] = useState(initialState.initialStake || '0.35');
     const [digitTradeMode, setDigitTradeMode] = useState<'evenOdd' | 'overUnder'>(initialState.digitTradeMode);
     const [attackMode, setAttackMode] = useState<string[]>(initialState.attackMode);
     const [digitPrediction, setDigitPrediction] = useState<number>(initialState.digitPrediction);
@@ -160,7 +162,7 @@ export const useBotState = () => {
 
     return {
         realToken, setRealToken, demoToken, setDemoToken, accountType, setAccountType, asset, setAsset,
-        duration, setDuration, initialStake, setInitialStake,
+        duration, setDuration, durationUnit, setDurationUnit, initialStake, setInitialStake,
         digitTradeMode, setDigitTradeMode, attackMode, setAttackMode, digitPrediction, setDigitPrediction,
         isMartingaleActive, setIsMartingaleActive, martingaleFactor, setMartingaleFactor, maxLevels, setMaxLevels,
         takeProfit, setTakeProfit, stopLoss, setStopLoss,

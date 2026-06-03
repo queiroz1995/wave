@@ -76,7 +76,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         maxLevels, setMaxLevels, isMartingaleActive, setIsMartingaleActive,
         isSorosActive, setIsSorosActive, sorosLevels, setSorosLevels,
         sorosProfitPercentage, setSorosProfitPercentage,
-        setDuration, duration,
+        setDuration, duration, durationUnit, setDurationUnit,
         setNeuralPredictions,
         isStudying, setIsStudying, setStudyTicksCount,
         consecutiveTarget, setConsecutiveTarget, entryDirection, setEntryDirection,
@@ -532,8 +532,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             basis: 'stake', 
             contract_type: contractType, 
             currency: 'USD', 
-            duration: 1, 
-            duration_unit: 't', 
+            duration: duration, 
+            duration_unit: durationUnit, 
             symbol 
         };
 
@@ -542,7 +542,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeTrades.current.add(signalId);
         setTradeStatus('SENDING');
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params, passthrough: { signalId, strategyName } });
-    }, [isConnected, initialStake, sendMessage, setTradeStatus, martingaleFactor, isStudying, isSorosActive, sorosLevels, sorosProfitPercentage, virtualHistory, multiAssetDigits, isVirtualLossActive, virtualTargetLosses]);
+    }, [isConnected, initialStake, sendMessage, setTradeStatus, martingaleFactor, isStudying, isSorosActive, sorosLevels, sorosProfitPercentage, virtualHistory, multiAssetDigits, isVirtualLossActive, virtualTargetLosses, duration, durationUnit]);
 
     // Função para compra manual (usada por botões)
     const manualBuy = useCallback((contractType: ContractType, source: string = 'Manual') => {

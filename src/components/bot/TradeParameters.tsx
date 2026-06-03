@@ -29,7 +29,7 @@ const AVAILABLE_ASSETS = [
 export const TradeParameters = () => {
     const {
         asset, setAsset,
-        setDuration, setInitialStake,
+        setDuration, setDurationUnit, setInitialStake,
         isManualMode, setIsManualMode,
         digitTradeMode, setDigitTradeMode,
         digitPrediction, setDigitPrediction,
@@ -38,7 +38,8 @@ export const TradeParameters = () => {
     } = useBotContext();
 
     const resetParams = () => {
-        setDuration(1);
+        setDuration(17);
+        setDurationUnit('s');
         setInitialStake('0.35');
         toast.info("Parâmetros de trade resetados.");
     };
