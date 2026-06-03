@@ -291,12 +291,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                 }
                             } else {
                                 const { isStable } = getMarketState(savedData.symbol);
-                                if (!isStable) {
+                                if (!isStable && !isManualSession.current) {
                                     isGalePausedForFilter.current = true;
                                     setVirtualLossStreak(0);
                                     setAiThought("Ciclo instável detectado! Pausando Gale e ativando Filtro Virtual.");
                                 } else {
-                                    setAiThought("Mercado estável. Preparando Gale imediato.");
+                                    setAiThought("Preparando Gale imediato.");
                                 }
                             }
                         } else {
@@ -424,7 +424,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 const target = isSmartModeActive ? recommendedVirtualLosses : virtualTargetLosses;
                 
                 const isRecovery = signal.name.includes('Recovery');
-                const needsVirtual = target > 0 && virtualLossStreak < target;
+                const needsVirtual = !isManualSession.current && target > 0 && virtualLossStreak < target;
                 
                 if (needsVirtual) {
                     if (!virtualTradePending) {
