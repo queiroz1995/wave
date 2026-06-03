@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
@@ -26,7 +26,8 @@ export const AIOperatingScreen = () => {
         isConfigModalOpen, setIsConfigModalOpen,
         manualBuy,
         tradeStatus,
-        isConnected
+        isConnected,
+        lastDigits
     } = useBotContext();
 
     const hasTriggeredGoalConfettiRef = useRef(false);
@@ -128,6 +129,54 @@ export const AIOperatingScreen = () => {
     };
 
     const isTradePending = tradeStatus === 'SENDING' || tradeStatus === 'ACTIVE';
+
+    // Inteligência de Sinal em Tempo Real para Entrada Manual
+    const manualSignalIntelligence = useMemo(() => {
+        const digits = lastDigits || [];
+        if (digits.length < 10) {
+            return { recommendation: 'AGUARDAR', confidence: 0, evenPercent: 50, oddPercent: 50, reason: 'Sincronizando dados...' };
+        }
+
+        const sample = digits.slice(0, 25);
+        const evens = sample.filter(d => d % 2 === 0).length;
+        const odds = sample.length - evens;
+        const evenPercent = Math.round((evens / sample.length) * 100);
+        const oddPercent = 100 - evenPercent;
+
+        // Calcular sequência consecutiva atual
+        let currentStreak = 1;
+        const firstIsEven = digits[0] % 2 === 0;
+        for (let i = 1; i < digits.length; i++) {
+            if ((digits[i] % 2 === 0) === firstIsEven) {
+                currentStreak++;
+            } else {
+                break;
+            }
+        }
+
+        let recommendation = 'AGUARDAR';
+        let confidence = 0;
+        let reason = 'Mercado equilibrado. Aguarde distorção.';
+
+        // Lógica de Reversão de Sequência (Gatilho Forte)
+        if (currentStreak >= 4) {
+            recommendation = firstIsEven ? 'ÍMPAR' : 'PAR';
+            confidence = Math.min(98, 75 + (currentStreak * 5));
+            reason = `Sequência de ${currentStreak}x ${firstIsEven ? 'PAR' : 'ÍMPAR'} detectada. Alta probabilidade de reversão!`;
+        } 
+        // Lógica de Desequilíbrio de Porcentagem (Gatilho Moderado)
+        else if (evenPercent >= 64) {
+            recommendation = 'ÍMPAR';
+            confidence = Math.min(95, evenPercent + 10);
+            reason = `Distorção estatística: ${evenPercent}% de PAR nos últimos 25 ticks.`;
+        } else if (oddPercent >= 64) {
+            recommendation = 'PAR';
+            confidence = Math.min(95, oddPercent + 10);
+            reason = `Distorção estatística: ${oddPercent}% de ÍMPAR nos últimos 25 ticks.`;
+        }
+
+        return { recommendation, confidence, evenPercent, oddPercent, reason };
+    }, [lastDigits]);
 
     return (
         <div className="w-full max-w-md mx-auto space-y-4 animate-in fade-in slide-in-from-bottom-8 duration-1000 px-1 pb-6">
@@ -250,14 +299,64 @@ export const AIOperatingScreen = () => {
                         </span>
                     </Button>
 
-                    {/* Seção de Entradas Manuais */}
-                    <div className="space-y-2 pt-1">
+                    {/* Seção de Entradas Manuais com Inteligência de Sinal */}
+                    <div className="space-y-3 pt-2 border-t border-white/5">
                         <div className="flex items-center justify-between px-1">
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Entradas Manuais</span>
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                                <Sparkles className="h-3 w-3 text-cyan-400" /> Sinal de Entrada Manual
+                            </span>
                             {isTradePending && (
                                 <span className="text-[8px] font-bold text-cyan-400 animate-pulse uppercase">Operação em andamento...</span>
                             )}
                         </div>
+
+                        {/* Display de Inteligência de Sinal */}
+                        <div className={cn(
+                            "p-3 rounded-xl border transition-all duration-500 flex flex-col gap-2",
+                            manualSignalIntelligence.recommendation === 'PAR' 
+                                ? "bg-emerald-500/10 border-emerald-500/30 shadow-[0_0_15px_rgba(52,211,153,0.15)]"
+                                : manualSignalIntelligence.recommendation === 'ÍMPAR'
+                                    ? "bg-rose-500/10 border-rose-500/30 shadow-[0_0_15px_rgba(244,63,94,0.15)]"
+                                    : "bg-slate-900/40 border-white/5"
+                        )}>
+                            <div className="flex justify-between items-center">
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Recomendação I.A</span>
+                                {manualSignalIntelligence.confidence > 0 && (
+                                    <span className={cn(
+                                        "text-[9px] font-black px-2 py-0.5 rounded-full",
+                                        manualSignalIntelligence.recommendation === 'PAR' ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
+                                    )}>
+                                        {manualSignalIntelligence.confidence}% Confiança
+                                    </span>
+                                )}
+                            </div>
+                            
+                            <div className="flex items-baseline gap-2">
+                                <span className={cn(
+                                    "text-2xl font-black tracking-tight",
+                                    manualSignalIntelligence.recommendation === 'PAR' ? "text-emerald-400" : manualSignalIntelligence.recommendation === 'ÍMPAR' ? "text-rose-400" : "text-slate-400"
+                                )}>
+                                    {manualSignalIntelligence.recommendation}
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-medium truncate">
+                                    {manualSignalIntelligence.reason}
+                                </span>
+                            </div>
+
+                            {/* Barra de Força Estatística */}
+                            <div className="space-y-1">
+                                <div className="flex justify-between text-[8px] font-bold text-slate-500">
+                                    <span>PAR: {manualSignalIntelligence.evenPercent}%</span>
+                                    <span>ÍMPAR: {manualSignalIntelligence.oddPercent}%</span>
+                                </div>
+                                <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden flex">
+                                    <div className="bg-emerald-500 h-full transition-all duration-500" style={{ width: `${manualSignalIntelligence.evenPercent}%` }} />
+                                    <div className="bg-rose-500 h-full transition-all duration-500" style={{ width: `${manualSignalIntelligence.oddPercent}%` }} />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Botões de Entrada Manual */}
                         <div className="grid grid-cols-2 gap-3">
                             <Button
                                 onClick={() => manualBuy('DIGITEVEN', 'Manual')}
