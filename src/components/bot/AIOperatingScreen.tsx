@@ -142,6 +142,9 @@ export const AIOperatingScreen = () => {
             manualBuy(pendingContractType, 'Manual', parseFloat(manualStakeValue));
             setIsManualStakeDialogOpen(false);
             setPendingContractType(null);
+            
+            // Desativa a confirmação para as próximas vezes automaticamente
+            setShowManualConfirm(false);
         }
     };
 
