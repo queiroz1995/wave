@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { DollarSign, Target, Play, Zap, ShieldAlert, TrendingUp, Shield, Timer } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
+import { cn } from '@/lib/utils';
 
 interface QuickConfigModalProps {
     isOpen: boolean;
@@ -26,7 +27,8 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
         initialStake, setInitialStake, 
         takeProfit, setTakeProfit,
         stopLoss, setStopLoss,
-        setIsSmartModeActive,
+        isSmartModeActive, setIsSmartModeActive,
+        virtualTargetLosses, setVirtualTargetLosses,
         martingaleFactor, setMartingaleFactor,
         maxLevels, setMaxLevels,
         isMartingaleActive, setIsMartingaleActive,
@@ -45,6 +47,11 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
     const [tempSorosLevels, setTempSorosLevels] = useState(sorosLevels || 3);
     const [tempDuration, setTempDuration] = useState(duration || 1);
 
+    // Estados para o Filtro de Loss Virtual
+    const [tempVirtualLossActive, setTempVirtualLossActive] = useState(true);
+    const [tempVirtualLossMode, setTempVirtualLossMode] = useState<'auto' | 'manual'>('auto');
+    const [tempVirtualLosses, setTempVirtualLosses] = useState(virtualTargetLosses || 1);
+
     useEffect(() => {
         if (isOpen) {
             setTempStake(initialStake);
@@ -56,8 +63,14 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
             setTempSorosActive(isSorosActive || false);
             setTempSorosLevels(sorosLevels || 3);
             setTempDuration(duration || 1);
+
+            // Sincroniza estados do Loss Virtual
+            const isVirtualActive = isSmartModeActive || virtualTargetLosses > 0;
+            setTempVirtualLossActive(isVirtualActive);
+            setTempVirtualLossMode(isSmartModeActive ? 'auto' : 'manual');
+            setTempVirtualLosses(virtualTargetLosses > 0 ? virtualTargetLosses : 1);
         }
-    }, [isOpen, initialStake, takeProfit, stopLoss, martingaleFactor, maxLevels, isMartingaleActive, isSorosActive, sorosLevels, duration]);
+    }, [isOpen, initialStake, takeProfit, stopLoss, martingaleFactor, maxLevels, isMartingaleActive, isSorosActive, sorosLevels, duration, isSmartModeActive, virtualTargetLosses]);
 
     const handleConfirm = () => {
         setInitialStake(tempStake);
@@ -69,7 +82,20 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
         setIsSorosActive(tempSorosActive);
         setSorosLevels(Number(tempSorosLevels));
         setDuration(Number(tempDuration));
-        setIsSmartModeActive(true); // Reativa a decisão autônoma da I.A
+
+        // Salva configurações do Loss Virtual
+        if (!tempVirtualLossActive) {
+            setIsSmartModeActive(false);
+            setVirtualTargetLosses(0);
+        } else {
+            if (tempVirtualLossMode === 'auto') {
+                setIsSmartModeActive(true);
+            } else {
+                setIsSmartModeActive(false);
+                setVirtualTargetLosses(Number(tempVirtualLosses));
+            }
+        }
+
         onConfirm();
     };
 
@@ -159,6 +185,70 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                                 </div>
                             </div>
                         </div>
+                    </div>
+
+                    {/* Seção: Filtro de Loss Virtual */}
+                    <div className="space-y-2 bg-slate-900/20 p-2.5 rounded-xl border border-white/5">
+                        <div className="flex items-center justify-between border-b border-white/5 pb-1">
+                            <div className="flex items-center gap-1.5">
+                                <ShieldAlert className="h-3 w-3 text-cyan-400" />
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Filtro de Loss Virtual</span>
+                            </div>
+                            <Switch 
+                                checked={tempVirtualLossActive} 
+                                onCheckedChange={setTempVirtualLossActive}
+                                className="h-4 w-7 [&>span]:h-3 [&>span]:w-3"
+                            />
+                        </div>
+
+                        {tempVirtualLossActive && (
+                            <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <div className="flex gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        onClick={() => setTempVirtualLossMode('auto')}
+                                        className={cn(
+                                            "flex-1 h-7 text-[9px] font-bold uppercase rounded-lg border transition-all",
+                                            tempVirtualLossMode === 'auto' 
+                                                ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/30" 
+                                                : "border-white/5 text-slate-400"
+                                        )}
+                                    >
+                                        Automático (I.A)
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        onClick={() => setTempVirtualLossMode('manual')}
+                                        className={cn(
+                                            "flex-1 h-7 text-[9px] font-bold uppercase rounded-lg border transition-all",
+                                            tempVirtualLossMode === 'manual' 
+                                                ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/30" 
+                                                : "border-white/5 text-slate-400"
+                                        )}
+                                    >
+                                        Manual
+                                    </Button>
+                                </div>
+
+                                {tempVirtualLossMode === 'manual' && (
+                                    <div className="space-y-1 animate-in fade-in slide-in-from-top-2 duration-300">
+                                        <Label className="text-[8px] font-black uppercase tracking-widest ml-1 text-slate-400">
+                                            Quantidade de Losses Virtuais
+                                        </Label>
+                                        <Input 
+                                            type="number"
+                                            min={1}
+                                            max={10}
+                                            value={tempVirtualLosses}
+                                            onChange={(e) => setTempVirtualLosses(Number(e.target.value))}
+                                            className="h-9 rounded-lg font-bold text-xs bg-slate-900/40 border border-white/10 text-white focus-visible:ring-cyan-500/30 focus-visible:border-cyan-500/50"
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     {/* Seção 2: Recuperação (Martingale) */}
