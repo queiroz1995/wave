@@ -10,13 +10,11 @@ import { useBotContext } from '@/context/BotContext';
 import { cn } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const GamePanel: React.FC = () => {
     const {
         initialStake, setInitialStake,
         duration, setDuration,
-        durationUnit, setDurationUnit,
         toggleBot, isBotRunning,
         isConnected,
         manualBuy,
@@ -75,36 +73,17 @@ export const GamePanel: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-1">
                     <div className="flex justify-between items-center mb-1">
-                        <Label htmlFor="duration" className="text-sm">Duração</Label>
-                        <div className="flex items-center gap-2">
-                            <span className="font-bold text-primary text-sm">
-                                {duration} {durationUnit === 's' ? 'Segundos' : 'Ticks'}
-                            </span>
-                            <Select 
-                                value={durationUnit} 
-                                onValueChange={(val: 't' | 's') => {
-                                    setDurationUnit(val);
-                                    setDuration(val === 's' ? 17 : 1);
-                                }}
-                            >
-                                <SelectTrigger className="h-7 w-[90px] text-xs">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="t">Ticks</SelectItem>
-                                    <SelectItem value="s">Segundos</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
+                        <Label htmlFor="duration" className="text-sm">Duração (Ticks)</Label>
+                        <span className="font-bold text-primary text-sm">{duration}</span>
                     </div>
                     <Slider 
                         id="duration" 
                         value={[duration]} 
                         onValueChange={(val) => setDuration(val[0])} 
                         min={1} 
-                        max={durationUnit === 's' ? 60 : 20} 
+                        max={10} 
                         step={1}
                     />
                 </div>

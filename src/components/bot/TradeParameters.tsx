@@ -29,7 +29,7 @@ const AVAILABLE_ASSETS = [
 export const TradeParameters = () => {
     const {
         asset, setAsset,
-        setDuration, setDurationUnit, setInitialStake,
+        setDuration, setInitialStake,
         isManualMode, setIsManualMode,
         digitTradeMode, setDigitTradeMode,
         digitPrediction, setDigitPrediction,
@@ -38,8 +38,7 @@ export const TradeParameters = () => {
     } = useBotContext();
 
     const resetParams = () => {
-        setDuration(17);
-        setDurationUnit('s');
+        setDuration(1);
         setInitialStake('0.35');
         toast.info("Parâmetros de trade resetados.");
     };
@@ -79,12 +78,14 @@ export const TradeParameters = () => {
                 <div className="space-y-2">
                     <div className="flex items-center gap-1.5">
                         <Label>Modalidade Analítica</Label>
-                        <InfoTooltip infoText="Selecione a modalidade de dígitos para operação." />
+                        <InfoTooltip infoText="Multimodal permite que a I.A decida entre Par/Ímpar ou Sobe/Desce com base na oportunidade." />
                     </div>
                     <Select value={digitTradeMode} onValueChange={(v) => setDigitTradeMode(v as any)}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
+                            <SelectItem value="multimodal">Multi-Modal (I.A Decida)</SelectItem>
                             <SelectItem value="evenOdd">Apenas Dígitos (Par/Ímpar)</SelectItem>
+                            <SelectItem value="riseFall">Apenas Sobe/Desce (Rise/Fall)</SelectItem>
                             <SelectItem value="overUnder">Apenas Dígitos (Acima/Abaixo)</SelectItem>
                         </SelectContent>
                     </Select>
