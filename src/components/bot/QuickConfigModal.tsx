@@ -75,11 +75,11 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
 
     return (
         <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DrawerContent className="bg-slate-950/95 backdrop-blur-xl border-t border-white/10 text-white pb-6 px-3 rounded-t-[2rem] max-h-[88vh] overflow-y-auto">
+            <DrawerContent className="bg-slate-950/98 backdrop-blur-2xl border-t border-white/10 text-white pb-12 px-4 rounded-t-[2rem] max-h-[94vh] overflow-y-auto">
                 {/* Indicador de arrastar do Drawer */}
-                <div className="mx-auto w-10 h-1 bg-white/20 rounded-full my-3" />
+                <div className="mx-auto w-10 h-1 bg-white/20 rounded-full my-3 shrink-0" />
                 
-                <DrawerHeader className="space-y-1 p-0">
+                <DrawerHeader className="space-y-1 p-0 shrink-0">
                     <div className="mx-auto bg-cyan-500/10 p-2 rounded-xl w-fit border border-cyan-500/20 shadow-[0_0_15px_rgba(34,211,238,0.1)]">
                         <Zap className="h-4 w-4 text-cyan-400 fill-cyan-400/20" />
                     </div>
@@ -91,15 +91,15 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                     </p>
                 </DrawerHeader>
                 
-                <div className="space-y-4 py-3 max-w-md mx-auto w-full">
+                <div className="space-y-3.5 py-3 max-w-md mx-auto w-full">
                     {/* Seção 1: Gestão de Banca */}
-                    <div className="space-y-2.5">
+                    <div className="space-y-2">
                         <div className="flex items-center gap-1.5 border-b border-white/5 pb-1">
                             <Shield className="h-3 w-3 text-cyan-400" />
                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Gestão de Banca</span>
                         </div>
                         
-                        <div className="grid grid-cols-2 gap-2.5">
+                        <div className="grid grid-cols-2 gap-2">
                             <div className="space-y-1">
                                 <Label className="text-[8px] font-black uppercase tracking-widest ml-1 text-slate-400">
                                     Entrada ($)
@@ -129,7 +129,7 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2.5">
+                        <div className="grid grid-cols-2 gap-2">
                             <div className="space-y-1">
                                 <Label className="text-[8px] font-black uppercase tracking-widest ml-1 text-slate-400">
                                     Stop Loss ($)
@@ -162,7 +162,7 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                     </div>
 
                     {/* Seção 2: Recuperação (Martingale) */}
-                    <div className="space-y-2.5 bg-slate-900/20 p-2.5 rounded-xl border border-white/5">
+                    <div className="space-y-2 bg-slate-900/20 p-2.5 rounded-xl border border-white/5">
                         <div className="flex items-center justify-between border-b border-white/5 pb-1">
                             <div className="flex items-center gap-1.5">
                                 <Shield className="h-3 w-3 text-rose-400" />
@@ -176,7 +176,7 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                         </div>
 
                         {tempMartingaleActive && (
-                            <div className="grid grid-cols-2 gap-2.5 animate-in fade-in slide-in-from-top-2 duration-300">
+                            <div className="grid grid-cols-2 gap-2 animate-in fade-in slide-in-from-top-2 duration-300">
                                 <div className="space-y-1">
                                     <Label className="text-[8px] font-black uppercase tracking-widest ml-1 text-slate-400">
                                         Multiplicador
@@ -204,7 +204,7 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                     </div>
 
                     {/* Seção 3: Alavancagem (Soros) */}
-                    <div className="space-y-2.5 bg-slate-900/20 p-2.5 rounded-xl border border-white/5">
+                    <div className="space-y-2 bg-slate-900/20 p-2.5 rounded-xl border border-white/5">
                         <div className="flex items-center justify-between border-b border-white/5 pb-1">
                             <div className="flex items-center gap-1.5">
                                 <TrendingUp className="h-3 w-3 text-emerald-400" />
@@ -240,7 +240,7 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                     </div>
                 </div>
 
-                <DrawerFooter className="p-0 max-w-md mx-auto w-full mt-1">
+                <DrawerFooter className="p-0 max-w-md mx-auto w-full mt-2 shrink-0 pb-6">
                     <Button 
                         onClick={handleConfirm}
                         className="w-full h-12 rounded-xl text-xs font-black uppercase tracking-[0.2em] bg-cyan-500 hover:bg-cyan-600 text-slate-950 shadow-xl shadow-cyan-500/20 transition-all duration-300 active:scale-[0.98]"
