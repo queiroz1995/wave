@@ -15,6 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { DollarSign, Target, Play, Zap, ShieldAlert, TrendingUp, Shield, Timer } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
 import { cn } from '@/lib/utils';
+import { toast } from "sonner";
 
 interface QuickConfigModalProps {
     isOpen: boolean;
@@ -34,7 +35,8 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
         isMartingaleActive, setIsMartingaleActive,
         isSorosActive, setIsSorosActive,
         sorosLevels, setSorosLevels,
-        duration, setDuration
+        duration, setDuration,
+        isConnected
     } = useBotContext();
     
     const [tempStake, setTempStake] = useState(initialStake);
@@ -73,30 +75,40 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
     }, [isOpen, initialStake, takeProfit, stopLoss, martingaleFactor, maxLevels, isMartingaleActive, isSorosActive, sorosLevels, duration, isSmartModeActive, virtualTargetLosses]);
 
     const handleConfirm = () => {
-        setInitialStake(tempStake);
-        setTakeProfit(tempMeta);
-        setStopLoss(tempStop);
-        setMartingaleFactor(tempFactor);
-        setMaxLevels(Number(tempLevels));
-        setIsMartingaleActive(tempMartingaleActive);
-        setIsSorosActive(tempSorosActive);
-        setSorosLevels(Number(tempSorosLevels));
-        setDuration(Number(tempDuration));
-
-        // Salva configurações do Loss Virtual
-        if (!tempVirtualLossActive) {
-            setIsSmartModeActive(false);
-            setVirtualTargetLosses(0);
-        } else {
-            if (tempVirtualLossMode === 'auto') {
-                setIsSmartModeActive(true);
-            } else {
-                setIsSmartModeActive(false);
-                setVirtualTargetLosses(Number(tempVirtualLosses));
-            }
+        if (!isConnected) {
+            toast.error("Conecte-se à sua conta antes de decolar o sistema.");
+            return;
         }
 
-        onConfirm();
+        try {
+            if (typeof setInitialStake === 'function') setInitialStake(tempStake);
+            if (typeof setTakeProfit === 'function') setTakeProfit(tempMeta);
+            if (typeof setStopLoss === 'function') setStopLoss(tempStop);
+            if (typeof setMartingaleFactor === 'function') setMartingaleFactor(tempFactor);
+            if (typeof setMaxLevels === 'function') setMaxLevels(Number(tempLevels) || 2);
+            if (typeof setIsMartingaleActive === 'function') setIsMartingaleActive(tempMartingaleActive);
+            if (typeof setIsSorosActive === 'function') setIsSorosActive(tempSorosActive);
+            if (typeof setSorosLevels === 'function') setSorosLevels(Number(tempSorosLevels) || 3);
+            if (typeof setDuration === 'function') setDuration(Number(tempDuration) || 1);
+
+            // Salva configurações do Loss Virtual com segurança
+            if (!tempVirtualLossActive) {
+                if (typeof setIsSmartModeActive === 'function') setIsSmartModeActive(false);
+                if (typeof setVirtualTargetLosses === 'function') setVirtualTargetLosses(0);
+            } else {
+                if (tempVirtualLossMode === 'auto') {
+                    if (typeof setIsSmartModeActive === 'function') setIsSmartModeActive(true);
+                } else {
+                    if (typeof setIsSmartModeActive === 'function') setIsSmartModeActive(false);
+                    if (typeof setVirtualTargetLosses === 'function') setVirtualTargetLosses(Number(tempVirtualLosses) || 1);
+                }
+            }
+
+            onConfirm();
+        } catch (error) {
+            console.error("Erro ao decolar sistema:", error);
+            toast.error("Ocorreu um erro ao salvar as configurações.");
+        }
     };
 
     return (
