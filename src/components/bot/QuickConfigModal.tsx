@@ -112,11 +112,11 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
 
     return (
         <Drawer open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DrawerContent className="bg-slate-950/98 backdrop-blur-2xl border-t border-white/10 text-white pb-12 px-4 rounded-t-[2rem] max-h-[94vh] overflow-y-auto">
+            <DrawerContent className="bg-slate-950/98 backdrop-blur-2xl border-t border-white/10 text-white px-4 rounded-t-[2rem] max-h-[96vh] flex flex-col pb-6">
                 {/* Indicador de arrastar do Drawer */}
                 <div className="mx-auto w-10 h-1 bg-white/20 rounded-full my-3 shrink-0" />
                 
-                <DrawerHeader className="space-y-1 p-0 shrink-0">
+                <DrawerHeader className="space-y-1 p-0 shrink-0 mb-2">
                     <div className="mx-auto bg-cyan-500/10 p-2 rounded-xl w-fit border border-cyan-500/20 shadow-[0_0_15px_rgba(34,211,238,0.1)]">
                         <Zap className="h-4 w-4 text-cyan-400 fill-cyan-400/20" />
                     </div>
@@ -128,7 +128,8 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                     </p>
                 </DrawerHeader>
                 
-                <div className="space-y-3.5 py-3 max-w-md mx-auto w-full">
+                {/* Área de conteúdo rolável */}
+                <div className="flex-1 overflow-y-auto space-y-3.5 py-1 max-w-md mx-auto w-full pr-1">
                     {/* Seção 1: Gestão de Banca */}
                     <div className="space-y-2">
                         <div className="flex items-center gap-1.5 border-b border-white/5 pb-1">
@@ -341,7 +342,8 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                     </div>
                 </div>
 
-                <DrawerFooter className="p-0 max-w-md mx-auto w-full mt-2 shrink-0 pb-6">
+                {/* Rodapé Fixo com o Botão de Decolar */}
+                <DrawerFooter className="p-0 max-w-md mx-auto w-full mt-3 shrink-0 pt-2 border-t border-white/5">
                     <Button 
                         onClick={handleConfirm}
                         className="w-full h-12 rounded-xl text-xs font-black uppercase tracking-[0.2em] bg-cyan-500 hover:bg-cyan-600 text-slate-950 shadow-xl shadow-cyan-500/20 transition-all duration-300 active:scale-[0.98]"
