@@ -4,15 +4,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, ArrowUp, ArrowDown, Award, ShieldAlert, BarChart3, Volume2, VolumeX } from 'lucide-react';
+import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
 import { SettingsSheet } from './SettingsSheet';
 import { RecentDigitsPanel } from './RecentDigitsPanel';
-import { DiagnosticsModal } from './DiagnosticsModal';
-import { Progress } from '@/components/ui/progress';
-import { sounds } from '@/utils/sounds';
 import confetti from 'canvas-confetti';
 
 export const AIOperatingScreen = () => {
@@ -26,7 +23,6 @@ export const AIOperatingScreen = () => {
         currentConfidence,
         aiThought,
         takeProfit,
-        stopLoss,
         isConfigModalOpen, setIsConfigModalOpen,
         manualBuy,
         tradeStatus,
@@ -34,37 +30,11 @@ export const AIOperatingScreen = () => {
     } = useBotContext();
 
     const hasTriggeredGoalConfettiRef = useRef(false);
-    const [profitHistory, setProfitHistory] = useState<number[]>([0]);
-    const [isMuted, setIsMuted] = useState(sounds.isMuted());
-
-    // Atualiza o histórico de lucro para desenhar o gráfico de curva de patrimônio (Equity Curve)
-    useEffect(() => {
-        setProfitHistory(prev => {
-            const last = prev[prev.length - 1];
-            if (last !== totalProfit) {
-                const next = [...prev, totalProfit];
-                // Mantém os últimos 15 pontos para o gráfico ficar limpo
-                return next.slice(-15);
-            }
-            return prev;
-        });
-    }, [totalProfit]);
-
-    // Toca som de vitória leve quando houver um WIN
-    useEffect(() => {
-        if (signals.length > 0) {
-            const mostRecentSignal = signals[0];
-            if (mostRecentSignal.result === 'WIN') {
-                sounds.playSuccess();
-            }
-        }
-    }, [signals]);
 
     // Resetar o gatilho de confete quando o lucro for zerado (ao reiniciar as operações)
     useEffect(() => {
         if (totalProfit === 0) {
             hasTriggeredGoalConfettiRef.current = false;
-            setProfitHistory([0]);
         }
     }, [totalProfit]);
 
@@ -73,13 +43,13 @@ export const AIOperatingScreen = () => {
         const targetProfit = parseFloat(takeProfit) || 0;
         if (targetProfit > 0 && totalProfit >= targetProfit && !hasTriggeredGoalConfettiRef.current) {
             hasTriggeredGoalConfettiRef.current = true;
-            sounds.playSuccess();
             
             // Celebração Premium de Meta Batida (Várias explosões consecutivas)
             const duration = 4 * 1000;
             const end = Date.now() + duration;
 
             const frame = () => {
+                // Explosão da esquerda
                 confetti({
                     particleCount: 6,
                     angle: 60,
@@ -87,6 +57,7 @@ export const AIOperatingScreen = () => {
                     origin: { x: 0, y: 0.8 },
                     colors: ['#22d3ee', '#34d399', '#818cf8', '#fbbf24']
                 });
+                // Explosão da direita
                 confetti({
                     particleCount: 6,
                     angle: 120,
@@ -94,6 +65,7 @@ export const AIOperatingScreen = () => {
                     origin: { x: 1, y: 0.8 },
                     colors: ['#22d3ee', '#34d399', '#818cf8', '#fbbf24']
                 });
+                // Explosão central aleatória
                 if (Math.random() > 0.7) {
                     confetti({
                         particleCount: 15,
@@ -123,12 +95,6 @@ export const AIOperatingScreen = () => {
     const confirmStart = () => {
         setIsConfigModalOpen(false);
         toggleBot();
-    };
-
-    const toggleMute = () => {
-        const nextMute = !isMuted;
-        sounds.setMuted(nextMute);
-        setIsMuted(nextMute);
     };
 
     const getSignalLabel = (signal: string, strategy: string) => {
@@ -163,49 +129,8 @@ export const AIOperatingScreen = () => {
 
     const isTradePending = tradeStatus === 'SENDING' || tradeStatus === 'ACTIVE';
 
-    // Cálculos para a barra de progresso da meta diária
-    const targetProfitValue = parseFloat(takeProfit) || 10;
-    const goalProgressPercentage = Math.min(100, Math.max(0, (totalProfit / targetProfitValue) * 100));
-
-    // Desenha a curva de patrimônio (Equity Curve) em SVG
-    const renderEquityCurve = () => {
-        if (profitHistory.length < 2) return null;
-        const width = 300;
-        const height = 40;
-        const minVal = Math.min(...profitHistory, 0);
-        const maxVal = Math.max(...profitHistory, targetProfitValue);
-        const range = maxVal - minVal || 1;
-
-        const points = profitHistory.map((val, index) => {
-            const x = (index / (profitHistory.length - 1)) * width;
-            const y = height - ((val - minVal) / range) * height;
-            return `${x},${y}`;
-        }).join(' ');
-
-        return (
-            <svg className="w-full h-10 overflow-visible" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
-                <polyline
-                    fill="none"
-                    stroke={isWin ? "#10b981" : "#f43f5e"}
-                    strokeWidth="2"
-                    points={points}
-                    className="transition-all duration-500"
-                />
-                {/* Linha de base zero */}
-                <line
-                    x1="0"
-                    y1={height - ((0 - minVal) / range) * height}
-                    x2={width}
-                    y2={height - ((0 - minVal) / range) * height}
-                    stroke="rgba(255,255,255,0.1)"
-                    strokeDasharray="3,3"
-                />
-            </svg>
-        );
-    };
-
     return (
-        <div className="w-full max-w-md mx-auto space-y-3 animate-in fade-in slide-in-from-bottom-8 duration-1000 px-1 pb-6">
+        <div className="w-full max-w-md mx-auto space-y-4 animate-in fade-in slide-in-from-bottom-8 duration-1000 px-1 pb-6">
             
             {/* Status Bar Superior */}
             <div className="flex items-center justify-between px-1">
@@ -240,24 +165,6 @@ export const AIOperatingScreen = () => {
             {/* Painel Premium de 8 Dígitos Recentes */}
             <RecentDigitsPanel />
 
-            {/* NOVO: Barra de Progresso Neon da Meta Diária */}
-            {isBotRunning && (
-                <div className="bg-slate-950/60 backdrop-blur-xl border border-white/10 rounded-2xl p-3 space-y-1.5 shadow-lg">
-                    <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-wider text-slate-400">
-                        <span className="flex items-center gap-1"><Award className="h-3 w-3 text-yellow-400" /> Progresso da Meta</span>
-                        <span className="text-cyan-400">{goalProgressPercentage.toFixed(0)}%</span>
-                    </div>
-                    <Progress 
-                        value={goalProgressPercentage} 
-                        className="h-1.5 bg-slate-900 [&>div]:bg-gradient-to-r [&>div]:from-cyan-500 [&>div]:to-emerald-500 shadow-[0_0_10px_rgba(34,211,238,0.2)]"
-                    />
-                    <div className="flex justify-between text-[8px] font-bold text-slate-500 uppercase">
-                        <span>Início: $0.00</span>
-                        <span>Meta: ${targetProfitValue.toFixed(2)}</span>
-                    </div>
-                </div>
-            )}
-
             {/* Painel Central - Estética "Cyber-Luxury" */}
             <Card className="relative overflow-hidden bg-slate-950/60 backdrop-blur-xl border border-white/10 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)] rounded-[2rem] transition-all duration-500 hover:border-cyan-500/20">
                 {/* Efeitos de Fundo Decorativos */}
@@ -290,21 +197,6 @@ export const AIOperatingScreen = () => {
                         </div>
                         
                         <div className="flex items-center gap-1.5">
-                            {/* Botão de Mute/Unmute */}
-                            <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all"
-                                onClick={toggleMute}
-                            >
-                                {isMuted ? (
-                                    <VolumeX className="h-3.5 w-3.5 text-rose-400" />
-                                ) : (
-                                    <Volume2 className="h-3.5 w-3.5 text-emerald-400" />
-                                )}
-                            </Button>
-                            {/* Botão de Diagnóstico de Performance */}
-                            <DiagnosticsModal />
                             <SettingsSheet trigger={
                                 <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
                                     <FileSpreadsheet className="h-3.5 w-3.5 text-slate-300" />
@@ -337,17 +229,6 @@ export const AIOperatingScreen = () => {
                         </div>
                     </div>
 
-                    {/* NOVO: Gráfico de Curva de Patrimônio (Equity Curve) */}
-                    {profitHistory.length > 1 && (
-                        <div className="bg-slate-900/30 border border-white/5 rounded-xl p-2 space-y-1">
-                            <div className="flex justify-between items-center text-[7px] font-bold text-slate-500 uppercase tracking-wider">
-                                <span className="flex items-center gap-1"><BarChart3 className="h-2.5 w-2.5" /> Curva de Patrimônio</span>
-                                <span>Tempo Real</span>
-                            </div>
-                            {renderEquityCurve()}
-                        </div>
-                    )}
-
                     {/* Botão de Ignição */}
                     <Button 
                         onClick={handleStartClick}
@@ -370,15 +251,13 @@ export const AIOperatingScreen = () => {
                     </Button>
 
                     {/* Seção de Entradas Manuais */}
-                    <div className="space-y-3 pt-1">
+                    <div className="space-y-2 pt-1">
                         <div className="flex items-center justify-between px-1">
                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Entradas Manuais</span>
                             {isTradePending && (
                                 <span className="text-[8px] font-bold text-cyan-400 animate-pulse uppercase">Operação em andamento...</span>
                             )}
                         </div>
-                        
-                        {/* Botões de Paridade */}
                         <div className="grid grid-cols-2 gap-3">
                             <Button
                                 onClick={() => manualBuy('DIGITEVEN', 'Manual')}
@@ -395,26 +274,6 @@ export const AIOperatingScreen = () => {
                             >
                                 <ArrowDownRight className="h-4 w-4" />
                                 ÍMPAR
-                            </Button>
-                        </div>
-
-                        {/* Botões de Sobe / Desce */}
-                        <div className="grid grid-cols-2 gap-3">
-                            <Button
-                                onClick={() => manualBuy('CALL', 'Manual')}
-                                disabled={!isConnected || isTradePending}
-                                className="h-12 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 font-black uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all duration-300 active:scale-95"
-                            >
-                                <ArrowUp className="h-4 w-4" />
-                                SOBE
-                            </Button>
-                            <Button
-                                onClick={() => manualBuy('PUT', 'Manual')}
-                                disabled={!isConnected || isTradePending}
-                                className="h-12 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 font-black uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all duration-300 active:scale-95"
-                            >
-                                <ArrowDown className="h-4 w-4" />
-                                DESCE
                             </Button>
                         </div>
                     </div>
