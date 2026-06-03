@@ -225,10 +225,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, [setTotalProfit, setWins, setLosses, setSignals, setVirtualLossStreak, addLog, setTradeStatus]);
 
     const toggleBot = useCallback(() => {
-        if (!isConnected) {
-            toast.error("Conecte-se primeiro.");
-            return;
-        }
         if (isBotRunning) {
             stopBot("Sniper Pausado");
         } else { 
@@ -237,7 +233,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setIsStudying(true);
             setAiThought("Varrendo ativos por manipulação...");
         }
-    }, [isConnected, isBotRunning, stopBot, resetOperations]);
+    }, [isBotRunning, stopBot, resetOperations]);
 
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
         const data = event.payload;
@@ -263,12 +259,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         });
                     }
                     setTradeStatus('ACTIVE'); 
-                    // No individual subscription needed anymore since we subscribed globally
                 }
             } else if (data?.msg_type === 'proposal_open_contract') {
                 const contract = data.proposal_open_contract;
                 if (contract) {
-                    // Auto-register contract mapping if it comes from global stream before buy response
                     const passthrough = contract.passthrough;
                     const signalId = passthrough?.signalId;
                     if (signalId && contract.contract_id && !pendingContracts.current.has(contract.contract_id)) {
@@ -285,7 +279,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             const isLoss = contract.status === 'lost';
                             const profitValue = parseFloat(contract.profit);
                             
-                            // Correctly parse exit digit from exit_tick.quote object
                             const exitDigit = contract.exit_tick?.quote !== undefined 
                                 ? parseInt(String(contract.exit_tick.quote).replace(/[^\d.]/g, '').slice(-1)) 
                                 : undefined;
@@ -297,7 +290,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                 setLosses((prev: number) => prev + 1);
                                 martingaleLevel.current += 1;
                                 
-                                // Se atingiu o limite máximo de gales configurado
                                 if (martingaleLevel.current > maxLevels) {
                                     martingaleLevel.current = 0;
                                     isGalePausedForFilter.current = false;
@@ -324,7 +316,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                 setVirtualLossStreak(0);
                                 setAiThought("Operação Neutralizada com Sucesso.");
 
-                                // Se era uma sessão manual, para o bot de forma inteligente após a vitória
                                 if (isManualSession.current) {
                                     isManualSession.current = false;
                                     stopBot("Operação manual finalizada com vitória.");
@@ -396,27 +387,107 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, [multiAssetDigits, consecutiveTarget, entryDirection, isStudying, isSmartModeActive, getMarketState]);
 
     const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string, symbol: string, customStake?: number) => {
-        if (!isConnected || isStudying || activeTrades.current.size > 0) return;
         const baseStake = customStake !== undefined ? customStake : (parseFloat(initialStake) || 0.35);
         const mgFactor = parseFloat(martingaleFactor) || 2.1; 
         const stakeToUse = martingaleLevel.current > 0 ? baseStake * Math.pow(mgFactor, martingaleLevel.current) : baseStake;
-        
+
+        if (!isConnected) {
+            // MODO SIMULAÇÃO
+            lastContractType.current = contractType;
+            lastTradedAsset.current = symbol;
+            activeTrades.current.add(signalId);
+            setTradeStatus('ACTIVE');
+
+            // Simula o resultado após 1.5 segundos (1 tick)
+            setTimeout(() => {
+                if (!activeTrades.current.has(signalId)) return;
+
+                const isWin = Math.random() > 0.45; // 55% de taxa de vitória simulada
+                const profitValue = isWin ? stakeToUse * 0.95 : -stakeToUse;
+                const exitDigit = Math.floor(Math.random() * 10);
+
+                totalProfitRef.current += profitValue;
+                setTotalProfit(totalProfitRef.current);
+
+                if (!isWin) {
+                    setLosses((prev: number) => prev + 1);
+                    martingaleLevel.current += 1;
+                    
+                    if (martingaleLevel.current > maxLevels) {
+                        martingaleLevel.current = 0;
+                        isGalePausedForFilter.current = false;
+                        if (isManualSession.current) {
+                            isManualSession.current = false;
+                            stopBot("Limite de Martingale atingido na operação manual.");
+                        } else {
+                            addLog("Limite de Martingale atingido. Resetando para stake inicial.", "INFO");
+                        }
+                    } else {
+                        const { isStable } = getMarketState(symbol);
+                        if (!isStable && !isManualSession.current) {
+                            isGalePausedForFilter.current = true;
+                            setVirtualLossStreak(0);
+                            setAiThought("Ciclo instável detectado! Pausando Gale e ativando Filtro Virtual.");
+                        } else {
+                            setAiThought("Preparando Gale imediato.");
+                        }
+                    }
+                } else {
+                    setWins((prev: number) => prev + 1);
+                    martingaleLevel.current = 0;
+                    isGalePausedForFilter.current = false;
+                    setVirtualLossStreak(0);
+                    setAiThought("Operação Neutralizada com Sucesso.");
+
+                    if (isManualSession.current) {
+                        isManualSession.current = false;
+                        stopBot("Operação manual finalizada com vitória.");
+                    }
+                }
+
+                updateSignalResult(signalId, isWin ? 'WIN' : 'LOSS', profitValue, stakeToUse, exitDigit);
+                activeTrades.current.delete(signalId);
+                setTradeStatus('IDLE');
+
+                if (totalProfitRef.current >= parseFloat(takeProfit)) {
+                    stopBot(`Meta batida!`);
+                } else if (totalProfitRef.current <= -Math.abs(parseFloat(stopLoss))) {
+                    stopBot(`Stop Loss atingido.`);
+                }
+            }, 1500);
+
+            return;
+        }
+
+        // Modo Real/Demo conectado
+        if (isStudying || activeTrades.current.size > 0) return;
         const params = { amount: parseFloat(stakeToUse.toFixed(2)), basis: 'stake', contract_type: contractType, currency: 'USD', duration: 1, duration_unit: 't', symbol };
         lastContractType.current = contractType;
         lastTradedAsset.current = symbol;
         activeTrades.current.add(signalId);
         setTradeStatus('SENDING');
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params, passthrough: { signalId, strategyName } });
-    }, [isConnected, initialStake, sendMessage, setTradeStatus, martingaleFactor, isStudying]);
+    }, [isConnected, initialStake, sendMessage, setTradeStatus, martingaleFactor, isStudying, maxLevels, isManualSession, stopBot, addLog, getMarketState, updateSignalResult, takeProfit, stopLoss]);
+
+    // Simulação de Ticks quando o bot está rodando sem conexão
+    useEffect(() => {
+        if (!isBotRunning || isConnected) return;
+
+        const interval = setInterval(() => {
+            const randomDigit = Math.floor(Math.random() * 10);
+            const mockTick = {
+                quote: (100 + Math.random() * 10).toFixed(2) + randomDigit,
+                epoch: Math.floor(Date.now() / 1000),
+                symbol: asset
+            };
+            processTickData(mockTick);
+        }, 1500);
+
+        return () => clearInterval(interval);
+    }, [isBotRunning, isConnected, asset, processTickData]);
 
     // Função para compra manual (usada por botões)
     const manualBuy = useCallback((contractType: ContractType, source: string = 'Manual', customStake?: number) => {
-        if (!isConnected) {
-            toast.error("Conecte-se primeiro.");
-            return;
-        }
-        
-        // Ativa a sessão manual inteligente
         isManualSession.current = true;
         if (!isBotRunning) {
             setIsBotRunning(true);
@@ -431,7 +502,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             winRate: '100%' 
         });
         executeBuy(contractType, source, sId, asset, customStake);
-    }, [isConnected, isBotRunning, setIsBotRunning, setIsStudying, setAiThought, addSignal, executeBuy, asset]);
+    }, [isBotRunning, setIsBotRunning, setIsStudying, setAiThought, addSignal, executeBuy, asset]);
 
     useEffect(() => {
         if (!isBotRunning || isStudying) return;
@@ -474,7 +545,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setIsConnecting(true);
             if (isConnected) { 
                 disconnect(); 
-                // Pequeno delay seguro para garantir que o socket anterior fechou completamente
                 setTimeout(() => {
                     connect(token, type);
                 }, 600);

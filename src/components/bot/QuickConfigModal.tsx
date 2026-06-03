@@ -75,11 +75,6 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
     }, [isOpen, initialStake, takeProfit, stopLoss, martingaleFactor, maxLevels, isMartingaleActive, isSorosActive, sorosLevels, duration, isSmartModeActive, virtualTargetLosses]);
 
     const handleConfirm = () => {
-        if (!isConnected) {
-            toast.error("Conecte-se à sua conta antes de decolar o sistema.");
-            return;
-        }
-
         try {
             if (typeof setInitialStake === 'function') setInitialStake(tempStake);
             if (typeof setTakeProfit === 'function') setTakeProfit(tempMeta);
@@ -102,6 +97,10 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                     if (typeof setIsSmartModeActive === 'function') setIsSmartModeActive(false);
                     if (typeof setVirtualTargetLosses === 'function') setVirtualTargetLosses(Number(tempVirtualLosses) || 1);
                 }
+            }
+
+            if (!isConnected) {
+                toast.info("Iniciando no Modo Simulação (Sem conexão com a Deriv).");
             }
 
             onConfirm();
