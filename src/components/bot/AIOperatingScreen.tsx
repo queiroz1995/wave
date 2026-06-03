@@ -4,12 +4,15 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, Sparkles } from 'lucide-react';
+import { Power, RefreshCw, Bot, Activity, DollarSign, FileSpreadsheet, RotateCcw, MessageSquare, TrendingUp, TrendingDown, Target, BrainCircuit, ArrowUpRight, ArrowDownRight, Sparkles, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { QuickConfigModal } from './QuickConfigModal';
 import { SettingsSheet } from './SettingsSheet';
 import { RecentDigitsPanel } from './RecentDigitsPanel';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import confetti from 'canvas-confetti';
 
 export const AIOperatingScreen = () => {
@@ -27,10 +30,16 @@ export const AIOperatingScreen = () => {
         manualBuy,
         tradeStatus,
         isConnected,
-        lastDigits
+        lastDigits,
+        initialStake
     } = useBotContext();
 
     const hasTriggeredGoalConfettiRef = useRef(false);
+
+    // Estados para o prompt de entrada manual
+    const [isManualStakeDialogOpen, setIsManualStakeDialogOpen] = useState(false);
+    const [manualStakeValue, setManualStakeValue] = useState(initialStake);
+    const [pendingContractType, setPendingContractType] = useState<'DIGITEVEN' | 'DIGITODD' | null>(null);
 
     // Resetar o gatilho de confete quando o lucro for zerado (ao reiniciar as operações)
     useEffect(() => {
@@ -96,6 +105,20 @@ export const AIOperatingScreen = () => {
     const confirmStart = () => {
         setIsConfigModalOpen(false);
         toggleBot();
+    };
+
+    const handleManualClick = (type: 'DIGITEVEN' | 'DIGITODD') => {
+        setPendingContractType(type);
+        setManualStakeValue(initialStake);
+        setIsManualStakeDialogOpen(true);
+    };
+
+    const confirmManualBuy = () => {
+        if (pendingContractType) {
+            manualBuy(pendingContractType, 'Manual', parseFloat(manualStakeValue));
+            setIsManualStakeDialogOpen(false);
+            setPendingContractType(null);
+        }
     };
 
     const getSignalLabel = (signal: string, strategy: string) => {
@@ -359,7 +382,7 @@ export const AIOperatingScreen = () => {
                         {/* Botões de Entrada Manual */}
                         <div className="grid grid-cols-2 gap-3">
                             <Button
-                                onClick={() => manualBuy('DIGITEVEN', 'Manual')}
+                                onClick={() => handleManualClick('DIGITEVEN')}
                                 disabled={!isConnected || isTradePending}
                                 className="h-12 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 font-black uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all duration-300 active:scale-95"
                             >
@@ -367,7 +390,7 @@ export const AIOperatingScreen = () => {
                                 PAR
                             </Button>
                             <Button
-                                onClick={() => manualBuy('DIGITODD', 'Manual')}
+                                onClick={() => handleManualClick('DIGITODD')}
                                 disabled={!isConnected || isTradePending}
                                 className="h-12 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 font-black uppercase tracking-wider text-xs flex items-center justify-center gap-1.5 transition-all duration-300 active:scale-95"
                             >
@@ -482,6 +505,53 @@ export const AIOperatingScreen = () => {
             </div>
 
             <QuickConfigModal isOpen={isConfigModalOpen} onClose={() => setIsConfigModalOpen(false)} onConfirm={confirmStart} />
+
+            {/* Dialog de Confirmação de Entrada Manual */}
+            <Dialog open={isManualStakeDialogOpen} onOpenChange={setIsManualStakeDialogOpen}>
+                <DialogContent className="bg-slate-950/95 backdrop-blur-xl border border-white/10 text-white max-w-xs rounded-2xl">
+                    <DialogHeader className="space-y-1">
+                        <DialogTitle className="text-lg font-black uppercase tracking-tighter text-center">
+                            Confirmar Entrada Manual
+                        </DialogTitle>
+                        <p className="text-center text-[8px] font-black text-cyan-400 uppercase tracking-[0.2em]">
+                            Direção: {pendingContractType === 'DIGITEVEN' ? 'PAR' : 'ÍMPAR'}
+                        </p>
+                    </DialogHeader>
+                    
+                    <div className="space-y-3 py-2">
+                        <div className="space-y-1">
+                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                Valor de Entrada ($)
+                            </Label>
+                            <div className="relative">
+                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-cyan-400" />
+                                <Input 
+                                    value={manualStakeValue}
+                                    onChange={(e) => setManualStakeValue(e.target.value.replace(',', '.'))}
+                                    className="pl-8 h-10 rounded-xl font-bold text-sm bg-slate-900/40 border border-white/10 text-white focus-visible:ring-cyan-500/30 focus-visible:border-cyan-500/50"
+                                    placeholder="0.35"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <DialogFooter className="flex flex-row gap-2 mt-2">
+                        <Button 
+                            variant="ghost" 
+                            onClick={() => setIsManualStakeDialogOpen(false)}
+                            className="flex-1 h-10 rounded-xl text-xs font-bold uppercase border border-white/10 hover:bg-white/5 text-slate-300"
+                        >
+                            Cancelar
+                        </Button>
+                        <Button 
+                            onClick={confirmManualBuy}
+                            className="flex-1 h-10 rounded-xl text-xs font-black uppercase tracking-wider bg-cyan-500 hover:bg-cyan-600 text-slate-950 shadow-lg shadow-cyan-500/20"
+                        >
+                            <Check className="h-3.5 w-3.5 mr-1" /> Confirmar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };

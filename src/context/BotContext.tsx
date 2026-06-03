@@ -395,9 +395,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return null;
     }, [multiAssetDigits, consecutiveTarget, entryDirection, isStudying, isSmartModeActive, getMarketState]);
 
-    const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string, symbol: string) => {
+    const executeBuy = useCallback((contractType: ContractType, strategyName: string, signalId: string, symbol: string, customStake?: number) => {
         if (!isConnected || isStudying || activeTrades.current.size > 0) return;
-        const baseStake = parseFloat(initialStake) || 0.35;
+        const baseStake = customStake !== undefined ? customStake : (parseFloat(initialStake) || 0.35);
         const mgFactor = parseFloat(martingaleFactor) || 2.1; 
         const stakeToUse = martingaleLevel.current > 0 ? baseStake * Math.pow(mgFactor, martingaleLevel.current) : baseStake;
         
@@ -410,7 +410,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, [isConnected, initialStake, sendMessage, setTradeStatus, martingaleFactor, isStudying]);
 
     // Função para compra manual (usada por botões)
-    const manualBuy = useCallback((contractType: ContractType, source: string = 'Manual') => {
+    const manualBuy = useCallback((contractType: ContractType, source: string = 'Manual', customStake?: number) => {
         if (!isConnected) {
             toast.error("Conecte-se primeiro.");
             return;
@@ -430,7 +430,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             details: `Entrada manual via ${source}`, 
             winRate: '100%' 
         });
-        executeBuy(contractType, source, sId, asset);
+        executeBuy(contractType, source, sId, asset, customStake);
     }, [isConnected, isBotRunning, setIsBotRunning, setIsStudying, setAiThought, addSignal, executeBuy, asset]);
 
     useEffect(() => {
