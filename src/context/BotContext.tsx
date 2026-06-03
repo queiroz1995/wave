@@ -424,13 +424,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setAiThought("Entrada manual detectada. Monitorando recuperação inteligente...");
         }
 
-        const baseStake = parseFloat(initialStake) || 0.35;
-        const mgFactor = parseFloat(martingaleFactor) || 2.1; 
-        const stakeToUse = martingaleLevel.current > 0 ? baseStake * Math.pow(mgFactor, martingaleLevel.current) : baseStake;
-
-        // Alerta o usuário com o valor exato da entrada manual
-        toast.info(`Entrada Manual Enviada! Valor: $${stakeToUse.toFixed(2)}`);
-
         const sId = addSignal({ 
             strategy: source, 
             signal: contractType === 'DIGITEVEN' ? 'EVEN' : 'ODD', 
@@ -438,7 +431,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             winRate: '100%' 
         });
         executeBuy(contractType, source, sId, asset);
-    }, [isConnected, isBotRunning, setIsBotRunning, setIsStudying, setAiThought, addSignal, executeBuy, asset, initialStake, martingaleFactor]);
+    }, [isConnected, isBotRunning, setIsBotRunning, setIsStudying, setAiThought, addSignal, executeBuy, asset]);
 
     useEffect(() => {
         if (!isBotRunning || isStudying) return;
