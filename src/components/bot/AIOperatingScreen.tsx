@@ -13,6 +13,7 @@ import { RecentDigitsPanel } from './RecentDigitsPanel';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import confetti from 'canvas-confetti';
 
 export const AIOperatingScreen = () => {
@@ -31,7 +32,8 @@ export const AIOperatingScreen = () => {
         tradeStatus,
         isConnected,
         lastDigits,
-        initialStake
+        initialStake,
+        setInitialStake
     } = useBotContext();
 
     const hasTriggeredGoalConfettiRef = useRef(false);
@@ -40,6 +42,21 @@ export const AIOperatingScreen = () => {
     const [isManualStakeDialogOpen, setIsManualStakeDialogOpen] = useState(false);
     const [manualStakeValue, setManualStakeValue] = useState(initialStake);
     const [pendingContractType, setPendingContractType] = useState<'DIGITEVEN' | 'DIGITODD' | null>(null);
+    
+    // Estado para controlar se deve exibir a confirmação manual
+    const [showManualConfirm, setShowManualConfirm] = useState(() => {
+        return localStorage.getItem('showManualConfirm') !== 'false';
+    });
+
+    // Salva a preferência de confirmação no localStorage
+    useEffect(() => {
+        localStorage.setItem('showManualConfirm', String(showManualConfirm));
+    }, [showManualConfirm]);
+
+    // Sincroniza o valor do input local com o stake inicial global
+    useEffect(() => {
+        setManualStakeValue(initialStake);
+    }, [initialStake]);
 
     // Resetar o gatilho de confete quando o lucro for zerado (ao reiniciar as operações)
     useEffect(() => {
@@ -108,6 +125,11 @@ export const AIOperatingScreen = () => {
     };
 
     const handleManualClick = (type: 'DIGITEVEN' | 'DIGITODD') => {
+        if (!showManualConfirm) {
+            // Executa diretamente sem perguntar
+            manualBuy(type, 'Manual', parseFloat(initialStake));
+            return;
+        }
         setPendingContractType(type);
         setManualStakeValue(initialStake);
         setIsManualStakeDialogOpen(true);
@@ -115,6 +137,8 @@ export const AIOperatingScreen = () => {
 
     const confirmManualBuy = () => {
         if (pendingContractType) {
+            // Salva o valor digitado como o novo stake padrão
+            setInitialStake(manualStakeValue);
             manualBuy(pendingContractType, 'Manual', parseFloat(manualStakeValue));
             setIsManualStakeDialogOpen(false);
             setPendingContractType(null);
@@ -328,9 +352,14 @@ export const AIOperatingScreen = () => {
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
                                 <Sparkles className="h-3 w-3 text-cyan-400" /> Sinal de Entrada Manual
                             </span>
-                            {isTradePending && (
-                                <span className="text-[8px] font-bold text-cyan-400 animate-pulse uppercase">Operação em andamento...</span>
-                            )}
+                            <div className="flex items-center gap-2">
+                                <span className="text-[9px] font-bold text-slate-500 uppercase">Confirmar</span>
+                                <Switch 
+                                    checked={showManualConfirm} 
+                                    onCheckedChange={setShowManualConfirm}
+                                    className="h-4 w-7 [&>span]:h-3 [&>span]:w-3"
+                                />
+                            </div>
                         </div>
 
                         {/* Display de Inteligência de Sinal */}
