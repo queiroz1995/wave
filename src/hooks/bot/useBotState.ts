@@ -17,7 +17,7 @@ const DEFAULTS = {
     accountType: 'demo' as 'real' | 'demo',
     asset: '1HZ100V',
     duration: 17,
-    durationUnit: 's' as 't' | 's',
+    durationUnit: 't' as 't' | 's',
     initialStake: '0.35',
     digitTradeMode: 'evenOdd' as 'evenOdd' | 'overUnder',
     attackMode: ['traditional'] as string[],

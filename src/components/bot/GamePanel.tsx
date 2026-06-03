@@ -104,7 +104,7 @@ export const GamePanel: React.FC = () => {
                         value={[duration]} 
                         onValueChange={(val) => setDuration(val[0])} 
                         min={1} 
-                        max={durationUnit === 's' ? 60 : 10} 
+                        max={durationUnit === 's' ? 60 : 20} 
                         step={1}
                     />
                 </div>

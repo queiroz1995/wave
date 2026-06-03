@@ -533,7 +533,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             contract_type: contractType, 
             currency: 'USD', 
             duration: duration, 
-            duration_unit: durationUnit, 
+            duration_unit: 't', // Forçamos sempre 't' (ticks) para evitar rejeição da API da Deriv em Dígitos!
             symbol 
         };
 
@@ -542,7 +542,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeTrades.current.add(signalId);
         setTradeStatus('SENDING');
         sendMessage({ buy: 1, price: parseFloat(stakeToUse.toFixed(2)), parameters: params, passthrough: { signalId, strategyName } });
-    }, [isConnected, initialStake, sendMessage, setTradeStatus, martingaleFactor, isStudying, isSorosActive, sorosLevels, sorosProfitPercentage, virtualHistory, multiAssetDigits, isVirtualLossActive, virtualTargetLosses, duration, durationUnit]);
+    }, [isConnected, initialStake, sendMessage, setTradeStatus, martingaleFactor, isStudying, isSorosActive, sorosLevels, sorosProfitPercentage, virtualHistory, multiAssetDigits, isVirtualLossActive, virtualTargetLosses, duration]);
 
     // Função para compra manual (usada por botões)
     const manualBuy = useCallback((contractType: ContractType, source: string = 'Manual') => {
