@@ -243,7 +243,7 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                 <DrawerFooter className="p-0 max-w-md mx-auto w-full mt-1">
                     <Button 
                         onClick={handleConfirm}
-                        className="w-full h-11 rounded-xl text-xs font-black uppercase tracking-[0.2em] bg-cyan-500 hover:bg-cyan-600 text-slate-950 shadow-xl shadow-cyan-500/20 transition-all duration-300"
+                        className="w-full h-12 rounded-xl text-xs font-black uppercase tracking-[0.2em] bg-cyan-500 hover:bg-cyan-600 text-slate-950 shadow-xl shadow-cyan-500/20 transition-all duration-300 active:scale-[0.98]"
                     >
                         <Play className="h-3 w-3 mr-1.5 fill-current" /> DECOLAR SISTEMA
                     </Button>
