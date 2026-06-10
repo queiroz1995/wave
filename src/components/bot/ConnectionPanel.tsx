@@ -1,10 +1,10 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Power, PowerOff, RotateCcw, Wallet, Loader2 } from 'lucide-react';
+import { Power, PowerOff, Wallet, Loader2, Eye, EyeOff, KeyRound, Hash, User } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
 import { cn } from '@/lib/utils';
 
@@ -12,94 +12,168 @@ export const ConnectionPanel: React.FC = () => {
     const {
         realToken, setRealToken,
         demoToken, setDemoToken,
+        accountId, setAccountId,
         accountType, setAccountType,
         handleConnect, handleDisconnect,
         isConnected, isConnecting, status,
-        accountBalance,
+        accountBalance, loginid, currency,
     } = useBotContext();
 
+    const [showToken, setShowToken] = useState(false);
+
     const currentToken = accountType === 'real' ? realToken : demoToken;
+    const isPAT = currentToken.startsWith('pat_');
+    const isOAuth = !isPAT && currentToken.length >= 3 && /^[A-Za-z]{2,3}[0-9]/.test(currentToken); // ROT..., VRT..., etc
 
     const handleAccountTypeChange = (value: 'real' | 'demo') => {
         setAccountType(value);
-        const tokenToUse = value === 'real' ? realToken : demoToken;
-        if (tokenToUse) handleConnect(value, tokenToUse);
+    };
+
+    const handleConnectClick = () => {
+        handleConnect(accountType, currentToken);
     };
 
     return (
         <div className="w-full flex flex-col gap-2 bg-slate-950/40 backdrop-blur-xl border border-white/10 p-2.5 rounded-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] transition-all duration-300 hover:border-cyan-500/30">
-            {/* Linha Superior: Seletor de Conta, Status e Saldo */}
-            <div className="flex items-center justify-between w-full gap-2">
-                <div className="flex items-center gap-2">
-                    <Select value={accountType} onValueChange={handleAccountTypeChange} disabled={isConnecting}>
-                        <SelectTrigger className="h-8 w-[85px] text-[9px] font-black uppercase tracking-widest rounded-lg border border-white/10 bg-slate-900/60 text-white hover:bg-slate-800/80 transition-colors">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-slate-950 border-white/10 text-white">
-                            <SelectItem value="demo" className="focus:bg-cyan-500/20 focus:text-white text-[10px]">Demo</SelectItem>
-                            <SelectItem value="real" className="focus:bg-cyan-500/20 focus:text-white text-[10px]">Real</SelectItem>
-                        </SelectContent>
-                    </Select>
+
+            {/* Linha Superior: Seletor, status e botao */}
+            <div className="flex items-center gap-2 w-full">
+                <Select value={accountType} onValueChange={handleAccountTypeChange} disabled={isConnected || isConnecting}>
+                    <SelectTrigger className="h-8 w-[85px] text-[9px] font-black uppercase tracking-widest rounded-lg border border-white/10 bg-slate-900/60 text-white hover:bg-slate-800/80 transition-colors shrink-0">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-950 border-white/10 text-white">
+                        <SelectItem value="demo" className="focus:bg-cyan-500/20 focus:text-white text-[10px]">Demo</SelectItem>
+                        <SelectItem value="real" className="focus:bg-cyan-500/20 focus:text-white text-[10px]">Real</SelectItem>
+                    </SelectContent>
+                </Select>
+
+                <div className="flex items-center gap-1.5 flex-1 min-w-0">
                     <div className={cn(
-                        "h-2 w-2 rounded-full animate-pulse shadow-[0_0_8px_currentColor]",
+                        "h-2 w-2 rounded-full shrink-0 animate-pulse shadow-[0_0_8px_currentColor]",
                         status.color === "bg-emerald-500" ? "text-emerald-400 bg-emerald-400" : "text-rose-400 bg-rose-400"
                     )} />
-                </div>
-
-                {isConnected && accountBalance !== null && (
-                    <div className="flex items-center gap-1 px-2.5 py-1 bg-cyan-500/10 border border-cyan-500/20 rounded-lg">
-                        <Wallet className="h-3 w-3 text-cyan-400" />
-                        <span className="text-[10px] font-black text-cyan-400">${accountBalance.toFixed(2)}</span>
-                    </div>
-                )}
-            </div>
-
-            {/* Linha Inferior: Input de Token e Botão de Conexão */}
-            <div className="flex items-center gap-2 w-full">
-                <div className="relative flex-grow">
-                    <Input 
-                        type="password" 
-                        value={currentToken} 
-                        onChange={(e) => accountType === 'real' ? setRealToken(e.target.value) : setDemoToken(e.target.value)} 
-                        placeholder="Token API" 
-                        disabled={isConnected || isConnecting} 
-                        className="h-8 text-[10px] font-mono pr-8 rounded-lg border border-white/10 bg-slate-900/40 text-white placeholder:text-slate-500 focus-visible:ring-cyan-500/30 focus-visible:border-cyan-500/50"
-                    />
-                    {!isConnected && !isConnecting && (
-                        <Button 
-                            onClick={() => handleConnect()} 
-                            variant="ghost" 
-                            size="icon" 
-                            className="absolute right-0 top-0 h-8 w-8 hover:bg-transparent text-cyan-400 hover:text-cyan-300"
-                        >
-                            <RotateCcw className="h-3 w-3" />
-                        </Button>
+                    {isPAT && !isConnected && (
+                        <span className="text-[8px] font-black uppercase tracking-widest text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-1.5 py-0.5 rounded-md shrink-0">
+                            PAT
+                        </span>
+                    )}
+                    {isOAuth && !isConnected && currentToken.length > 0 && (
+                        <span className="text-[8px] font-black uppercase tracking-widest text-violet-400 bg-violet-500/10 border border-violet-500/20 px-1.5 py-0.5 rounded-md shrink-0">
+                            {currentToken.substring(0, 3).toUpperCase()}
+                        </span>
+                    )}
+                    {accountType === 'real' && !isConnected && (
+                        <span className="text-[8px] font-black uppercase tracking-widest text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-md shrink-0">
+                            REAL
+                        </span>
                     )}
                 </div>
 
-                <Button 
-                    onClick={isConnected ? handleDisconnect : () => handleConnect(accountType, currentToken)} 
+                <Button
+                    onClick={isConnected ? handleDisconnect : handleConnectClick}
                     variant={isConnected ? "destructive" : "default"}
-                    disabled={isConnecting}
+                    disabled={isConnecting || (!isConnected && !currentToken.trim())}
                     className={cn(
-                        "h-8 px-3 rounded-lg text-[9px] font-black uppercase tracking-widest min-w-[80px] transition-all duration-300",
-                        isConnected 
-                            ? "bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30" 
+                        "h-8 px-3 rounded-lg text-[9px] font-black uppercase tracking-widest shrink-0 transition-all duration-300",
+                        isConnected
+                            ? "bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30"
                             : "bg-cyan-500 hover:bg-cyan-600 text-slate-950 shadow-[0_0_15px_rgba(34,211,238,0.3)]"
                     )}
                 >
                     {isConnecting ? (
                         <Loader2 className="h-3 w-3 animate-spin" />
                     ) : isConnected ? (
-                        <PowerOff className="h-3 w-3" />
+                        <><PowerOff className="h-3 w-3" /><span className="ml-1">Sair</span></>
                     ) : (
-                        <Power className="h-3 w-3 mr-1" />
+                        <><Power className="h-3 w-3" /><span className="ml-1">Ligar</span></>
                     )}
-                    <span className={cn(isConnected && !isConnecting && "sr-only", "ml-1")}>
-                        {isConnecting ? "..." : isConnected ? "OFF" : "Ligar"}
-                    </span>
                 </Button>
             </div>
+
+            {/* Painel de info quando conectado: saldo + loginid + moeda */}
+            {isConnected && (
+                <div className="flex items-center gap-2 w-full">
+                    {/* Saldo */}
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex-1">
+                        <Wallet className="h-3 w-3 text-emerald-400 shrink-0" />
+                        <div className="flex flex-col leading-none">
+                            <span className="text-[8px] text-emerald-400/60 uppercase tracking-widest font-bold">Saldo</span>
+                            <span className="text-[11px] font-black text-emerald-400">
+                                {accountBalance !== null
+                                    ? `${accountBalance.toFixed(2)} ${currency ?? ''}`
+                                    : '—'}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Login ID */}
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-cyan-500/10 border border-cyan-500/20 rounded-lg flex-1">
+                        <User className="h-3 w-3 text-cyan-400 shrink-0" />
+                        <div className="flex flex-col leading-none">
+                            <span className="text-[8px] text-cyan-400/60 uppercase tracking-widest font-bold">ID Deriv</span>
+                            <span className="text-[11px] font-black text-cyan-400">{loginid ?? '—'}</span>
+                        </div>
+                    </div>
+
+                    {/* Tipo de conta */}
+                    <div className={cn(
+                        "flex items-center px-2.5 py-1.5 rounded-lg border shrink-0",
+                        accountType === 'real'
+                            ? "bg-amber-500/10 border-amber-500/20"
+                            : "bg-slate-700/30 border-white/10"
+                    )}>
+                        <span className={cn(
+                            "text-[9px] font-black uppercase tracking-widest",
+                            accountType === 'real' ? "text-amber-400" : "text-slate-400"
+                        )}>
+                            {accountType === 'real' ? 'REAL' : 'DEMO'}
+                        </span>
+                    </div>
+                </div>
+            )}
+
+            {/* Campo do Token API */}
+            {!isConnected && (
+                <>
+                    <div className="flex items-center gap-2 w-full">
+                        <div className="relative flex-grow">
+                            <KeyRound className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-500 pointer-events-none" />
+                            <Input
+                                type={showToken ? "text" : "password"}
+                                value={currentToken}
+                                onChange={(e) => accountType === 'real' ? setRealToken(e.target.value) : setDemoToken(e.target.value)}
+                                placeholder={accountType === 'real' ? 'Token Real (ROT... / pat_... / API)' : 'Token Demo (VRT... / pat_... / API)'}
+                                disabled={isConnecting}
+                                className="h-8 text-[10px] font-mono pl-7 pr-8 rounded-lg border border-white/10 bg-slate-900/40 text-white placeholder:text-slate-500 focus-visible:ring-cyan-500/30 focus-visible:border-cyan-500/50"
+                            />
+                            <Button
+                                onClick={() => setShowToken(v => !v)}
+                                variant="ghost"
+                                size="icon"
+                                type="button"
+                                className="absolute right-0 top-0 h-8 w-8 hover:bg-transparent text-slate-500 hover:text-cyan-300"
+                                tabIndex={-1}
+                            >
+                                {showToken ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                            </Button>
+                        </div>
+                    </div>
+
+                    {/* Campo de ID da Conta */}
+                    <div className="relative w-full">
+                        <Hash className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-500 pointer-events-none" />
+                        <Input
+                            type="text"
+                            value={accountId}
+                            onChange={(e) => setAccountId(e.target.value)}
+                            placeholder="Login ID Deriv (ex: ROT91670562, CR123456, VR...)"
+                            disabled={isConnecting}
+                            className="h-8 text-[10px] font-mono pl-7 rounded-lg border border-white/10 bg-slate-900/40 text-white placeholder:text-slate-500 focus-visible:ring-cyan-500/30 focus-visible:border-cyan-500/50"
+                        />
+                    </div>
+                </>
+            )}
         </div>
     );
 };

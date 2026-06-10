@@ -53,6 +53,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const pendingContracts = useRef<Map<string, any>>(new Map());
     const reconnectAttemptsRef = useRef(0);
     const sendMessageRef = useRef<(payload: any) => void>(() => {});
+    const accountIdRef = useRef<string>('');
 
     const {
         addLog, setAccountBalance, setLastDigits, setIsBotRunning,
@@ -61,7 +62,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         lastDigits, setLastTickEpoch, lastTickEpoch,
         multiAssetDigits, setMultiAssetDigits,
         setTradeStatus, isBotRunning, setActiveStrategy,
-        accountType, setAccountType, realToken, demoToken,
+        accountType, setAccountType, realToken, demoToken, accountId, setAccountId,
+        loginid, setLoginid, currency, setCurrency,
         takeProfit, setTakeProfit, stopLoss, setStopLoss, martingaleFactor, setMartingaleFactor,
         maxLevels, setMaxLevels, isMartingaleActive, setIsMartingaleActive,
         isSorosActive, setIsSorosActive, sorosLevels, setSorosLevels,
@@ -125,6 +127,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!sendMessageRef.current) return;
         sendMessageRef.current({ ticks_history: symbol, count: 500, end: "latest", style: "ticks" });
     }, []);
+
+    // Mantém a ref sempre atualizada para uso dentro de callbacks sem criar dependências desnecessárias
+    useEffect(() => {
+        accountIdRef.current = accountId ?? '';
+    }, [accountId]);
 
     useEffect(() => { 
         if (isConnected) {
@@ -239,10 +246,29 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const data = event.payload;
         if (event.type === 'message') {
             if (data?.msg_type === 'authorize') {
+                // Se há um accountId configurado e e diferente do loginid retornado, troca de conta
+                if (accountIdRef.current && data.authorize?.loginid !== accountIdRef.current) {
+                    // Troca para a conta especificada antes de marcar como conectado
+                    sendMessageRef.current({ set_account: accountIdRef.current });
+                    return; // Aguarda a resposta do set_account
+                }
                 setIsConnected(true); 
                 setIsConnecting(false);
                 setStatus({ message: `Sincronizado`, color: 'bg-emerald-500' });
                 if (data.authorize?.balance !== undefined) setAccountBalance(parseFloat(data.authorize.balance));
+                if (data.authorize?.loginid) setLoginid(data.authorize.loginid);
+                if (data.authorize?.currency) setCurrency(data.authorize.currency);
+                sendMessageRef.current({ balance: 1, subscribe: 1 });
+            } else if (data?.msg_type === 'set_account') {
+                // Conta trocada com sucesso — agora busca os dados da nova conta
+                setIsConnected(true);
+                setIsConnecting(false);
+                setStatus({ message: `Sincronizado`, color: 'bg-emerald-500' });
+                if (data.set_account?.balance !== undefined) setAccountBalance(parseFloat(data.set_account.balance));
+                if (data.set_account?.loginid) setLoginid(data.set_account.loginid);
+                else if (accountIdRef.current) setLoginid(accountIdRef.current);
+                if (data.set_account?.currency) setCurrency(data.set_account.currency);
+                // Solicita saldo e subscribe apos troca de conta
                 sendMessageRef.current({ balance: 1, subscribe: 1 });
             } else if (data?.msg_type === 'balance') {
                 if (data.balance?.balance !== undefined) setAccountBalance(parseFloat(data.balance.balance));
@@ -339,12 +365,17 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else if (event.type === 'auth_error') {
             setIsConnecting(false);
             setIsConnected(false);
+            setLoginid(null);
+            setCurrency(null);
+            setAccountBalance(null);
             setStatus({ message: 'Erro de Autenticação', color: 'bg-red-500' });
         } else if (event.type === 'error') {
             setIsConnecting(false);
             setStatus({ message: 'Erro de Conexão', color: 'bg-red-500' });
         } else if (event.type === 'close') {
             setIsConnecting(false);
+            setLoginid(null);
+            setCurrency(null);
         }
     }, [processTickData, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, getMarketState, maxLevels]);
 
@@ -546,12 +577,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (isConnected) { 
                 disconnect(); 
                 setTimeout(() => {
-                    connect(token, type);
+                    connect(token, type, accountId);
                 }, 600);
             }
-            else connect(token, type);
+            else connect(token, type, accountId);
         }
-    }, [accountType, realToken, demoToken, connect, disconnect, isConnected]);
+    }, [accountType, realToken, demoToken, accountId, connect, disconnect, isConnected]);
 
     const selectAI = useCallback((ia: any) => { 
         setSelectedAIInfo(ia); 

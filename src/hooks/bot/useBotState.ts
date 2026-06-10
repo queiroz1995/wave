@@ -6,6 +6,7 @@ import { LogEntry, LogType, SignalEntry } from '@/types/bot';
 const DEFAULTS = {
     realToken: '',
     demoToken: '',
+    accountId: '',
     accountType: 'demo' as 'real' | 'demo',
     asset: '1HZ100V',
     duration: 1,
@@ -59,6 +60,7 @@ const generateSignalId = () => `signal-${signalIdCounter++}`;
 export const useBotState = () => {
     const [realToken, setRealToken] = useState(initialState.realToken);
     const [demoToken, setDemoToken] = useState(initialState.demoToken);
+    const [accountId, setAccountId] = useState(initialState.accountId);
     const [accountType, setAccountType] = useState<'real' | 'demo'>(initialState.accountType);
     const [asset, setAsset] = useState(initialState.asset);
     const [duration, setDuration] = useState(initialState.duration);
@@ -85,6 +87,8 @@ export const useBotState = () => {
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [signals, setSignals] = useState<SignalEntry[]>([]);
     const [accountBalance, setAccountBalance] = useState<number | null>(null);
+    const [loginid, setLoginid] = useState<string | null>(null);
+    const [currency, setCurrency] = useState<string | null>(null);
     const [tradeStatus, setTradeStatus] = useState<'IDLE' | 'SENDING' | 'ACTIVE'>('IDLE');
     const [isStudying, setIsStudying] = useState(false);
     const [studyTicksCount, setStudyTicksCount] = useState(0);
@@ -131,7 +135,7 @@ export const useBotState = () => {
     }, []);
 
     return {
-        realToken, setRealToken, demoToken, setDemoToken, accountType, setAccountType, asset, setAsset,
+        realToken, setRealToken, demoToken, setDemoToken, accountId, setAccountId, accountType, setAccountType, asset, setAsset,
         duration, setDuration, initialStake, setInitialStake,
         digitTradeMode, setDigitTradeMode, attackMode, setAttackMode, digitPrediction, setDigitPrediction,
         isMartingaleActive, setIsMartingaleActive, martingaleFactor, setMartingaleFactor, maxLevels, setMaxLevels,
@@ -141,7 +145,7 @@ export const useBotState = () => {
         consecutiveLosses, setConsecutiveLosses,
         lastDigits, setLastDigits, 
         multiAssetDigits, setMultiAssetDigits,
-        lastTickEpoch, setLastTickEpoch, logs, setLogs, signals, setSignals, accountBalance, setAccountBalance,
+        lastTickEpoch, setLastTickEpoch, logs, setLogs, signals, setSignals, accountBalance, setAccountBalance, loginid, setLoginid, currency, setCurrency,
         tradeStatus, setTradeStatus, addLog, addSignal, updateSignalResult,
         overUnderDirection, setOverUnderDirection,
         isStudying, setIsStudying, studyTicksCount, setStudyTicksCount,

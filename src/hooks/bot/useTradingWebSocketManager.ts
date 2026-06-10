@@ -36,7 +36,7 @@ export const useTradingWebSocketManager = ({
         onMessageRef.current = onMessage;
     }, [onMessage]);
 
-    const connect = useCallback((token: string, accountType: 'real' | 'demo') => {
+    const connect = useCallback((token: string, accountType: 'real' | 'demo', accountId?: string) => {
         try {
             if (ws.current) {
                 console.warn('[TradingWS] Connection attempt while already connected or connecting.');
@@ -50,9 +50,18 @@ export const useTradingWebSocketManager = ({
                 return;
             }
 
+            // Aceita: pat_ (Personal Access Token), ROT/VRT (tokens OAuth Deriv), ou qualquer token com >= 10 chars
+            const isPAT = cleanedToken.startsWith('pat_');
+            const isOAuthToken = /^[A-Za-z0-9]{10,}$/.test(cleanedToken);
+            if (!isPAT && !isOAuthToken) {
+                onMessageRef.current({ type: 'error', payload: 'Token inválido. Use um PAT (pat_...), token OAuth Deriv (ex: ROT...) ou token API válido.' });
+                return;
+            }
+
             localStorage.setItem('lastAccountType', accountType);
             isIntentionalDisconnect.current = false;
-            console.log(`[TradingWS] Connecting to ${accountType} account...`);
+            const tokenPrefix = isPAT ? 'PAT' : cleanedToken.substring(0, 3).toUpperCase();
+            console.log(`[TradingWS] Connecting to ${accountType} account... (formato: ${tokenPrefix})`);
             onMessageRef.current({ type: 'info', payload: `Conectando à Conta ${accountType === 'real' ? 'Real' : 'Demo'}...` });
             setStatus({ message: 'Conectando...', color: 'bg-yellow-500' });
             
@@ -62,6 +71,7 @@ export const useTradingWebSocketManager = ({
                 console.log('[TradingWS] Connection opened. Authenticating...');
                 onMessageRef.current({ type: 'info', payload: 'Conexão estabelecida. Autenticando...' });
                 setStatus({ message: 'Autenticando...', color: 'bg-yellow-500' });
+                // Envia authorize — após resposta, o BotContext chama set_account se necessário
                 ws.current?.send(JSON.stringify({ authorize: cleanedToken }));
                 
                 if (pingInterval.current) clearInterval(pingInterval.current);
@@ -79,19 +89,23 @@ export const useTradingWebSocketManager = ({
                     // console.log('[TradingWS] Received message:', data);
 
                     if (data.error) {
-                        console.error("[TradingWS] Deriv API Error:", data.error);
-                        const errorCode = data.error.code;
-                        const errorMessage = data.error.message.toLowerCase();
-                        
-                        if (errorCode === 'AuthorizationFailed' || 
-                            errorCode === 'InvalidToken' || 
-                            errorMessage.includes('permission')) 
+                        const errorCode = data.error?.code ?? 'UNKNOWN';
+                        const errorMsg = data.error?.message ?? '';
+                        console.error(`[TradingWS] Deriv API Error [${errorCode}]: ${errorMsg}`);
+
+                        if (errorCode === 'AuthorizationFailed' ||
+                            errorCode === 'InvalidToken' ||
+                            errorCode === 'InvalidAppID' ||
+                            errorMsg.toLowerCase().includes('permission'))
                         {
-                            onMessageRef.current({ type: 'auth_error', payload: 'Token inválido ou expirado. Ele foi limpo automaticamente. Por favor, insira um novo token.' });
+                            onMessageRef.current({ type: 'auth_error', payload: `Erro de autenticação [${errorCode}]: ${errorMsg}. Verifique o token e tente novamente.` });
                             isIntentionalDisconnect.current = true;
                             ws.current?.close();
-                            return;
+                        } else {
+                            // Outros erros da API (ex: erro de compra) — repassa para o contexto tratar
+                            onMessageRef.current({ type: 'message', payload: data });
                         }
+                        return;
                     }
 
                     // Passa a mensagem completa para o contexto.
@@ -120,7 +134,7 @@ export const useTradingWebSocketManager = ({
                         console.log(`[TradingWS] Connection lost. Reconnecting in ${delay / 1000}s... (Attempt ${reconnectAttemptsRef.current}/${maxAttempts})`);
                         onMessageRef.current({ type: 'info', payload: `Conexão perdida. Tentando reconectar em ${delay / 1000}s... (${reconnectAttemptsRef.current}/${maxAttempts})` });
                         setStatus({ message: 'Reconectando...', color: 'bg-yellow-500' });
-                        setTimeout(() => connect(cleanedToken, accountType), delay);
+                        setTimeout(() => connect(cleanedToken, accountType, accountId), delay);
                     } else {
                         console.error(`[TradingWS] Failed to reconnect after ${maxAttempts} attempts.`);
                         onMessageRef.current({ type: 'error', payload: `Não foi possível reconectar após ${maxAttempts} tentativas. Verifique sua conexão.` });

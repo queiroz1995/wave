@@ -5,7 +5,7 @@ import { useBotState } from './useBotState';
 
 export const useBotPersistence = (state: ReturnType<typeof useBotState>) => {
     const {
-        realToken, demoToken, accountType, asset, duration, initialStake,
+        realToken, demoToken, accountId, accountType, asset, duration, initialStake,
         digitTradeMode, attackMode, digitPrediction, overUnderDirection,
         martingaleFactor, maxLevels, takeProfit, stopLoss,
         isMartingaleActive, analyzerWindowSize, isManualMode,
@@ -17,7 +17,7 @@ export const useBotPersistence = (state: ReturnType<typeof useBotState>) => {
     
     useEffect(() => {
         const stateToSave = {
-            realToken, demoToken, accountType, asset, duration, initialStake,
+            realToken, demoToken, accountId, accountType, asset, duration, initialStake,
             digitTradeMode, attackMode, digitPrediction, overUnderDirection,
             martingaleFactor, maxLevels, takeProfit, stopLoss,
             isMartingaleActive, analyzerWindowSize, isManualMode,
@@ -28,7 +28,7 @@ export const useBotPersistence = (state: ReturnType<typeof useBotState>) => {
         };
         localStorage.setItem('derivBotState', JSON.stringify(stateToSave));
     }, [
-        realToken, demoToken, accountType, asset, duration, initialStake,
+        realToken, demoToken, accountId, accountType, asset, duration, initialStake,
         digitTradeMode, attackMode, digitPrediction, overUnderDirection,
         martingaleFactor, maxLevels, takeProfit, stopLoss,
         isMartingaleActive, analyzerWindowSize, isManualMode,
