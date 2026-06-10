@@ -50,16 +50,18 @@ export const useTradingWebSocketManager = ({
                 return;
             }
 
-            // Validação do formato PAT (pat_...) ou token legado
+            // Aceita: pat_ (Personal Access Token), ROT/VRT (tokens OAuth Deriv), ou qualquer token com >= 10 chars
             const isPAT = cleanedToken.startsWith('pat_');
-            if (!isPAT && cleanedToken.length < 10) {
-                onMessageRef.current({ type: 'error', payload: 'Token inválido. Use um PAT (pat_...) ou um token API válido.' });
+            const isOAuthToken = /^[A-Za-z0-9]{10,}$/.test(cleanedToken);
+            if (!isPAT && !isOAuthToken) {
+                onMessageRef.current({ type: 'error', payload: 'Token inválido. Use um PAT (pat_...), token OAuth Deriv (ex: ROT...) ou token API válido.' });
                 return;
             }
 
             localStorage.setItem('lastAccountType', accountType);
             isIntentionalDisconnect.current = false;
-            console.log(`[TradingWS] Connecting to ${accountType} account... (PAT: ${isPAT})`);
+            const tokenPrefix = isPAT ? 'PAT' : cleanedToken.substring(0, 3).toUpperCase();
+            console.log(`[TradingWS] Connecting to ${accountType} account... (formato: ${tokenPrefix})`);
             onMessageRef.current({ type: 'info', payload: `Conectando à Conta ${accountType === 'real' ? 'Real' : 'Demo'}...` });
             setStatus({ message: 'Conectando...', color: 'bg-yellow-500' });
             
@@ -69,7 +71,8 @@ export const useTradingWebSocketManager = ({
                 console.log('[TradingWS] Connection opened. Authenticating...');
                 onMessageRef.current({ type: 'info', payload: 'Conexão estabelecida. Autenticando...' });
                 setStatus({ message: 'Autenticando...', color: 'bg-yellow-500' });
-                // Se for PAT com accountId, envia o add_loginid para selecionar a conta correta
+                // Para PAT com accountId específico, envia add_loginid para selecionar a conta
+                // Tokens OAuth (ROT, VRT, etc.) já são vinculados a uma conta específica
                 const authPayload: any = { authorize: cleanedToken };
                 if (isPAT && accountId?.trim()) {
                     authPayload.add_loginid = accountId.trim();

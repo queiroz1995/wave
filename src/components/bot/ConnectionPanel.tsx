@@ -23,6 +23,7 @@ export const ConnectionPanel: React.FC = () => {
 
     const currentToken = accountType === 'real' ? realToken : demoToken;
     const isPAT = currentToken.startsWith('pat_');
+    const isOAuth = !isPAT && currentToken.length >= 3 && /^[A-Za-z]{2,3}[0-9]/.test(currentToken); // ROT..., VRT..., etc
 
     const handleAccountTypeChange = (value: 'real' | 'demo') => {
         setAccountType(value);
@@ -55,6 +56,11 @@ export const ConnectionPanel: React.FC = () => {
                     {isPAT && !isConnected && (
                         <span className="text-[8px] font-black uppercase tracking-widest text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-1.5 py-0.5 rounded-md shrink-0">
                             PAT
+                        </span>
+                    )}
+                    {isOAuth && !isConnected && currentToken.length > 0 && (
+                        <span className="text-[8px] font-black uppercase tracking-widest text-violet-400 bg-violet-500/10 border border-violet-500/20 px-1.5 py-0.5 rounded-md shrink-0">
+                            {currentToken.substring(0, 3).toUpperCase()}
                         </span>
                     )}
                     {accountType === 'real' && !isConnected && (
@@ -137,7 +143,7 @@ export const ConnectionPanel: React.FC = () => {
                                 type={showToken ? "text" : "password"}
                                 value={currentToken}
                                 onChange={(e) => accountType === 'real' ? setRealToken(e.target.value) : setDemoToken(e.target.value)}
-                                placeholder={accountType === 'real' ? 'Token Real (pat_... ou API)' : 'Token Demo (pat_... ou API)'}
+                                placeholder={accountType === 'real' ? 'Token Real (ROT... / pat_... / API)' : 'Token Demo (VRT... / pat_... / API)'}
                                 disabled={isConnecting}
                                 className="h-8 text-[10px] font-mono pl-7 pr-8 rounded-lg border border-white/10 bg-slate-900/40 text-white placeholder:text-slate-500 focus-visible:ring-cyan-500/30 focus-visible:border-cyan-500/50"
                             />
