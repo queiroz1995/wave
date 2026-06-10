@@ -71,13 +71,8 @@ export const useTradingWebSocketManager = ({
                 console.log('[TradingWS] Connection opened. Authenticating...');
                 onMessageRef.current({ type: 'info', payload: 'Conexão estabelecida. Autenticando...' });
                 setStatus({ message: 'Autenticando...', color: 'bg-yellow-500' });
-                // Para PAT com accountId específico, envia add_loginid para selecionar a conta
-                // Tokens OAuth (ROT, VRT, etc.) já são vinculados a uma conta específica
-                const authPayload: any = { authorize: cleanedToken };
-                if (isPAT && accountId?.trim()) {
-                    authPayload.add_loginid = accountId.trim();
-                }
-                ws.current?.send(JSON.stringify(authPayload));
+                // Envia authorize — após resposta, o BotContext chama set_account se necessário
+                ws.current?.send(JSON.stringify({ authorize: cleanedToken }));
                 
                 if (pingInterval.current) clearInterval(pingInterval.current);
                 pingInterval.current = setInterval(() => ws.current?.send(JSON.stringify({ ping: 1 })), 20000);

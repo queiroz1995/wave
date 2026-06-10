@@ -167,7 +167,7 @@ export const ConnectionPanel: React.FC = () => {
                             type="text"
                             value={accountId}
                             onChange={(e) => setAccountId(e.target.value)}
-                            placeholder="ID da Conta (ex: CR123456) — opcional para PAT"
+                            placeholder="Login ID Deriv (ex: ROT91670562, CR123456, VR...)"
                             disabled={isConnecting}
                             className="h-8 text-[10px] font-mono pl-7 rounded-lg border border-white/10 bg-slate-900/40 text-white placeholder:text-slate-500 focus-visible:ring-cyan-500/30 focus-visible:border-cyan-500/50"
                         />
