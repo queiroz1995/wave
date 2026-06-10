@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 
-const DERIV_WS_URL = import.meta.env.VITE_DERIV_WS_URL || 'wss://ws.derivws.com/websockets/v3?app_id=36544';
+const DERIV_WS_URL = import.meta.env.VITE_DERIV_WS_URL || 'wss://ws.binaryws.com/websockets/v3?app_id=1089';
 
 // Define a interface para os setters que o hook precisa
 interface TradingManagerProps {
@@ -94,19 +94,23 @@ export const useTradingWebSocketManager = ({
                     // console.log('[TradingWS] Received message:', data);
 
                     if (data.error) {
-                        console.error("[TradingWS] Deriv API Error:", data.error);
-                        const errorCode = data.error.code;
-                        const errorMessage = data.error.message.toLowerCase();
-                        
-                        if (errorCode === 'AuthorizationFailed' || 
-                            errorCode === 'InvalidToken' || 
-                            errorMessage.includes('permission')) 
+                        const errorCode = data.error?.code ?? 'UNKNOWN';
+                        const errorMsg = data.error?.message ?? '';
+                        console.error(`[TradingWS] Deriv API Error [${errorCode}]: ${errorMsg}`);
+
+                        if (errorCode === 'AuthorizationFailed' ||
+                            errorCode === 'InvalidToken' ||
+                            errorCode === 'InvalidAppID' ||
+                            errorMsg.toLowerCase().includes('permission'))
                         {
-                            onMessageRef.current({ type: 'auth_error', payload: 'Token inválido ou expirado. Ele foi limpo automaticamente. Por favor, insira um novo token.' });
+                            onMessageRef.current({ type: 'auth_error', payload: `Erro de autenticação [${errorCode}]: ${errorMsg}. Verifique o token e tente novamente.` });
                             isIntentionalDisconnect.current = true;
                             ws.current?.close();
-                            return;
+                        } else {
+                            // Outros erros da API (ex: erro de compra) — repassa para o contexto tratar
+                            onMessageRef.current({ type: 'message', payload: data });
                         }
+                        return;
                     }
 
                     // Passa a mensagem completa para o contexto.
