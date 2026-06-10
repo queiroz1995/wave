@@ -62,6 +62,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         multiAssetDigits, setMultiAssetDigits,
         setTradeStatus, isBotRunning, setActiveStrategy,
         accountType, setAccountType, realToken, demoToken, accountId, setAccountId,
+        loginid, setLoginid, currency, setCurrency,
         takeProfit, setTakeProfit, stopLoss, setStopLoss, martingaleFactor, setMartingaleFactor,
         maxLevels, setMaxLevels, isMartingaleActive, setIsMartingaleActive,
         isSorosActive, setIsSorosActive, sorosLevels, setSorosLevels,
@@ -243,6 +244,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setIsConnecting(false);
                 setStatus({ message: `Sincronizado`, color: 'bg-emerald-500' });
                 if (data.authorize?.balance !== undefined) setAccountBalance(parseFloat(data.authorize.balance));
+                if (data.authorize?.loginid) setLoginid(data.authorize.loginid);
+                if (data.authorize?.currency) setCurrency(data.authorize.currency);
                 sendMessageRef.current({ balance: 1, subscribe: 1 });
             } else if (data?.msg_type === 'balance') {
                 if (data.balance?.balance !== undefined) setAccountBalance(parseFloat(data.balance.balance));
@@ -339,12 +342,17 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else if (event.type === 'auth_error') {
             setIsConnecting(false);
             setIsConnected(false);
+            setLoginid(null);
+            setCurrency(null);
+            setAccountBalance(null);
             setStatus({ message: 'Erro de Autenticação', color: 'bg-red-500' });
         } else if (event.type === 'error') {
             setIsConnecting(false);
             setStatus({ message: 'Erro de Conexão', color: 'bg-red-500' });
         } else if (event.type === 'close') {
             setIsConnecting(false);
+            setLoginid(null);
+            setCurrency(null);
         }
     }, [processTickData, setAccountBalance, setTotalProfit, setWins, setLosses, updateSignalResult, takeProfit, stopLoss, stopBot, getMarketState, maxLevels]);
 

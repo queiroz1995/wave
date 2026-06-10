@@ -87,6 +87,8 @@ export const useBotState = () => {
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [signals, setSignals] = useState<SignalEntry[]>([]);
     const [accountBalance, setAccountBalance] = useState<number | null>(null);
+    const [loginid, setLoginid] = useState<string | null>(null);
+    const [currency, setCurrency] = useState<string | null>(null);
     const [tradeStatus, setTradeStatus] = useState<'IDLE' | 'SENDING' | 'ACTIVE'>('IDLE');
     const [isStudying, setIsStudying] = useState(false);
     const [studyTicksCount, setStudyTicksCount] = useState(0);
@@ -143,7 +145,7 @@ export const useBotState = () => {
         consecutiveLosses, setConsecutiveLosses,
         lastDigits, setLastDigits, 
         multiAssetDigits, setMultiAssetDigits,
-        lastTickEpoch, setLastTickEpoch, logs, setLogs, signals, setSignals, accountBalance, setAccountBalance,
+        lastTickEpoch, setLastTickEpoch, logs, setLogs, signals, setSignals, accountBalance, setAccountBalance, loginid, setLoginid, currency, setCurrency,
         tradeStatus, setTradeStatus, addLog, addSignal, updateSignalResult,
         overUnderDirection, setOverUnderDirection,
         isStudying, setIsStudying, studyTicksCount, setStudyTicksCount,
