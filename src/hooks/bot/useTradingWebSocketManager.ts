@@ -36,7 +36,7 @@ export const useTradingWebSocketManager = ({
         onMessageRef.current = onMessage;
     }, [onMessage]);
 
-    const connect = useCallback((token: string, accountType: 'real' | 'demo') => {
+    const connect = useCallback((token: string, accountType: 'real' | 'demo', accountId?: string) => {
         try {
             if (ws.current) {
                 console.warn('[TradingWS] Connection attempt while already connected or connecting.');
@@ -50,9 +50,16 @@ export const useTradingWebSocketManager = ({
                 return;
             }
 
+            // Validação do formato PAT (pat_...) ou token legado
+            const isPAT = cleanedToken.startsWith('pat_');
+            if (!isPAT && cleanedToken.length < 10) {
+                onMessageRef.current({ type: 'error', payload: 'Token inválido. Use um PAT (pat_...) ou um token API válido.' });
+                return;
+            }
+
             localStorage.setItem('lastAccountType', accountType);
             isIntentionalDisconnect.current = false;
-            console.log(`[TradingWS] Connecting to ${accountType} account...`);
+            console.log(`[TradingWS] Connecting to ${accountType} account... (PAT: ${isPAT})`);
             onMessageRef.current({ type: 'info', payload: `Conectando à Conta ${accountType === 'real' ? 'Real' : 'Demo'}...` });
             setStatus({ message: 'Conectando...', color: 'bg-yellow-500' });
             
@@ -62,7 +69,12 @@ export const useTradingWebSocketManager = ({
                 console.log('[TradingWS] Connection opened. Authenticating...');
                 onMessageRef.current({ type: 'info', payload: 'Conexão estabelecida. Autenticando...' });
                 setStatus({ message: 'Autenticando...', color: 'bg-yellow-500' });
-                ws.current?.send(JSON.stringify({ authorize: cleanedToken }));
+                // Se for PAT com accountId, envia o add_loginid para selecionar a conta correta
+                const authPayload: any = { authorize: cleanedToken };
+                if (isPAT && accountId?.trim()) {
+                    authPayload.add_loginid = accountId.trim();
+                }
+                ws.current?.send(JSON.stringify(authPayload));
                 
                 if (pingInterval.current) clearInterval(pingInterval.current);
                 pingInterval.current = setInterval(() => ws.current?.send(JSON.stringify({ ping: 1 })), 20000);
@@ -120,7 +132,7 @@ export const useTradingWebSocketManager = ({
                         console.log(`[TradingWS] Connection lost. Reconnecting in ${delay / 1000}s... (Attempt ${reconnectAttemptsRef.current}/${maxAttempts})`);
                         onMessageRef.current({ type: 'info', payload: `Conexão perdida. Tentando reconectar em ${delay / 1000}s... (${reconnectAttemptsRef.current}/${maxAttempts})` });
                         setStatus({ message: 'Reconectando...', color: 'bg-yellow-500' });
-                        setTimeout(() => connect(cleanedToken, accountType), delay);
+                        setTimeout(() => connect(cleanedToken, accountType, accountId), delay);
                     } else {
                         console.error(`[TradingWS] Failed to reconnect after ${maxAttempts} attempts.`);
                         onMessageRef.current({ type: 'error', payload: `Não foi possível reconectar após ${maxAttempts} tentativas. Verifique sua conexão.` });

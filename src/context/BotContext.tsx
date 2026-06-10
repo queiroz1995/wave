@@ -61,7 +61,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         lastDigits, setLastTickEpoch, lastTickEpoch,
         multiAssetDigits, setMultiAssetDigits,
         setTradeStatus, isBotRunning, setActiveStrategy,
-        accountType, setAccountType, realToken, demoToken,
+        accountType, setAccountType, realToken, demoToken, accountId, setAccountId,
         takeProfit, setTakeProfit, stopLoss, setStopLoss, martingaleFactor, setMartingaleFactor,
         maxLevels, setMaxLevels, isMartingaleActive, setIsMartingaleActive,
         isSorosActive, setIsSorosActive, sorosLevels, setSorosLevels,
@@ -546,12 +546,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (isConnected) { 
                 disconnect(); 
                 setTimeout(() => {
-                    connect(token, type);
+                    connect(token, type, accountId);
                 }, 600);
             }
-            else connect(token, type);
+            else connect(token, type, accountId);
         }
-    }, [accountType, realToken, demoToken, connect, disconnect, isConnected]);
+    }, [accountType, realToken, demoToken, accountId, connect, disconnect, isConnected]);
 
     const selectAI = useCallback((ia: any) => { 
         setSelectedAIInfo(ia); 

@@ -6,6 +6,7 @@ import { LogEntry, LogType, SignalEntry } from '@/types/bot';
 const DEFAULTS = {
     realToken: '',
     demoToken: '',
+    accountId: '',
     accountType: 'demo' as 'real' | 'demo',
     asset: '1HZ100V',
     duration: 1,
@@ -59,6 +60,7 @@ const generateSignalId = () => `signal-${signalIdCounter++}`;
 export const useBotState = () => {
     const [realToken, setRealToken] = useState(initialState.realToken);
     const [demoToken, setDemoToken] = useState(initialState.demoToken);
+    const [accountId, setAccountId] = useState(initialState.accountId);
     const [accountType, setAccountType] = useState<'real' | 'demo'>(initialState.accountType);
     const [asset, setAsset] = useState(initialState.asset);
     const [duration, setDuration] = useState(initialState.duration);
@@ -131,7 +133,7 @@ export const useBotState = () => {
     }, []);
 
     return {
-        realToken, setRealToken, demoToken, setDemoToken, accountType, setAccountType, asset, setAsset,
+        realToken, setRealToken, demoToken, setDemoToken, accountId, setAccountId, accountType, setAccountType, asset, setAsset,
         duration, setDuration, initialStake, setInitialStake,
         digitTradeMode, setDigitTradeMode, attackMode, setAttackMode, digitPrediction, setDigitPrediction,
         isMartingaleActive, setIsMartingaleActive, martingaleFactor, setMartingaleFactor, maxLevels, setMaxLevels,
