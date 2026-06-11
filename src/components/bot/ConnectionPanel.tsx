@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Power, PowerOff, Wallet, Loader2, Eye, EyeOff, KeyRound, Hash, User } from 'lucide-react';
+import { Power, PowerOff, Wallet, Loader2, Eye, EyeOff, KeyRound, Hash, User, AlertCircle, CheckCircle2, Info } from 'lucide-react';
 import { useBotContext } from '@/context/BotContext';
 import { cn } from '@/lib/utils';
 
@@ -17,7 +17,11 @@ export const ConnectionPanel: React.FC = () => {
         handleConnect, handleDisconnect,
         isConnected, isConnecting, status,
         accountBalance, loginid, currency,
+        logs,
     } = useBotContext();
+
+    const [showMessages, setShowMessages] = useState(true);
+    const logsEndRef = useRef<HTMLDivElement>(null);
 
     const [showToken, setShowToken] = useState(false);
 
@@ -32,6 +36,11 @@ export const ConnectionPanel: React.FC = () => {
     const handleConnectClick = () => {
         handleConnect(accountType, currentToken);
     };
+
+    // Auto-scroll para o último log
+    useEffect(() => {
+        logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [logs]);
 
     return (
         <div className="w-full flex flex-col gap-2 bg-slate-950/40 backdrop-blur-xl border border-white/10 p-2.5 rounded-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] transition-all duration-300 hover:border-cyan-500/30">
@@ -173,6 +182,60 @@ export const ConnectionPanel: React.FC = () => {
                         />
                     </div>
                 </>
+            )}
+
+            {/* Painel de Mensagens e Status */}
+            {(isConnecting || logs.length > 0) && (
+                <div className="w-full border border-white/10 rounded-lg overflow-hidden bg-slate-900/50">
+                    <div className="flex items-center justify-between px-2.5 py-1.5 bg-slate-900/80 border-b border-white/10">
+                        <button
+                            onClick={() => setShowMessages(!showMessages)}
+                            className="text-[8px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-colors flex items-center gap-1"
+                        >
+                            <Info className="h-3 w-3" />
+                            Mensagens {isConnecting && '(conectando...)'}
+                        </button>
+                        <span className="text-[8px] text-slate-500">
+                            {logs.length} evento{logs.length !== 1 ? 's' : ''}
+                        </span>
+                    </div>
+
+                    {showMessages && (
+                        <div className="max-h-[200px] overflow-y-auto flex flex-col gap-1 p-2">
+                            {logs.length === 0 ? (
+                                <div className="text-[8px] text-slate-500 py-2">Nenhuma mensagem ainda...</div>
+                            ) : (
+                                logs.slice(-8).map((log, idx) => (
+                                    <div
+                                        key={idx}
+                                        className={cn(
+                                            "text-[8px] px-1.5 py-1 rounded flex items-start gap-1.5 font-mono",
+                                            log.type === 'error'
+                                                ? "bg-red-500/10 text-red-300 border border-red-500/20"
+                                                : log.type === 'success'
+                                                ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20"
+                                                : log.type === 'info'
+                                                ? "bg-cyan-500/10 text-cyan-300 border border-cyan-500/20"
+                                                : "bg-slate-700/30 text-slate-300 border border-white/10"
+                                        )}
+                                    >
+                                        <span className="shrink-0 mt-0.5">
+                                            {log.type === 'error' ? (
+                                                <AlertCircle className="h-2.5 w-2.5" />
+                                            ) : log.type === 'success' ? (
+                                                <CheckCircle2 className="h-2.5 w-2.5" />
+                                            ) : (
+                                                <Info className="h-2.5 w-2.5" />
+                                            )}
+                                        </span>
+                                        <span className="break-words flex-1">{log.message}</span>
+                                    </div>
+                                ))
+                            )}
+                            <div ref={logsEndRef} />
+                        </div>
+                    )}
+                </div>
             )}
         </div>
     );
