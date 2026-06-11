@@ -278,7 +278,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 // Solicita saldo e subscribe apos troca de conta
                 sendMessageRef.current({ balance: 1, subscribe: 1 });
             } else if (data?.msg_type === 'balance') {
-                if (data.balance?.balance !== undefined) setAccountBalance(parseFloat(data.balance.balance));
+                if (data.balance?.balance !== undefined) {
+                    const saldoNovo = parseFloat(data.balance.balance);
+                    setAccountBalance(saldoNovo);
+                    addLog(`Saldo atualizado: ${saldoNovo} ${data.balance?.currency ?? 'USD'}`, 'info');
+                }
             } else if (data?.msg_type === 'tick') {
                 processTickData(data.tick);
             } else if (data?.msg_type === 'buy') {
