@@ -2,7 +2,8 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 
-const DERIV_WS_URL = import.meta.env.VITE_DERIV_WS_URL || 'wss://ws.binaryws.com/websockets/v3?app_id=1089';
+// Usar derivws.com para PAT e tokens modernos — binaryws.com é legado
+const DERIV_WS_URL = import.meta.env.VITE_DERIV_WS_URL || 'wss://ws.derivws.com/websockets/v3?app_id=1089';
 
 // Define a interface para os setters que o hook precisa
 interface TradingManagerProps {
