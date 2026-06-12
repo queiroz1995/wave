@@ -45,7 +45,13 @@ export const useTradingWebSocketManager = ({
                 return;
             }
 
-            const cleanedToken = token.trim();
+            // Limpa o token: remove espaços, quebras de linha, tabs, aspas e caracteres invisíveis
+            // que o copy/paste frequentemente adiciona e que causam "InvalidToken".
+            const cleanedToken = token
+                .replace(/[\s\u200B-\u200D\uFEFF]/g, '') // remove todos os espaços e zero-width chars
+                .replace(/^["']+|["']+$/g, '')           // remove aspas no início/fim
+                .trim();
+
             if (!cleanedToken) {
                 onMessageRef.current({ type: 'error', payload: `Por favor, insira o Token da Conta ${accountType === 'real' ? 'Real' : 'Demo'}.` });
                 return;
