@@ -1,0 +1,123 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 224 71% 4%;
+    --foreground: 213 31% 91%;
+    --card: 224 71% 4%;
+    --card-foreground: 213 31% 91%;
+    --popover: 224 71% 4%;
+    --popover-foreground: 215 20.2% 65.1%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 222.2 47.4% 11.2%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 223 47% 11%;
+    --muted-foreground: 215.4 16.3% 56.9%;
+    --accent: 216 34% 17%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 216 34% 17%;
+    --input: 216 34% 17%;
+    --ring: 224.3 76.3% 48%;
+    --radius: 1rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    overflow-x: hidden;
+  }
+}
+
+/* Animação da Grade em Movimento Infinito */
+@keyframes grid-scroll {
+  from { background-position: 0 0; }
+  to { background-position: 0 40px; }
+}
+
+/* Animação de Varredura (Scanline) */
+@keyframes ai-scan {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+/* Animação de Pulsação de Cor */
+@keyframes aurora-pulse {
+  0%, 100% { opacity: 0.2; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.1); }
+}
+
+/* Define a animação de deriva (drift) para as auras de fundo */
+@keyframes drift {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  33% { transform: translate(20%, 10%) rotate(5deg); }
+  66% { transform: translate(-10%, -10%) rotate(-5deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
+
+.animate-drift {
+  animation: drift 20s ease-in-out infinite alternate;
+}
+
+.animate-grid-scroll {
+  animation: grid-scroll 2s linear infinite;
+}
+
+.animate-ai-scan {
+  animation: ai-scan 4s linear infinite;
+}
+
+.animate-aurora {
+  animation: aurora-pulse 10s ease-in-out infinite;
+}
+
+/* Efeito de Grade Cibernética (Nucleo Wave Style) */
+.bg-cyber-grid {
+  background-image: 
+    linear-gradient(to right, rgba(34, 211, 238, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(34, 211, 238, 0.08) 1px, transparent 1px);
+  background-size: 30px 30px;
+}
+
+.ai-scanline {
+  background: linear-gradient(to bottom, transparent, rgba(59, 130, 246, 0.2), transparent);
+  height: 100px;
+  width: 100%;
+}
+
+/* Flash instantâneo para ticks - velocidade Volatility */
+@keyframes tick-flash {
+  0% { opacity: 1; transform: scale(1.15); }
+  50% { opacity: 1; transform: scale(1.05); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes tick-glow {
+  0% { box-shadow: 0 0 12px rgba(34, 211, 238, 0.6); }
+  100% { box-shadow: 0 0 0px transparent; }
+}
+
+@keyframes digit-pop {
+  0% { transform: scale(1.2); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-tick-flash {
+  animation: tick-flash 120ms ease-out;
+}
+
+.animate-tick-glow {
+  animation: tick-glow 200ms ease-out;
+}
+
+.animate-digit-pop {
+  animation: digit-pop 80ms ease-out;
+}

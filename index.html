@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en" translate="no">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <link rel="icon" type="image/svg+xml" href="/robot-icon.svg" />
+    <link rel="apple-touch-icon" href="/robot-icon.svg" />
+    
+    <!-- PWA Meta Tags -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Rico 2.0">
+    <meta name="theme-color" content="#0a1128" />
+
+    <title>DevBot</title>
+  </head>
+
+  <body>
+    <div id="root">
+      <!-- Tela de Carregamento Instantânea (Splash Screen) -->
+      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background-color: #0a1128; color: #ffffff; font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 0; box-sizing: border-box;">
+        <div style="position: relative; width: 80px; height: 80px; margin-bottom: 20px;">
+          <div style="position: absolute; inset: 0; border: 4px solid rgba(34, 211, 238, 0.1); border-radius: 50%;"></div>
+          <div style="position: absolute; inset: 0; border: 4px solid transparent; border-top-color: #22d3ee; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+          <div style="position: absolute; inset: 15px; background: rgba(34, 211, 238, 0.15); border-radius: 50%; display: flex; align-items: center; justify-content: center; animation: pulse 1.5s ease-in-out infinite;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          </div>
+        </div>
+        <h1 style="font-size: 18px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.25em; margin: 0; color: #ffffff; text-align: center;">WAVE SNIPER</h1>
+        <p style="font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3em; margin-top: 8px; color: #22d3ee; opacity: 0.8; animation: pulse 1.5s ease-in-out infinite; text-align: center;">Sincronizando I.A...</p>
+        <style>
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+          @keyframes pulse {
+            0%, 100% { opacity: 0.6; transform: scale(0.95); }
+            50% { opacity: 1; transform: scale(1.05); }
+          }
+          body {
+            margin: 0;
+            background-color: #0a1128;
+          }
+        </style>
+      </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

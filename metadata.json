@@ -1,0 +1,8 @@
+{
+  "name": "Deriv Trading Bot",
+  "description": "An automated trading bot for Deriv (Binary.com) with strategy configuration, risk management, and market chart visualization.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
