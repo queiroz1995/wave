@@ -162,7 +162,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setLastTickEpoch, lastDigits, lastTickEpoch,
         setTradeStatus, tradeStatus, isBotRunning, isPaused,
         accountType, realToken, demoToken,
-        appId, setAccountId, duration, takeProfit, stopLoss, totalProfit,
+        appId, setAppId, setAccountId, duration, takeProfit, stopLoss, totalProfit,
         setCurrentConfidence, setIsStudying, setIsPaused, setIsManipulationDetected,
         digitTradeMode, overUnderDirection, setCurrency, currency, setSignals,
         digitPrediction,
@@ -1110,7 +1110,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         status,
         handleConnect,
         handleDisconnect,
-        toggleBot: () => setIsBotRunning(!isBotRunning),
+        appId, setAppId, toggleBot: () => setIsBotRunning(!isBotRunning),
         resetOperations: () => {
             totalProfitRef.current = 0;
             setTotalProfit(0);
