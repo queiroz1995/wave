@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback } from 'react';
 import { LogEntry, LogType, SignalEntry } from '@/types/bot';
 
 export const DEFAULT_DERIV_APP_ID = '1089';
@@ -44,9 +44,7 @@ const getInitialState = () => {
         if (!savedStateJSON) {
             return { ...DEFAULTS };
         }
-        const saved = JSON.parse(savedStateJSON);
-        // Faz o merge com os padrões para evitar erros caso faltem chaves no localStorage antigo
-        return { ...DEFAULTS, ...saved };
+        return JSON.parse(savedStateJSON);
     } catch (e) {
         return { ...DEFAULTS };
     }
@@ -110,6 +108,8 @@ export const useBotState = () => {
     const [accountBalance, setAccountBalance] = useState<number | null>(null);
     const [tradeStatus, setTradeStatus] = useState<'IDLE' | 'SENDING' | 'ACTIVE'>('IDLE');
     const [lastTickEpoch, setLastTickEpoch] = useState<number | null>(null);
+    const [multiAssetDigits, setMultiAssetDigits] = useState<Record<string, number[]>>({});
+    const [availableAccounts, setAvailableAccounts] = useState<any[]>([]);
 
     const addLog = useCallback((message: string, type: LogType, details?: any) => {
         setLogs(prev => [{
@@ -139,8 +139,7 @@ export const useBotState = () => {
         setSignals([]);
     }, []);
 
-    // Retorna um objeto estável usando useMemo para evitar loops no Provider
-    return useMemo(() => ({
+    return {
         realToken, setRealToken, demoToken, setDemoToken, accountId, setAccountId, appId, setAppId, accountType, setAccountType,
         asset, setAsset, duration, setDuration, initialStake, setInitialStake,
         digitTradeMode, setDigitTradeMode, attackMode, setAttackMode, digitPrediction, setDigitPrediction,
@@ -161,17 +160,7 @@ export const useBotState = () => {
         totalProfit, setTotalProfit, wins, setWins, losses, setLosses,
         lastDigits, setLastDigits, logs, setLogs, signals, setSignals, accountBalance, setAccountBalance,
         tradeStatus, setTradeStatus, addLog, addSignal, updateSignalResult, clearSignals,
-        lastTickEpoch, setLastTickEpoch
-    }), [
-        realToken, demoToken, accountId, appId, accountType, asset, duration, initialStake,
-        digitTradeMode, attackMode, digitPrediction, overUnderDirection, martingaleFactor, maxLevels,
-        takeProfit, stopLoss, isMartingaleActive, analyzerWindowSize, isManualMode,
-        learningData, scoreThreshold, marketStabilityThreshold, bankManagementInitialBankroll,
-        bankManagementDailyGoalPercent, bankManagementDailyStopPercent, bankManagementCurrentDay,
-        bankManagementActualBankroll, currency, isBotRunning, isPaused, isManipulationDetected,
-        isStudying, currentConfidence, isSmartModeActive, virtualTargetLosses, virtualLossStreak,
-        isWaitingForVirtualResult, isWaitingForRecoveryVirtual, isSorosActive, sorosLevels,
-        totalProfit, wins, losses, lastDigits, logs, signals, accountBalance, tradeStatus,
-        addLog, addSignal, updateSignalResult, clearSignals, lastTickEpoch
-    ]);
+        lastTickEpoch, setLastTickEpoch, multiAssetDigits, setMultiAssetDigits,
+        availableAccounts, setAvailableAccounts
+    };
 };
