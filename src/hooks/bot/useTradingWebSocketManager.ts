@@ -107,7 +107,8 @@ export const useTradingWebSocketManager = ({
                     socket.close();
                     
                     setTimeout(() => {
-                        const fallbackSocket = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=1089`);
+                        const fallbackAppId = '1089';
+                        const fallbackSocket = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${fallbackAppId}`);
                         ws.current = fallbackSocket;
                         setupSocketListeners(fallbackSocket, currentConnectionId, cleanToken, '1089', accountType);
                         
