@@ -1,0 +1,42 @@
+            if (data?.msg_type === 'tick') {
+                const tickSymbol = data.tick?.symbol;
+                const tickQuote = data.tick?.quote ?? data.tick?.tick;
+                const pipSize = data.tick?.pip_size;
+                let lastDigit = 0;
+                
+                if (tickQuote !== undefined && pipSize !== undefined) {
+                    const fixedValue = Number(tickQuote).toFixed(pipSize);
+                    lastDigit = Number(fixedValue.slice(-1));
+                } else {
+                    const tickValueStr = String(data.tick?.quote ?? data.tick?.display_value ?? data.tick?.tick);
+                    lastDigit = Number(tickValueStr.replace(/[^\d]/g, '').slice(-1));
+                }
+                const epoch = data.tick?.epoch;
+
+                if (Number.isFinite(lastDigit) && tickSymbol === asset) {
+                    setCurrentLiveTick(lastDigit);
+                    latestTickDigitRef.current = lastDigit;
+                    setLastTickEpoch(epoch);
+
+                    setLastDigits(prev => {
+                        return [lastDigit, ...prev].slice(0, 500);
+                    });
+
+                    // Processamento de Simulação de Trade Virtual Local (Contador Regressivo de Ticks)
+                    if (activeVirtualTradeRef.current) {
+                        activeVirtualTradeRef.current.ticksRemaining--;
+                        
+                        if (activeVirtualTradeRef.current.ticksRemaining <= 0) {
+                            const virtualTrade = activeVirtualTradeRef.current;
+                            const exitDigit = lastDigit;
+                            const isEven = exitDigit % 2 === 0;
+                            let isWin = false;
+
+                            if (virtualTrade.prediction === 'DIGITEVEN') isWin = isEven;
+                            else if (virtualTrade.prediction === 'DIGITODD') isWin = !isEven;
+                            else if (virtualTrade.prediction === 'DIGITOVER') isWin = exitDigit > digitPrediction;
+                            else if (virtualTrade.prediction === 'DIGITUNDER') isWin = exitDigit < digitPrediction;
+
+                            const result = isWin ? 'WIN' : 'LOSS';
+
+                            // Registra o resultado virtual no terminal de dados de forma estilizada

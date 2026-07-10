@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react';
 import { LogEntry, LogType, SignalEntry } from '@/types/bot';
 
-export const DEFAULT_DERIV_APP_ID = '33yxEj8JnVc9XRyM6aB2n';
+export const DEFAULT_DERIV_APP_ID = '1089';
 
 const DEFAULTS = {
     realToken: '',

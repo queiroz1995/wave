@@ -260,6 +260,71 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (event.type !== 'message') return;
 
+        
+        if (data?.msg_type === 'tick') {
+            const tickSymbol = data.tick?.symbol;
+            const tickQuote = data.tick?.quote ?? data.tick?.tick;
+            const pipSize = data.tick?.pip_size;
+            let lastDigit = 0;
+            
+            if (tickQuote !== undefined && pipSize !== undefined) {
+                const fixedValue = Number(tickQuote).toFixed(pipSize);
+                lastDigit = Number(fixedValue.slice(-1));
+            } else {
+                const tickValueStr = String(data.tick?.quote ?? data.tick?.display_value ?? data.tick?.tick);
+                lastDigit = Number(tickValueStr.replace(/[^\d]/g, '').slice(-1));
+            }
+
+            const epoch = data.tick?.epoch;
+
+            if (Number.isFinite(lastDigit) && tickSymbol === asset) {
+                setCurrentLiveTick(lastDigit);
+                latestTickDigitRef.current = lastDigit;
+                setLastTickEpoch(epoch);
+                setLastDigits(prev => {
+                    return [lastDigit, ...prev].slice(0, 500);
+                });
+
+                // Processamento de Simulação de Trade Virtual Local (Contador Regressivo de Ticks)
+                if (activeVirtualTradeRef.current) {
+                    activeVirtualTradeRef.current.ticksRemaining--;
+                    
+                    if (activeVirtualTradeRef.current.ticksRemaining <= 0) {
+                        const virtualTrade = activeVirtualTradeRef.current;
+                        const exitDigit = lastDigit;
+                        const isEven = exitDigit % 2 === 0;
+                        let isWin = false;
+
+                        if (virtualTrade.prediction === 'DIGITEVEN') isWin = isEven;
+                        else if (virtualTrade.prediction === 'DIGITODD') isWin = !isEven;
+                        else if (virtualTrade.prediction === 'DIGITOVER') isWin = exitDigit > digitPrediction;
+                        else if (virtualTrade.prediction === 'DIGITUNDER') isWin = exitDigit < digitPrediction;
+
+                        const result = isWin ? 'WIN' : 'LOSS';
+
+                        addLog(
+                            `[VIRTUAL] ${result === 'WIN' ? 'Vitória Virtual' : 'Perda Virtual'} (Dígito: ${exitDigit})`,
+                            result,
+                            { isVirtual: true, strategyName: virtualTrade.strategyName, contractType: virtualTrade.prediction, exitDigit }
+                        );
+
+                        if (isWin) {
+                            setVirtualLossStreak(0);
+                            setIsWaitingForVirtualResult(false);
+                            activeVirtualTradeRef.current = null;
+                            updateSignalResult(virtualTrade.signalId, 'WIN', 0.35, 0.35, exitDigit);
+                        } else {
+                            const nextStreak = virtualLossStreakRef.current + 1;
+                            setVirtualLossStreak(nextStreak);
+                            setIsWaitingForVirtualResult(false);
+                            activeVirtualTradeRef.current = null;
+                            updateSignalResult(virtualTrade.signalId, 'LOSS', -0.35, 0.35, exitDigit);
+                        }
+                    }
+                }
+            }
+        }
+
         if (data?.msg_type === 'proposal') {
             const tracked = proposalTracker.current.get(data.req_id);
 
@@ -499,9 +564,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Monitoramento de Ticks em Tempo Real para a Operação Ativa
     const prevEpochRef = useRef<number | null>(null);
+
     useEffect(() => {
         if (!isConnected) return;
-
         if (tradeStatus === 'ACTIVE') {
             if (lastTickEpoch !== prevEpochRef.current) {
                 prevEpochRef.current = lastTickEpoch;
@@ -525,109 +590,15 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setCurrentLiveTick(null);
         latestTickDigitRef.current = null;
 
-        const wsUrl = `wss://ws.derivws.com/websockets/v3?app_id=1089`;
-        
         addLog(`[SISTEMA] Sincronizando fluxo de dados em tempo real para ${asset}...`, "INFO");
-        const socket = new WebSocket(wsUrl);
-        publicWsRef.current = socket;
-
-        socket.onopen = () => {
-            if (publicWsRef.current !== socket) return;
-            socket.send(JSON.stringify({ ticks: asset, subscribe: 1 }));
-        };
-
-        socket.onmessage = (event) => {
-            if (publicWsRef.current !== socket) return;
-            const data = JSON.parse(event.data);
-
-            if (data?.msg_type === 'tick') {
-                const tickSymbol = data.tick?.symbol;
-                const tickQuote = data.tick?.quote ?? data.tick?.tick;
-                const pipSize = data.tick?.pip_size;
-                let lastDigit = 0;
-                
-                if (tickQuote !== undefined && pipSize !== undefined) {
-                    const fixedValue = Number(tickQuote).toFixed(pipSize);
-                    lastDigit = Number(fixedValue.slice(-1));
-                } else {
-                    const tickValueStr = String(data.tick?.quote ?? data.tick?.display_value ?? data.tick?.tick);
-                    lastDigit = Number(tickValueStr.replace(/[^\d]/g, '').slice(-1));
-                }
-                const epoch = data.tick?.epoch;
-
-                if (Number.isFinite(lastDigit) && tickSymbol === asset) {
-                    setCurrentLiveTick(lastDigit);
-                    latestTickDigitRef.current = lastDigit;
-                    setLastTickEpoch(epoch);
-
-                    setLastDigits(prev => {
-                        return [lastDigit, ...prev].slice(0, 500);
-                    });
-
-                    // Processamento de Simulação de Trade Virtual Local (Contador Regressivo de Ticks)
-                    if (activeVirtualTradeRef.current) {
-                        activeVirtualTradeRef.current.ticksRemaining--;
-                        
-                        if (activeVirtualTradeRef.current.ticksRemaining <= 0) {
-                            const virtualTrade = activeVirtualTradeRef.current;
-                            const exitDigit = lastDigit;
-                            const isEven = exitDigit % 2 === 0;
-                            let isWin = false;
-
-                            if (virtualTrade.prediction === 'DIGITEVEN') isWin = isEven;
-                            else if (virtualTrade.prediction === 'DIGITODD') isWin = !isEven;
-                            else if (virtualTrade.prediction === 'DIGITOVER') isWin = exitDigit > digitPrediction;
-                            else if (virtualTrade.prediction === 'DIGITUNDER') isWin = exitDigit < digitPrediction;
-
-                            const result = isWin ? 'WIN' : 'LOSS';
-
-                            // Registra o resultado virtual no terminal de dados de forma estilizada
-                            addLog(
-                                `[VIRTUAL] ${result === 'WIN' ? 'Vitória Virtual' : 'Perda Virtual'} (Dígito: ${exitDigit})`,
-                                result,
-                                { isVirtual: true, strategyName: virtualTrade.strategyName, contractType: virtualTrade.prediction, exitDigit }
-                            );
-
-                            if (isWin) {
-                                // Vitória Virtual: reseta a sequência de perdas virtuais
-                                setVirtualLossStreak(0);
-                                setIsWaitingForVirtualResult(false);
-                                activeVirtualTradeRef.current = null;
-                                
-                                updateSignalResult(virtualTrade.signalId, 'WIN', 0.35, 0.35, exitDigit);
-                            } else {
-                                // Perda Virtual: incrementa a sequência de perdas virtuais
-                                const nextStreak = virtualLossStreakRef.current + 1;
-                                setVirtualLossStreak(nextStreak);
-                                setIsWaitingForVirtualResult(false);
-                                activeVirtualTradeRef.current = null;
-
-                                updateSignalResult(virtualTrade.signalId, 'LOSS', -0.35, 0.35, exitDigit);
-                            }
-                        }
-                    }
-                }
-            }
-        };
-
-        socket.onerror = (err) => {
-            console.error("Erro no WebSocket público:", err);
-        };
-
-        socket.onclose = () => {
-            if (publicWsRef.current === socket) {
-                publicWsRef.current = null;
-            }
-        };
+        
+        sendMessageRef.current({ forget_all: 'ticks' });
+        sendMessageRef.current({ ticks: asset, subscribe: 1 });
 
         return () => {
-            if (socket) {
-                socket.close();
-            }
+            sendMessageRef.current({ forget_all: 'ticks' });
         };
     }, [asset, isConnected, addLog, setLastTickEpoch, setLastDigits, digitPrediction, setVirtualLossStreak, setIsWaitingForVirtualResult, updateSignalResult]);
-
-    
 
     const handleConnect = useCallback(async () => {
         const token = (accountType === 'real' ? realToken : demoToken).trim();

@@ -1,0 +1,115 @@
+    useEffect(() => {
+        if (!isConnected) {
+            setLastDigits([]);
+            setCurrentLiveTick(null);
+            latestTickDigitRef.current = null;
+            return;
+        }
+
+        setLastDigits([]);
+        setCurrentLiveTick(null);
+        latestTickDigitRef.current = null;
+
+        const fallbackAppId = appId.trim() && !isNaN(Number(appId.trim())) ? appId.trim() : '1089';
+        const wsUrl = `wss://ws.derivws.com/websockets/v3?app_id=${fallbackAppId}`;
+        
+        addLog(`[SISTEMA] Sincronizando fluxo de dados em tempo real para ${asset}...`, "INFO");
+        const socket = new WebSocket(wsUrl);
+        publicWsRef.current = socket;
+
+        socket.onopen = () => {
+            if (publicWsRef.current !== socket) return;
+            socket.send(JSON.stringify({ ticks: asset, subscribe: 1 }));
+        };
+
+        socket.onerror = (error) => {
+            if (publicWsRef.current !== socket) return;
+            addLog("[ERRO] Falha no WebSocket de Ticks Públicos.", "ERROR");
+        };
+        socket.onclose = (event) => {
+            if (publicWsRef.current !== socket) return;
+            addLog(`[SISTEMA] WebSocket de Ticks fechado: ${event.code} ${event.reason}`, "ERROR");
+        };
+        socket.onmessage = (event) => {
+            if (publicWsRef.current !== socket) return;
+            const data = JSON.parse(event.data);
+
+            if (data?.msg_type === 'tick') {
+                const tickSymbol = data.tick?.symbol;
+                const tickQuote = data.tick?.quote ?? data.tick?.tick;
+                const pipSize = data.tick?.pip_size;
+                let lastDigit = 0;
+                
+                if (tickQuote !== undefined && pipSize !== undefined) {
+                    const fixedValue = Number(tickQuote).toFixed(pipSize);
+                    lastDigit = Number(fixedValue.slice(-1));
+                } else {
+                    const tickValueStr = String(data.tick?.quote ?? data.tick?.display_value ?? data.tick?.tick);
+                    lastDigit = Number(tickValueStr.replace(/[^\d]/g, '').slice(-1));
+                }
+                const epoch = data.tick?.epoch;
+
+                if (Number.isFinite(lastDigit) && tickSymbol === asset) {
+                    setCurrentLiveTick(lastDigit);
+                    latestTickDigitRef.current = lastDigit;
+                    setLastTickEpoch(epoch);
+
+                    setLastDigits(prev => {
+                        return [lastDigit, ...prev].slice(0, 500);
+                    });
+
+                    // Processamento de Simulação de Trade Virtual Local (Contador Regressivo de Ticks)
+                    if (activeVirtualTradeRef.current) {
+                        activeVirtualTradeRef.current.ticksRemaining--;
+                        
+                        if (activeVirtualTradeRef.current.ticksRemaining <= 0) {
+                            const virtualTrade = activeVirtualTradeRef.current;
+                            const exitDigit = lastDigit;
+                            const isEven = exitDigit % 2 === 0;
+                            let isWin = false;
+
+                            if (virtualTrade.prediction === 'DIGITEVEN') isWin = isEven;
+                            else if (virtualTrade.prediction === 'DIGITODD') isWin = !isEven;
+                            else if (virtualTrade.prediction === 'DIGITOVER') isWin = exitDigit > digitPrediction;
+                            else if (virtualTrade.prediction === 'DIGITUNDER') isWin = exitDigit < digitPrediction;
+
+                            const result = isWin ? 'WIN' : 'LOSS';
+
+                            // Registra o resultado virtual no terminal de dados de forma estilizada
+                            addLog(
+                                `[VIRTUAL] ${result === 'WIN' ? 'Vitória Virtual' : 'Perda Virtual'} (Dígito: ${exitDigit})`,
+                                result,
+                                { isVirtual: true, strategyName: virtualTrade.strategyName, contractType: virtualTrade.prediction, exitDigit }
+                            );
+
+                            if (isWin) {
+                                // Vitória Virtual: reseta a sequência de perdas virtuais
+                                setVirtualLossStreak(0);
+                                setIsWaitingForVirtualResult(false);
+                                activeVirtualTradeRef.current = null;
+                                
+                                updateSignalResult(virtualTrade.signalId, 'WIN', 0.35, 0.35, exitDigit);
+                            } else {
+                                // Perda Virtual: incrementa a sequência de perdas virtuais
+                                const nextStreak = virtualLossStreakRef.current + 1;
+                                setVirtualLossStreak(nextStreak);
+                                setIsWaitingForVirtualResult(false);
+                                activeVirtualTradeRef.current = null;
+
+                                updateSignalResult(virtualTrade.signalId, 'LOSS', -0.35, 0.35, exitDigit);
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        socket.onerror = (err) => {
+            console.error("Erro no WebSocket público:", err);
+        };
+
+        socket.onclose = () => {
+            if (publicWsRef.current === socket) {
+                publicWsRef.current = null;
+            }
+        };
