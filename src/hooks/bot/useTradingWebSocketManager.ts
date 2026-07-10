@@ -302,7 +302,7 @@ export const useTradingWebSocketManager = ({
             setStatus({ message: 'Falha de Link', color: 'bg-red-500' });
             addLog(`[ERRO] ${error?.message || "Erro desconhecido ao conectar."}`, "ERROR");
         }
-    }, [setStatus, setIsConnected, setIsConnecting, setAccountBalance, setAccountId, addLog, clearPing, setupSocketListeners]);
+    }, [setStatus, setIsConnected, setIsConnecting, setAccountBalance, setAccountId, addLog, clearPing, setupSocketListeners, setCurrency, startPing]);
 
     return useMemo(() => ({
         isConnected,

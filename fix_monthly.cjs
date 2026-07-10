@@ -1,4 +1,6 @@
-"use client";
+const fs = require('fs');
+
+const content = `"use client";
 import React, { useState, useMemo, useEffect } from 'react';
 import { getTradeHistory, clearTradeHistory, PersistedTrade } from '@/utils/tradeStorage';
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -106,7 +108,7 @@ export const MonthlyHistory = () => {
     const formatDayLabel = (dateStr: string) => {
         try {
             const [year, month, day] = dateStr.split('-');
-            return `${day}/${month}/${year}`;
+            return \`\${day}/\${month}/\${year}\`;
         } catch (e) {
             return dateStr;
         }
@@ -156,7 +158,7 @@ export const MonthlyHistory = () => {
                                     />
                                 </div>
                             ) : (
-                                <span className="text-xs font-black text-emerald-400 tracking-tight">${dailyMeta.toFixed(2)}</span>
+                                <span className="text-xs font-black text-emerald-400 tracking-tight">$\\{dailyMeta.toFixed(2)}</span>
                             )}
                         </div>
                         <div className="bg-black/40 border border-rose-500/20 rounded-lg p-2 flex flex-col justify-center">
@@ -175,7 +177,7 @@ export const MonthlyHistory = () => {
                                     />
                                 </div>
                             ) : (
-                                <span className="text-xs font-black text-rose-400 tracking-tight">${dailyLoss.toFixed(2)}</span>
+                                <span className="text-xs font-black text-rose-400 tracking-tight">$\\{dailyLoss.toFixed(2)}</span>
                             )}
                         </div>
                     </div>
@@ -191,19 +193,19 @@ export const MonthlyHistory = () => {
                                 "text-xs font-black tracking-tight",
                                 stats.totalProfit > 0 ? "text-emerald-400" : stats.totalProfit < 0 ? "text-rose-400" : "text-amber-400"
                             )}>
-                                {stats.totalProfit > 0 ? "+" : ""}${Math.abs(stats.totalProfit).toFixed(2)}
+                                {stats.totalProfit > 0 ? "+" : ""}$\\{Math.abs(stats.totalProfit).toFixed(2)}
                             </span>
                         </div>
                         <div className="bg-slate-900/50 border border-white/5 rounded-xl p-2 text-center">
                             <span className="text-[7px] font-black text-slate-500 uppercase tracking-wider block mb-0.5">Win Rate</span>
                             <span className="text-xs font-black text-cyan-400 tracking-tight">
-                                {stats.winRate.toFixed(1)}%
+                                \\{stats.winRate.toFixed(1)}%
                             </span>
                         </div>
                         <div className="bg-slate-900/50 border border-white/5 rounded-xl p-2 text-center">
                             <span className="text-[7px] font-black text-slate-500 uppercase tracking-wider block mb-0.5">Operações</span>
                             <span className="text-xs font-black text-white tracking-tight">
-                                {stats.totalTrades}
+                                \\{stats.totalTrades}
                             </span>
                         </div>
                     </div>
@@ -232,16 +234,16 @@ export const MonthlyHistory = () => {
                                             >
                                                 <div className="flex items-center gap-1.5 text-[9px] font-black text-slate-300">
                                                     {isExpanded ? <ChevronDown className="h-3 w-3 text-slate-500" /> : <ChevronUp className="h-3 w-3 text-slate-500" />}
-                                                    {formatDayLabel(day.date)}
+                                                    \\{formatDayLabel(day.date)}
                                                 </div>
                                                 <div className="text-[8px] font-bold text-slate-400 text-center">
-                                                    <span className="text-emerald-500/70">{day.wins}</span>/<span className="text-rose-500/70">{day.losses}</span>
+                                                    <span className="text-emerald-500/70">\\{day.wins}</span>/<span className="text-rose-500/70">\\{day.losses}</span>
                                                 </div>
                                                 <div className={cn(
                                                     "text-[10px] font-black text-right tracking-tighter",
                                                     day.profit > 0 ? "text-emerald-400" : day.profit < 0 ? "text-rose-400" : "text-amber-400"
                                                 )}>
-                                                    {day.profit > 0 ? "+" : ""}${Math.abs(day.profit).toFixed(2)}
+                                                    {day.profit > 0 ? "+" : ""}$\\{Math.abs(day.profit).toFixed(2)}
                                                 </div>
                                                 <div className="flex justify-end items-center">
                                                     {hitMeta ? (
@@ -259,19 +261,19 @@ export const MonthlyHistory = () => {
                                                 <div className="bg-black/20 p-2 space-y-1 inset-shadow">
                                                     {day.trades.map((trade, i) => (
                                                         <div key={trade.id} className="grid grid-cols-4 items-center text-[8px] font-mono p-1 rounded hover:bg-white/5 border border-transparent hover:border-white/5">
-                                                            <div className="text-slate-500">{trade.timestamp}</div>
+                                                            <div className="text-slate-500">\\{trade.timestamp}</div>
                                                             <div className="flex items-center justify-center gap-1">
                                                                 <span className={cn(
                                                                     "px-1 py-[1px] rounded text-[7px] font-black",
                                                                     trade.result === 'WIN' ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"
-                                                                )}>{trade.signal}</span>
+                                                                )}>\\{trade.signal}</span>
                                                             </div>
-                                                            <div className="text-slate-400 text-right">${trade.stake.toFixed(2)}</div>
+                                                            <div className="text-slate-400 text-right">$\\{trade.stake.toFixed(2)}</div>
                                                             <div className={cn(
                                                                 "font-bold text-right",
                                                                 trade.profit > 0 ? "text-emerald-400" : trade.profit < 0 ? "text-rose-400" : "text-amber-400"
                                                             )}>
-                                                                {trade.profit > 0 ? "+" : ""}${Math.abs(trade.profit).toFixed(2)}
+                                                                {trade.profit > 0 ? "+" : ""}$\\{Math.abs(trade.profit).toFixed(2)}
                                                             </div>
                                                         </div>
                                                     ))}
@@ -308,3 +310,6 @@ export const MonthlyHistory = () => {
         </div>
     );
 };
+`.replace(/\\{/g, '{');
+
+fs.writeFileSync('src/components/bot/MonthlyHistory.tsx', content);

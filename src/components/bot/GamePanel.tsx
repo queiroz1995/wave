@@ -13,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 export const GamePanel: React.FC = () => {
     const {
+        asset,
         initialStake, setInitialStake,
         duration, setDuration,
         toggleBot, isBotRunning,
@@ -29,8 +30,9 @@ export const GamePanel: React.FC = () => {
         setInitialStake(e.target.value.replace(',', '.'));
     };
 
-    const signalText = currentSignal === 'DIGITEVEN' ? 'PAR' :
-                       currentSignal === 'DIGITODD' ? 'ÍMPAR' :
+    const isForex = asset?.startsWith('frx');
+    const signalText = currentSignal === 'DIGITEVEN' ? (isForex ? 'SOBE' : 'PAR') :
+                       currentSignal === 'DIGITODD' ? (isForex ? 'DESCE' : 'ÍMPAR') :
                        currentSignal === 'DIGITOVER' ? `ACIMA ${digitPrediction}` :
                        currentSignal === 'DIGITUNDER' ? `ABAIXO ${digitPrediction}` :
                        'AGUARDANDO';
@@ -117,14 +119,14 @@ export const GamePanel: React.FC = () => {
                                 disabled={!isConnected}
                                 className="h-full py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold flex-col"
                             >
-                                <span>PAR</span>
+                                <span>{isForex ? 'SOBE' : 'PAR'}</span>
                             </Button>
                             <Button 
                                 onClick={() => manualBuy('DIGITODD', 'Manual')}
                                 disabled={!isConnected}
                                 className="h-full py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex-col"
                             >
-                                <span>ÍMPAR</span>
+                                <span>{isForex ? 'DESCE' : 'ÍMPAR'}</span>
                             </Button>
                         </div>
                     </div>

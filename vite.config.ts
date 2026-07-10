@@ -5,10 +5,19 @@ import path from "path";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
+  
   server: {
     host: "0.0.0.0",
     port: 3000,
     allowedHosts: true,
+    proxy: {
+      '/pumabroker-api': {
+        target: 'https://trade.pumabroker.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/pumabroker-api/, ''),
+        secure: false
+      }
+    }
   },
   plugins: [
     dyadComponentTagger(), 

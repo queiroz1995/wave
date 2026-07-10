@@ -32,7 +32,8 @@ export const ManualSignalPanel = ({
     isTradePending,
     onManualClick
 }: ManualSignalPanelProps) => {
-    const { initialStake, setInitialStake } = useBotContext();
+    const { initialStake, setInitialStake, asset } = useBotContext();
+    const isForex = asset?.startsWith('frx');
 
     const handleDoubleStake = () => {
         const current = parseFloat(initialStake) || 0.35;
@@ -64,9 +65,9 @@ export const ManualSignalPanel = ({
             <div
                 className={cn(
                     "p-2.5 rounded-xl border transition-all duration-500 flex flex-col gap-1.5",
-                    manualSignalIntelligence.recommendation === "PAR"
+                    manualSignalIntelligence.recommendation === "{isForex ? 'SOBE' : 'PAR'}"
                         ? "bg-emerald-500/10 border-emerald-500/30 shadow-[0_0_15px_rgba(52,211,153,0.15)]"
-                        : manualSignalIntelligence.recommendation === "ÍMPAR"
+                        : manualSignalIntelligence.recommendation === "{isForex ? 'DESCE' : 'ÍMPAR'}"
                             ? "bg-rose-500/10 border-rose-500/30 shadow-[0_0_15px_rgba(244,63,94,0.15)]"
                             : "bg-slate-900/40 border-white/5"
                 )}
