@@ -601,8 +601,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, [asset, isConnected, addLog, setLastTickEpoch, setLastDigits, digitPrediction, setVirtualLossStreak, setIsWaitingForVirtualResult, updateSignalResult]);
 
     const handleConnect = useCallback(async () => {
-        const token = (accountType === 'real' ? realToken : demoToken).trim();
-        const usedAppId = appId.trim() || DEFAULT_DERIV_APP_ID;
+        const token = ((accountType === 'real' ? realToken : demoToken) || '').trim();
+        const usedAppId = (appId || '').trim() || DEFAULT_DERIV_APP_ID;
 
         if (!token) {
             toast.error("Token não encontrado. Por favor, insira seu Token PAT.");

@@ -187,8 +187,8 @@ export const useTradingWebSocketManager = ({
     }, [setIsConnected, setIsConnecting, setStatus, setAccountBalance, setAccountId, setCurrency, addLog, startPing, clearPing]);
 
     const connectWithToken = useCallback(async (token: string, appId: string, accountType: AccountType = 'demo') => {
-        const cleanToken = token.trim();
-        const cleanAppId = appId.trim() || DEFAULT_DERIV_APP_ID;
+        const cleanToken = (token || '').trim();
+        const cleanAppId = (appId || '').trim() || DEFAULT_DERIV_APP_ID;
         const isPatToken = cleanToken.toLowerCase().startsWith('pat_');
 
         // Detecta se está rodando dentro do aplicativo de celular (Capacitor)

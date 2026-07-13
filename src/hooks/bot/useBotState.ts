@@ -44,7 +44,7 @@ const getInitialState = () => {
         if (!savedStateJSON) {
             return { ...DEFAULTS };
         }
-        return JSON.parse(savedStateJSON);
+        return { ...DEFAULTS, ...JSON.parse(savedStateJSON) };
     } catch (e) {
         return { ...DEFAULTS };
     }

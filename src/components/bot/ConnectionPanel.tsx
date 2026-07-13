@@ -61,7 +61,7 @@ export const ConnectionPanel: React.FC = () => {
 
                 <Button
                     onClick={() => isConnected ? handleDisconnect() : handleConnect()}
-                    disabled={isConnecting || (!isConnected && !currentToken.trim())}
+                    disabled={isConnecting || (!isConnected && !(currentToken || '').trim())}
                     className={cn(
                         "h-9 px-4 rounded-lg text-[10px] font-black uppercase transition-all",
                         isConnected ? "bg-rose-500/20 text-rose-400 border border-rose-500/30" : "bg-cyan-500 text-slate-950"
