@@ -107,8 +107,7 @@ export const useTradingWebSocketManager = ({
                     socket.close();
                     
                     setTimeout(() => {
-                        const fallbackAppId = '1089';
-                        const fallbackSocket = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${fallbackAppId}`);
+                        const fallbackSocket = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=1089`);
                         ws.current = fallbackSocket;
                         setupSocketListeners(fallbackSocket, currentConnectionId, cleanToken, '1089', accountType);
                         
@@ -187,8 +186,8 @@ export const useTradingWebSocketManager = ({
     }, [setIsConnected, setIsConnecting, setStatus, setAccountBalance, setAccountId, setCurrency, addLog, startPing, clearPing]);
 
     const connectWithToken = useCallback(async (token: string, appId: string, accountType: AccountType = 'demo') => {
-        const cleanToken = (token || '').trim();
-        const cleanAppId = (appId || '').trim() || DEFAULT_DERIV_APP_ID;
+        const cleanToken = token.trim();
+        const cleanAppId = appId.trim() || DEFAULT_DERIV_APP_ID;
         const isPatToken = cleanToken.toLowerCase().startsWith('pat_');
 
         // Detecta se está rodando dentro do aplicativo de celular (Capacitor)

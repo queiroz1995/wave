@@ -17,11 +17,10 @@ export const ConnectionPanel: React.FC = () => {
         demoToken, setDemoToken,
         handleConnect, handleDisconnect,
         isConnected, isConnecting, status,
-        accountBalance, accountId, appId, setAppId
+        accountBalance, accountId
     } = useBotContext();
 
     const [showToken, setShowToken] = useState(false);
-    const [showAdvanced, setShowAdvanced] = useState(false);
     const currentToken = accountType === 'real' ? realToken : demoToken;
 
     return (
@@ -61,7 +60,7 @@ export const ConnectionPanel: React.FC = () => {
 
                 <Button
                     onClick={() => isConnected ? handleDisconnect() : handleConnect()}
-                    disabled={isConnecting || (!isConnected && !(currentToken || '').trim())}
+                    disabled={isConnecting || (!isConnected && !currentToken.trim())}
                     className={cn(
                         "h-9 px-4 rounded-lg text-[10px] font-black uppercase transition-all",
                         isConnected ? "bg-rose-500/20 text-rose-400 border border-rose-500/30" : "bg-cyan-500 text-slate-950"
@@ -98,34 +97,11 @@ export const ConnectionPanel: React.FC = () => {
                         </Button>
                     </div>
 
-                    
-                    <div className="flex flex-col gap-2">
-                        <button 
-                            onClick={() => setShowAdvanced(!showAdvanced)}
-                            className="text-[10px] text-slate-400 hover:text-cyan-400 font-bold uppercase tracking-wider text-left transition-colors"
-                        >
-                            {showAdvanced ? "Ocultar Configurações Avançadas" : "Configurações Avançadas (App ID)"}
-                        </button>
-                        
-                        {showAdvanced && (
-                            <div className="space-y-2 animate-in slide-in-from-top-2">
-                                <div className="relative">
-                                    <Input
-                                        type="text"
-                                        value={appId}
-                                        onChange={(e) => setAppId(e.target.value)}
-                                        placeholder="App ID (Ex: 1089)"
-                                        className="h-9 text-xs pl-3 pr-3 rounded-xl bg-slate-900/40 border-white/10 focus-visible:ring-cyan-500/30"
-                                    />
-                                </div>
-                                <div className="px-3 py-2 bg-amber-500/5 border border-amber-500/10 rounded-lg flex items-start gap-2">
-                                    <Info className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
-                                    <p className="text-[8px] text-amber-300 font-bold uppercase tracking-wider leading-relaxed">
-                                        Se você estiver recebendo erro de "Origem Inválida" ou "App ID", crie um App ID na Deriv com o link do seu site.
-                                    </p>
-                                </div>
-                            </div>
-                        )}
+                    <div className="px-3 py-2 bg-cyan-500/5 border border-cyan-500/10 rounded-lg flex items-start gap-2">
+                        <Info className="h-3.5 w-3.5 text-cyan-400 shrink-0 mt-0.5" />
+                        <p className="text-[8px] text-cyan-300 font-bold uppercase tracking-wider leading-relaxed">
+                            O App ID já está configurado automaticamente. Insira apenas o seu Token PAT (começando com pat_).
+                        </p>
                     </div>
                 </div>
             ) : (

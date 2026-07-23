@@ -1,49 +1,22 @@
 "use client";
-import React, { useState, useMemo, useEffect } from 'react';
+
+import React, { useState, useMemo } from 'react';
 import { getTradeHistory, clearTradeHistory, PersistedTrade } from '@/utils/tradeStorage';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { Calendar, Trash2, ChevronDown, ChevronUp, Edit2, Check, Target, AlertOctagon } from 'lucide-react';
+import { Calendar, Trash2, BarChart3, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from "sonner";
-import { Input } from "@/components/ui/input";
-import { useBotContext } from "@/context/BotContext";
 
 export const MonthlyHistory = () => {
-    const { takeProfit, setTakeProfit, stopLoss, setStopLoss } = useBotContext();
     const [history, setHistory] = useState<PersistedTrade[]>(() => getTradeHistory());
     const [expandedDays, setExpandedDays] = useState<Record<string, boolean>>({});
-    
-    const [isEditingGoals, setIsEditingGoals] = useState(false);
-    const [metaInput, setMetaInput] = useState("");
-    const [lossInput, setLossInput] = useState("");
-
-    const dailyMeta = Number(takeProfit) || 0;
-    const dailyLoss = Number(stopLoss) || 0;
-
-    useEffect(() => {
-        setMetaInput(takeProfit.toString());
-        setLossInput(stopLoss.toString());
-    }, [takeProfit, stopLoss]);
-
-    const saveGoals = () => {
-        const m = Number(metaInput);
-        const l = Number(lossInput);
-        if (!isNaN(m) && m > 0) {
-            setTakeProfit(m.toString());
-        }
-        if (!isNaN(l) && l > 0) {
-            setStopLoss(l.toString());
-        }
-        setIsEditingGoals(false);
-        toast.success("Metas salvas e sincronizadas com o bot!");
-    };
 
     const handleClear = () => {
         if (window.confirm("Tem certeza que deseja limpar TODO o histórico salvo localmente? Esta ação não pode ser desfeita.")) {
             clearTradeHistory();
             setHistory([]);
-            toast.success("Histórico limpo com sucesso!");
+            toast.success("Histórico de longo prazo limpo com sucesso!");
         }
     };
 
@@ -54,12 +27,13 @@ export const MonthlyHistory = () => {
         }));
     };
 
+    // Agrupa os dados por mês e dia
     const stats = useMemo(() => {
         if (history.length === 0) return null;
+
         let totalProfit = 0;
         let wins = 0;
         let losses = 0;
-
         const dailyData: Record<string, {
             date: string;
             profit: number;
@@ -82,6 +56,7 @@ export const MonthlyHistory = () => {
                     trades: []
                 };
             }
+
             const day = dailyData[trade.date];
             day.profit += trade.profit;
             if (trade.result === 'WIN') day.wins++;
@@ -91,6 +66,8 @@ export const MonthlyHistory = () => {
 
         const totalTrades = wins + losses;
         const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : 0;
+
+        // Ordena os dias do mais recente para o mais antigo
         const sortedDays = Object.values(dailyData).sort((a, b) => b.date.localeCompare(a.date));
 
         return {
@@ -112,7 +89,8 @@ export const MonthlyHistory = () => {
         }
     };
 
-    useEffect(() => {
+    // Atualiza o histórico quando o componente foca ou é montado
+    React.useEffect(() => {
         const handleFocus = () => {
             setHistory(getTradeHistory());
         };
@@ -122,68 +100,9 @@ export const MonthlyHistory = () => {
 
     return (
         <div className="space-y-3">
-            {/* Metas e Loss (Estilo Planilha) */}
-            <div className="bg-slate-900/80 border border-white/10 rounded-xl p-3 relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 to-transparent pointer-events-none" />
-                <div className="relative z-10">
-                    <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                            <Target className="h-3 w-3 text-cyan-400" />
-                            Gerenciamento de Risco
-                        </span>
-                        {!isEditingGoals ? (
-                            <Button variant="ghost" size="icon" className="h-5 w-5 hover:bg-white/10 rounded" onClick={() => setIsEditingGoals(true)}>
-                                <Edit2 className="h-3 w-3 text-slate-400" />
-                            </Button>
-                        ) : (
-                            <Button variant="ghost" size="icon" className="h-5 w-5 hover:bg-emerald-500/20 rounded" onClick={saveGoals}>
-                                <Check className="h-3 w-3 text-emerald-400" />
-                            </Button>
-                        )}
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-2">
-                        <div className="bg-black/40 border border-emerald-500/20 rounded-lg p-2 flex flex-col justify-center">
-                            <span className="text-[8px] font-black uppercase text-emerald-500/70 tracking-wider mb-1">Meta (Take Profit)</span>
-                            {isEditingGoals ? (
-                                <div className="flex items-center">
-                                    <span className="text-emerald-400 text-xs mr-1">$</span>
-                                    <Input 
-                                        type="number" 
-                                        value={metaInput} 
-                                        onChange={(e) => setMetaInput(e.target.value)}
-                                        className="h-5 bg-transparent border-none p-0 text-xs font-black text-emerald-400 focus-visible:ring-0" 
-                                    />
-                                </div>
-                            ) : (
-                                <span className="text-xs font-black text-emerald-400 tracking-tight">${dailyMeta.toFixed(2)}</span>
-                            )}
-                        </div>
-                        <div className="bg-black/40 border border-rose-500/20 rounded-lg p-2 flex flex-col justify-center">
-                            <span className="text-[8px] font-black uppercase text-rose-500/70 tracking-wider mb-1 flex items-center gap-1">
-                                <AlertOctagon className="h-2 w-2" />
-                                Limite (Stop Loss)
-                            </span>
-                            {isEditingGoals ? (
-                                <div className="flex items-center">
-                                    <span className="text-rose-400 text-xs mr-1">$</span>
-                                    <Input 
-                                        type="number" 
-                                        value={lossInput} 
-                                        onChange={(e) => setLossInput(e.target.value)}
-                                        className="h-5 bg-transparent border-none p-0 text-xs font-black text-rose-400 focus-visible:ring-0" 
-                                    />
-                                </div>
-                            ) : (
-                                <span className="text-xs font-black text-rose-400 tracking-tight">${dailyLoss.toFixed(2)}</span>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             {stats ? (
                 <>
+                    {/* Cards de Resumo Mensal */}
                     <div className="grid grid-cols-3 gap-2">
                         <div className="bg-slate-900/50 border border-white/5 rounded-xl p-2 text-center">
                             <span className="text-[7px] font-black text-slate-500 uppercase tracking-wider block mb-0.5">Lucro Total</span>
@@ -191,11 +110,11 @@ export const MonthlyHistory = () => {
                                 "text-xs font-black tracking-tight",
                                 stats.totalProfit > 0 ? "text-emerald-400" : stats.totalProfit < 0 ? "text-rose-400" : "text-amber-400"
                             )}>
-                                {stats.totalProfit > 0 ? "+" : ""}${Math.abs(stats.totalProfit).toFixed(2)}
+                                ${stats.totalProfit.toFixed(2)}
                             </span>
                         </div>
                         <div className="bg-slate-900/50 border border-white/5 rounded-xl p-2 text-center">
-                            <span className="text-[7px] font-black text-slate-500 uppercase tracking-wider block mb-0.5">Win Rate</span>
+                            <span className="text-[7px] font-black text-slate-500 uppercase tracking-wider block mb-0.5">Assertividade</span>
                             <span className="text-xs font-black text-cyan-400 tracking-tight">
                                 {stats.winRate.toFixed(1)}%
                             </span>
@@ -208,100 +127,108 @@ export const MonthlyHistory = () => {
                         </div>
                     </div>
 
-                    {/* Tabela estilo Planilha */}
-                    <div className="rounded-xl border border-white/10 bg-slate-900/40 overflow-hidden">
-                        <div className="grid grid-cols-4 bg-black/40 p-2 border-b border-white/5">
-                            <div className="text-[8px] font-black text-slate-500 uppercase tracking-wider">Data</div>
-                            <div className="text-[8px] font-black text-slate-500 uppercase tracking-wider text-center">Trades</div>
-                            <div className="text-[8px] font-black text-slate-500 uppercase tracking-wider text-right">Resultado</div>
-                            <div className="text-[8px] font-black text-slate-500 uppercase tracking-wider text-right">Status</div>
-                        </div>
-                        
-                        <ScrollArea className="h-40">
-                            <div className="divide-y divide-white/5">
-                                {stats.sortedDays.map(day => {
-                                    const isExpanded = !!expandedDays[day.date];
-                                    const hitMeta = day.profit >= dailyMeta;
-                                    const hitLoss = day.profit <= -dailyLoss;
-                                    
-                                    return (
-                                        <div key={day.date} className="flex flex-col">
-                                            <div 
-                                                onClick={() => toggleDay(day.date)}
-                                                className="grid grid-cols-4 items-center p-2 hover:bg-white/5 cursor-pointer transition-colors"
-                                            >
-                                                <div className="flex items-center gap-1.5 text-[9px] font-black text-slate-300">
-                                                    {isExpanded ? <ChevronDown className="h-3 w-3 text-slate-500" /> : <ChevronUp className="h-3 w-3 text-slate-500" />}
+                    {/* Lista de Dias */}
+                    <ScrollArea className="h-48 pr-1">
+                        <div className="space-y-2">
+                            {stats.sortedDays.map(day => {
+                                const isExpanded = !!expandedDays[day.date];
+                                const isDayWin = day.profit > 0;
+
+                                return (
+                                    <div 
+                                        key={day.date}
+                                        className="bg-slate-900/30 border border-white/5 rounded-xl overflow-hidden transition-all"
+                                    >
+                                        {/* Cabeçalho do Dia */}
+                                        <div 
+                                            onClick={() => toggleDay(day.date)}
+                                            className="flex items-center justify-between p-2.5 cursor-pointer hover:bg-white/5 transition-colors"
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                                                <span className="text-[10px] font-black text-white">
                                                     {formatDayLabel(day.date)}
-                                                </div>
-                                                <div className="text-[8px] font-bold text-slate-400 text-center">
-                                                    <span className="text-emerald-500/70">{day.wins}</span>/<span className="text-rose-500/70">{day.losses}</span>
-                                                </div>
-                                                <div className={cn(
-                                                    "text-[10px] font-black text-right tracking-tighter",
-                                                    day.profit > 0 ? "text-emerald-400" : day.profit < 0 ? "text-rose-400" : "text-amber-400"
-                                                )}>
-                                                    {day.profit > 0 ? "+" : ""}${Math.abs(day.profit).toFixed(2)}
-                                                </div>
-                                                <div className="flex justify-end items-center">
-                                                    {hitMeta ? (
-                                                        <span className="px-1.5 py-0.5 rounded text-[7px] font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 uppercase">Meta Hit</span>
-                                                    ) : hitLoss ? (
-                                                        <span className="px-1.5 py-0.5 rounded text-[7px] font-black bg-rose-500/20 text-rose-400 border border-rose-500/30 uppercase">Stop Loss</span>
-                                                    ) : (
-                                                        <span className="px-1.5 py-0.5 rounded text-[7px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/30 uppercase">Andamento</span>
-                                                    )}
-                                                </div>
+                                                </span>
+                                                <span className="text-[8px] font-bold text-slate-500">
+                                                    ({day.wins}V - {day.losses}D)
+                                                </span>
                                             </div>
-                                            
-                                            {/* Detalhes (Expanded) */}
-                                            {isExpanded && (
-                                                <div className="bg-black/20 p-2 space-y-1 inset-shadow">
-                                                    {day.trades.map((trade, i) => (
-                                                        <div key={trade.id} className="grid grid-cols-4 items-center text-[8px] font-mono p-1 rounded hover:bg-white/5 border border-transparent hover:border-white/5">
-                                                            <div className="text-slate-500">{trade.timestamp}</div>
-                                                            <div className="flex items-center justify-center gap-1">
-                                                                <span className={cn(
-                                                                    "px-1 py-[1px] rounded text-[7px] font-black",
-                                                                    trade.result === 'WIN' ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"
-                                                                )}>{trade.signal}</span>
-                                                            </div>
-                                                            <div className="text-slate-400 text-right">${trade.stake.toFixed(2)}</div>
-                                                            <div className={cn(
-                                                                "font-bold text-right",
+                                            <div className="flex items-center gap-2">
+                                                <span className={cn(
+                                                    "text-[10px] font-black",
+                                                    isDayWin ? "text-emerald-400" : day.profit < 0 ? "text-rose-400" : "text-amber-400"
+                                                )}>
+                                                    {day.profit > 0 ? "+" : ""}${day.profit.toFixed(2)}
+                                                </span>
+                                                {isExpanded ? (
+                                                    <ChevronUp className="h-3.5 w-3.5 text-slate-500" />
+                                                ) : (
+                                                    <ChevronDown className="h-3.5 w-3.5 text-slate-500" />
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Detalhes do Dia (Trades Individuais) */}
+                                        {isExpanded && (
+                                            <div className="border-t border-white/5 bg-black/20 p-2 space-y-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                                                {day.trades.map(trade => (
+                                                    <div 
+                                                        key={trade.id}
+                                                        className="flex items-center justify-between text-[9px] font-mono p-1.5 rounded bg-slate-950/40 border border-white/5"
+                                                    >
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-slate-500 text-[8px]">{trade.timestamp}</span>
+                                                            <span className={cn(
+                                                                "px-1 rounded text-[8px] font-black",
+                                                                trade.result === 'WIN' 
+                                                                    ? "bg-emerald-500/10 text-emerald-400" 
+                                                                    : "bg-rose-500/10 text-rose-400"
+                                                            )}>
+                                                                {trade.signal}
+                                                            </span>
+                                                            <span className="text-slate-400 text-[8px]">{trade.asset}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-slate-500">Stake: ${trade.stake.toFixed(2)}</span>
+                                                            <span className={cn(
+                                                                "font-bold",
                                                                 trade.profit > 0 ? "text-emerald-400" : trade.profit < 0 ? "text-rose-400" : "text-amber-400"
                                                             )}>
-                                                                {trade.profit > 0 ? "+" : ""}${Math.abs(trade.profit).toFixed(2)}
-                                                            </div>
+                                                                {trade.profit > 0 ? "+" : ""}${trade.profit.toFixed(2)}
+                                                            </span>
                                                         </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </ScrollArea>
-                    </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </ScrollArea>
 
+                    {/* Botão de Limpar Histórico */}
                     <div className="flex justify-end">
                         <Button
                             variant="ghost"
                             size="sm"
                             onClick={handleClear}
-                            className="h-6 text-[8px] font-black uppercase tracking-wider text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg px-2"
+                            className="h-7 text-[8px] font-black uppercase tracking-wider text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg"
                         >
-                            <Trash2 className="h-3 w-3 mr-1" /> Limpar Dados
+                            <Trash2 className="h-3 w-3 mr-1" /> Limpar Histórico Local
                         </Button>
                     </div>
                 </>
             ) : (
                 <div className="py-10 text-center">
                     <div className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-white/5 mb-2 border border-white/5">
-                        <Calendar className="h-4 w-4 text-slate-500" />
+                        <BarChart3 className="h-4 w-4 text-slate-500" />
                     </div>
                     <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.3em] italic">
-                        Planilha Vazia
+                        Nenhum registro de longo prazo ainda...
+                    </p>
+                    <p className="text-[8px] text-slate-600 uppercase tracking-wider mt-1">
+                        As operações concluídas serão salvas automaticamente aqui.
                     </p>
                 </div>
             )}

@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react';
 import { LogEntry, LogType, SignalEntry } from '@/types/bot';
 
-export const DEFAULT_DERIV_APP_ID = '1089';
+export const DEFAULT_DERIV_APP_ID = '33yxEj8JnVc9XRyM6aB2n';
 
 const DEFAULTS = {
     realToken: '',
@@ -44,7 +44,7 @@ const getInitialState = () => {
         if (!savedStateJSON) {
             return { ...DEFAULTS };
         }
-        return { ...DEFAULTS, ...JSON.parse(savedStateJSON) };
+        return JSON.parse(savedStateJSON);
     } catch (e) {
         return { ...DEFAULTS };
     }
