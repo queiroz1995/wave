@@ -9,7 +9,8 @@ import {
     Power,
     RefreshCw,
     TrendingDown,
-    TrendingUp
+    TrendingUp,
+    Settings
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -28,6 +29,7 @@ interface AIOperatingHeroCardProps {
     onStartClick: () => void;
     onExit: () => void;
     onReconnect: () => void;
+    onConfigClick?: () => void;
     children: React.ReactNode;
 }
 
@@ -43,6 +45,7 @@ export const AIOperatingHeroCard = ({
     onStartClick,
     onExit,
     onReconnect,
+    onConfigClick,
     children
 }: AIOperatingHeroCardProps) => {
     const isWin = totalProfit >= 0;
@@ -74,18 +77,28 @@ export const AIOperatingHeroCard = ({
 
                         <div>
                             <div className="flex items-center gap-1">
-                                <h2 className="text-sm font-black text-white italic tracking-tighter">WAVE SNIPER</h2>
+                                <h2 className="text-sm font-black text-white italic tracking-tighter">SUPER QUANTUM ENGINE v4.0</h2>
                                 <div className="px-1 py-0.5 bg-cyan-500/20 rounded border border-cyan-500/30">
                                     <span className="text-[6px] font-black text-cyan-400 uppercase">PRO</span>
                                 </div>
                             </div>
                             <p className="text-[7px] font-bold text-slate-500 uppercase tracking-[0.3em] mt-0.5">
-                                Neural Engine v2.4.0
+                                Módulo Super Quântico de Alta Precisão
                             </p>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-1">
+                        {onConfigClick && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-all"
+                                onClick={onConfigClick}
+                            >
+                                <Settings className="h-3 w-3 text-slate-300" />
+                            </Button>
+                        )}
                         <SettingsSheet
                             trigger={
                                 <Button

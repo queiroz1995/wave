@@ -39,12 +39,18 @@ const DEFAULTS = {
 };
 
 const getInitialState = () => {
+    const savedStateJSON = localStorage.getItem('derivBotState');
+    if (!savedStateJSON) return { ...DEFAULTS };
+
     try {
-        const savedStateJSON = localStorage.getItem('derivBotState');
-        if (!savedStateJSON) {
-            return { ...DEFAULTS };
-        }
-        return JSON.parse(savedStateJSON);
+        const savedState = JSON.parse(savedStateJSON);
+        return {
+            ...DEFAULTS,
+            ...savedState,
+            appId: !savedState.appId || savedState.appId === '1089' ? DEFAULT_DERIV_APP_ID : savedState.appId,
+            asset: savedState.asset || '1HZ10V',
+            duration: savedState.duration !== undefined ? savedState.duration : 3,
+        };
     } catch (e) {
         return { ...DEFAULTS };
     }

@@ -12,6 +12,7 @@ import { AIThoughtCard } from "./AIThoughtCard";
 import { OperationsFeed } from "./OperationsFeed";
 import { ManualStakeDialog } from "./ManualStakeDialog";
 import { VirtualLossDisplay } from "./VirtualLossDisplay";
+import { AIPullAnalyzer } from "./AIPullAnalyzer";
 import { Timer, ShieldAlert, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -115,17 +116,9 @@ export const AIOperatingScreen = () => {
     }, [totalProfit, takeProfit]);
 
     const handleStartClick = () => {
-        if (isBotRunning) {
-            toggleBot();
-        } else {
-            setIsConfigModalOpen(true);
-        }
-    };
-
-    const confirmStart = () => {
-        setIsConfigModalOpen(false);
         toggleBot();
     };
+
 
     const handleManualClick = (type: ContractType) => {
         if (!showManualConfirm) {
@@ -161,16 +154,17 @@ export const AIOperatingScreen = () => {
 
     const manualSignalIntelligence = useMemo(() => {
         const digits = lastDigits || [];
-        if (digits.length < 20) {
+
+        if (digits.length < 15) {
             return {
                 recommendation: "AGUARDAR",
                 confidence: 0,
                 evenPercent: 50,
                 oddPercent: 50,
-                reason: "Coletando amostras (Aguarde 20+ ticks)..."
+                reason: "Sincronizando dados..."
             };
         }
-        
+
         let currentStreak = 1;
         const firstIsEven = digits[0] % 2 === 0;
         for (let i = 1; i < digits.length; i++) {
@@ -200,54 +194,65 @@ export const AIOperatingScreen = () => {
 
         const maxEven30 = getWindowMaxStreak(digits.slice(0, 30), 'EVEN');
         const maxOdd30 = getWindowMaxStreak(digits.slice(0, 30), 'ODD');
+        
         const maxEven60 = getWindowMaxStreak(digits.slice(0, 60), 'EVEN');
         const maxOdd60 = getWindowMaxStreak(digits.slice(0, 60), 'ODD');
+        
+        const maxEven100 = getWindowMaxStreak(digits.slice(0, 100), 'EVEN');
+        const maxOdd100 = getWindowMaxStreak(digits.slice(0, 100), 'ODD');
 
-        const sampleRSI = digits.slice(0, 14);
-        const evensRSI = sampleRSI.filter((digit) => digit % 2 === 0).length;
-        const evenPercent = Math.round((evensRSI / 14) * 100);
+        const sample = digits.slice(0, 25);
+        const evens = sample.filter((digit) => digit % 2 === 0).length;
+        const evenPercent = Math.round((evens / sample.length) * 100);
         const oddPercent = 100 - evenPercent;
 
         let recommendation = "AGUARDAR";
         let confidence = 0;
-        let reason = "Zona de ruído estatístico. Aguardando confluências...";
+        let reason = "Mercado equilibrado. Aguarde distorção de sequência.";
 
-        // Análise de Confluência Neural para o App
         if (currentParity === 'EVEN') {
-            if (currentStreak >= maxEven60 && maxEven60 > 2) {
+            if (currentStreak >= maxEven100) {
                 recommendation = "ÍMPAR";
                 confidence = 98;
-                reason = `Aviso de Colapso (60T): Sequência PAR (${currentStreak}x) excedeu o teto de ${maxEven60}x. Reversão massiva.`;
-            } else if (currentStreak >= maxEven30 && evenPercent > 70) {
+                reason = `Sequência de ${currentStreak}x PAR superou o limite histórico de ${maxEven100}x (100 ticks). Quebra iminente!`;
+            } else if (currentStreak >= maxEven60) {
                 recommendation = "ÍMPAR";
-                confidence = 92;
-                reason = `Confluência Dupla (30T): Exaustão (${currentStreak}x) alinhada com RSI sobrecomprado (${evenPercent}% PAR).`;
+                confidence = 94;
+                reason = `Sequência de ${currentStreak}x PAR atingiu o limite de ${maxEven60}x (60 ticks). Alta chance de quebra!`;
             } else if (currentStreak >= maxEven30) {
                 recommendation = "ÍMPAR";
-                confidence = 85;
-                reason = `Exaustão Básica (30T): Sequência PAR atingiu ${currentStreak}x.`;
-            } else if (evenPercent >= 78 && currentStreak < 2) {
-                recommendation = "PAR"; // Trend following
-                confidence = 82;
-                reason = `Trend Following Neural: Momentum esmagador de PAR (${evenPercent}%). Rompendo a favor da força.`;
+                confidence = 88;
+                reason = `Sequência de ${currentStreak}x PAR superou o limite de ${maxEven30}x (30 ticks). Viés de quebra para ÍMPAR.`;
+            } else if (currentStreak === maxEven30 - 1 && maxEven30 > 2) {
+                recommendation = "ÍMPAR";
+                confidence = 80;
+                reason = `Sequência de ${currentStreak}x PAR está a 1 tick do limite de ${maxEven30}x (30 ticks).`;
+            } else if (evenPercent >= 64) {
+                recommendation = "ÍMPAR";
+                confidence = Math.min(95, evenPercent + 5);
+                reason = `Distorção estatística: ${evenPercent}% de PAR nos últimos 25 ticks.`;
             }
         } else {
-            if (currentStreak >= maxOdd60 && maxOdd60 > 2) {
+            if (currentStreak >= maxOdd100) {
                 recommendation = "PAR";
                 confidence = 98;
-                reason = `Aviso de Colapso (60T): Sequência ÍMPAR (${currentStreak}x) excedeu o teto de ${maxOdd60}x. Reversão massiva.`;
-            } else if (currentStreak >= maxOdd30 && oddPercent > 70) {
+                reason = `Sequência de ${currentStreak}x ÍMPAR superou o limite histórico de ${maxOdd100}x (100 ticks). Quebra iminente!`;
+            } else if (currentStreak >= maxOdd60) {
                 recommendation = "PAR";
-                confidence = 92;
-                reason = `Confluência Dupla (30T): Exaustão (${currentStreak}x) alinhada com RSI sobrecomprado (${oddPercent}% ÍMPAR).`;
+                confidence = 94;
+                reason = `Sequência de ${currentStreak}x ÍMPAR atingiu o limite de ${maxOdd60}x (60 ticks). Alta chance de quebra!`;
             } else if (currentStreak >= maxOdd30) {
                 recommendation = "PAR";
-                confidence = 85;
-                reason = `Exaustão Básica (30T): Sequência ÍMPAR atingiu ${currentStreak}x.`;
-            } else if (oddPercent >= 78 && currentStreak < 2) {
-                recommendation = "ÍMPAR"; // Trend following
-                confidence = 82;
-                reason = `Trend Following Neural: Momentum esmagador de ÍMPAR (${oddPercent}%). Rompendo a favor da força.`;
+                confidence = 88;
+                reason = `Sequência de ${currentStreak}x ÍMPAR superou o limite de ${maxOdd30}x (30 ticks). Viés de quebra para PAR.`;
+            } else if (currentStreak === maxOdd30 - 1 && maxOdd30 > 2) {
+                recommendation = "PAR";
+                confidence = 80;
+                reason = `Sequência de ${currentStreak}x ÍMPAR está a 1 tick do limite de ${maxOdd30}x (30 ticks).`;
+            } else if (oddPercent >= 64) {
+                recommendation = "PAR";
+                confidence = Math.min(95, oddPercent + 5);
+                reason = `Distorção estatística: ${oddPercent}% de ÍMPAR nos últimos 25 ticks.`;
             }
         }
 
@@ -265,6 +270,8 @@ export const AIOperatingScreen = () => {
             
             <RecentDigitsPanel />
 
+            <AIPullAnalyzer />
+
             <VirtualLossDisplay />
 
             <AIOperatingHeroCard
@@ -277,6 +284,7 @@ export const AIOperatingScreen = () => {
                 accountType={accountType}
                 accountBalance={accountBalance}
                 onStartClick={handleStartClick}
+                onConfigClick={() => setIsConfigModalOpen(true)}
                 onExit={exitToSelection}
                 onReconnect={handleConnect}
             >
@@ -297,7 +305,6 @@ export const AIOperatingScreen = () => {
             <QuickConfigModal
                 isOpen={isConfigModalOpen}
                 onClose={() => setIsConfigModalOpen(false)}
-                onConfirm={confirmStart}
             />
 
             <ManualStakeDialog

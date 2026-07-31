@@ -3,12 +3,12 @@
 import React, { useEffect, useRef } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { cn } from '@/lib/utils';
-import { Zap, BarChart3 } from 'lucide-react';
+import { Zap, BarChart3, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
 type Period = 30 | 40 | 60 | 100;
 
 export const RecentDigitsPanel = () => {
-    const { lastDigits } = useBotContext();
+    const { lastDigits, currentLiveTick, asset, manualBuy, tradeStatus, digitTradeMode, digitPrediction, isConnected } = useBotContext();
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     const getMaxStreak = (digits: number[], type: 'even' | 'odd') => {
@@ -109,13 +109,34 @@ export const RecentDigitsPanel = () => {
             <div className="absolute inset-0 ai-scanline opacity-5 pointer-events-none" />
 
             <div className="relative z-10 space-y-3">
-                <div className="flex items-center justify-between px-0.5">
+                <div className="flex items-center justify-between px-0.5 flex-wrap gap-2">
                     <div className="flex items-center gap-1.5">
+                        <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
                         <Zap className="h-3.5 w-3.5 text-cyan-400" />
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">
-                            Histórico de Resultados
+                        <span className="text-[9px] font-black text-slate-200 uppercase tracking-[0.2em]">
+                            Dígitos Deriv ({asset || 'R_100'})
                         </span>
                     </div>
+
+                    {currentLiveTick !== null && currentLiveTick !== undefined && (
+                        <div className={cn(
+                            "flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[10px] font-black tracking-wider shadow-lg transition-all duration-300",
+                            currentLiveTick === 0
+                                ? "border-blue-500/40 bg-blue-500/10 text-blue-400 shadow-blue-500/10"
+                                : currentLiveTick % 2 === 0
+                                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 shadow-emerald-500/10"
+                                    : "border-rose-500/40 bg-rose-500/10 text-rose-400 shadow-rose-500/10"
+                        )}>
+                            <span className="text-[8px] text-slate-400 uppercase font-bold">Ao Vivo:</span>
+                            <span className="font-mono text-xs font-black">{currentLiveTick}</span>
+                            <span className="text-[8px] uppercase font-bold">
+                                ({currentLiveTick === 0 ? 'Zero' : currentLiveTick % 2 === 0 ? 'PAR' : 'ÍMPAR'})
+                            </span>
+                        </div>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -201,6 +222,37 @@ export const RecentDigitsPanel = () => {
                             </div>
                         ))
                     )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                    <button
+                        type="button"
+                        onClick={() => manualBuy(digitTradeMode === 'overUnder' ? 'DIGITOVER' : 'DIGITEVEN', 'Entrada Manual')}
+                        disabled={!isConnected || tradeStatus === 'ACTIVE' || tradeStatus === 'SENDING'}
+                        className={cn(
+                            "h-10 rounded-xl font-black uppercase tracking-wider text-[10px] flex items-center justify-center gap-1 transition-all duration-300 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed",
+                            digitTradeMode === 'overUnder' 
+                                ? "bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20"
+                                : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20"
+                        )}
+                    >
+                        <ArrowUpRight className="h-3.5 w-3.5" />
+                        {digitTradeMode === 'overUnder' ? `OVER ${digitPrediction}` : 'PAR'}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => manualBuy(digitTradeMode === 'overUnder' ? 'DIGITUNDER' : 'DIGITODD', 'Entrada Manual')}
+                        disabled={!isConnected || tradeStatus === 'ACTIVE' || tradeStatus === 'SENDING'}
+                        className={cn(
+                            "h-10 rounded-xl font-black uppercase tracking-wider text-[10px] flex items-center justify-center gap-1 transition-all duration-300 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed",
+                            digitTradeMode === 'overUnder' 
+                                ? "bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20"
+                                : "bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20"
+                        )}
+                    >
+                        <ArrowDownRight className="h-3.5 w-3.5" />
+                        {digitTradeMode === 'overUnder' ? `UNDER ${digitPrediction}` : 'ÍMPAR'}
+                    </button>
                 </div>
             </div>
         </div>

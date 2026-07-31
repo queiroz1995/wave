@@ -16,29 +16,13 @@ import { DollarSign, Target, Play, Zap, ShieldAlert, TrendingUp, Shield, Timer, 
 import { useBotContext } from '@/context/BotContext';
 import { cn } from '@/lib/utils';
 import { toast } from "sonner";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-const AVAILABLE_ASSETS = [
-    { value: '1HZ10V', label: 'Volatility 10 (1s)' },
-    { value: '1HZ25V', label: 'Volatility 25 (1s)' },
-    { value: '1HZ50V', label: 'Volatility 50 (1s)' },
-    { value: '1HZ75V', label: 'Volatility 75 (1s)' },
-    { value: '1HZ100V', label: 'Volatility 100 (1s)' },
-    { value: 'R_10', label: 'Volatility 10 Index' },
-    { value: 'R_25', label: 'Volatility 25 Index' },
-    { value: 'R_50', label: 'Volatility 50 Index' },
-    { value: 'R_75', label: 'Volatility 75 Index' },
-    { value: 'R_100', label: 'Volatility 100 Index' },
-];
-
 
 interface QuickConfigModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: () => void;
 }
 
-export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onClose, onConfirm }) => {
+export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onClose }) => {
     const { 
         initialStake, setInitialStake, 
         takeProfit, setTakeProfit,
@@ -51,7 +35,6 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
         isSorosActive, setIsSorosActive,
         sorosLevels, setSorosLevels,
         duration, setDuration,
-        asset, setAsset,
         isConnected
     } = useBotContext();
     
@@ -64,7 +47,6 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
     const [tempSorosActive, setTempSorosActive] = useState(isSorosActive || false);
     const [tempSorosLevels, setTempSorosLevels] = useState<string | number>(sorosLevels || 3);
     const [tempDuration, setTempDuration] = useState<string | number>(duration || 3);
-    const [tempAsset, setTempAsset] = useState<string>(asset || '1HZ10V');
 
     // Estados para o Filtro de Loss Virtual
     const [tempVirtualLossActive, setTempVirtualLossActive] = useState(true);
@@ -74,7 +56,6 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
     useEffect(() => {
         if (isOpen) {
             setTempStake(initialStake);
-            setTempAsset(asset || '1HZ10V');
             setTempMeta(takeProfit);
             setTempStop(stopLoss);
             setTempFactor(martingaleFactor || "2.1");
@@ -113,7 +94,6 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
             if (typeof setIsSorosActive === 'function') setIsSorosActive(tempSorosActive);
             if (typeof setSorosLevels === 'function') setSorosLevels(finalSorosLevels);
             if (typeof setDuration === 'function') setDuration(finalDuration);
-            if (typeof setAsset === 'function') setAsset(tempAsset);
 
             // Salva configurações do Loss Virtual com segurança
             if (!tempVirtualLossActive) {
@@ -130,11 +110,8 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                 }
             }
 
-            if (!isConnected) {
-                toast.info("Iniciando no Modo Simulação (Sem conexão com a Deriv).");
-            }
-
-            onConfirm();
+            toast.success("Configurações salvas com sucesso!");
+            onClose();
         } catch (error) {
             console.error("Erro ao decolar sistema:", error);
             toast.error("Ocorreu um erro ao salvar as configurações.");
@@ -158,24 +135,6 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                 
                 {/* Área de conteúdo rolável */}
                 <div className="flex-1 overflow-y-auto space-y-3.5 py-1 w-full pr-1 custom-scrollbar">
-                    
-                    <div className="space-y-2 mb-4">
-                        <div className="flex items-center gap-1.5 border-b border-white/5 pb-1">
-                            <Zap className="h-3 w-3 text-cyan-400" />
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Ativo Operacional</span>
-                        </div>
-                        <Select value={tempAsset} onValueChange={setTempAsset}>
-                            <SelectTrigger className="w-full h-9 bg-slate-900/40 border-white/10 text-white font-bold">
-                                <SelectValue placeholder="Selecione o Ativo" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-slate-950 border-white/10 text-white">
-                                {AVAILABLE_ASSETS.map((a) => (
-                                    <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-
                     {/* Seção 1: Gestão de Banca */}
                     <div className="space-y-2">
                         <div className="flex items-center gap-1.5 border-b border-white/5 pb-1">
@@ -484,7 +443,7 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                         onClick={handleConfirm}
                         className="w-full h-12 rounded-xl text-xs font-black uppercase tracking-[0.2em] bg-cyan-500 hover:bg-cyan-600 text-slate-950 shadow-xl shadow-cyan-500/20 transition-all duration-300 active:scale-[0.98]"
                     >
-                        <Play className="h-3 w-3 mr-1.5 fill-current" /> DECOLAR SISTEMA
+                        <Target className="h-3 w-3 mr-1.5" /> SALVAR CONFIGURAÇÕES
                     </Button>
                 </DialogFooter>
             </DialogContent>
