@@ -20,7 +20,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     return (
         <div className="min-h-screen bg-[#010417] text-white selection:bg-indigo-500/30 overflow-x-hidden relative flex flex-col">
             
-            {/* --- PAINEL DE FUNDO NUCLEO WAVE --- */}
+            {/* --- PAINEL DE FUNDO NUCLEO RICO --- */}
             <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
                 {/* Fundo Principal Escuro */}
                 <div className="absolute inset-0 bg-gradient-to-b from-[#010417] via-[#010417] to-[#000000]" />
@@ -46,7 +46,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                         </div>
                         <div>
                             <h1 className="text-sm sm:text-base font-black uppercase tracking-tighter text-white leading-none">
-                                WAVE SNIPER
+                                RICO SNIPER
                             </h1>
                             <div className="flex items-center gap-1 mt-0.5">
                                 <div className="h-1 w-1 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_6px_rgba(34,211,238,1)]" />
@@ -83,7 +83,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                         <Shield className="h-3 w-3" />
                     </div>
                     <p className="text-[7px] font-bold uppercase tracking-[0.4em] text-slate-400">
-                        Wave Intelligence v2.4
+                        Rico Intelligence v2.0
                     </p>
                 </footer>
             </div>

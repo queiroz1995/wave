@@ -19,7 +19,7 @@ export const StrategySettings = () => {
         <Card className="border-none shadow-none bg-transparent">
             <CardHeader className="px-0">
                 <CardTitle className="flex items-center gap-2 text-primary font-black uppercase tracking-tighter">
-                    <BrainCircuit className="h-6 w-6" /> Ajustes I.A WAVE
+                    <BrainCircuit className="h-6 w-6" /> Ajustes I.A RICO
                 </CardTitle>
             </CardHeader>
             <CardContent className="px-0 space-y-8">
@@ -54,7 +54,7 @@ export const StrategySettings = () => {
                 </div>
                 
                 <p className="text-[10px] text-center text-muted-foreground italic">
-                    O motor Vortex Hunter está operando no núcleo da I.A WAVE.
+                    O motor Vortex Hunter está operando no núcleo da I.A RICO.
                 </p>
             </CardContent>
         </Card>

@@ -8,7 +8,7 @@ import { Sparkles, Zap, Target } from 'lucide-react';
 const strategies = [
     { 
         id: "trendSurfer", 
-        name: "NÚCLEO WAVE", 
+        name: "NÚCLEO RICO", 
         style: "Especialista em Paridade", 
         image: "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&q=80&w=600",
         color: "blue",

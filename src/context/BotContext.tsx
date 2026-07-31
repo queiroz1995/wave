@@ -451,38 +451,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setActiveContractDigit(null);
                 setAiThought("Operação finalizada. Aguardando nova oportunidade...");
                 
-                // === AUTO-GALE MANUAL (Surfando a esticada) ===
-                if (result === 'LOSS' && stateAndSetters.isMartingaleActive && saved.strategyName.toLowerCase().includes('manual')) {
-                    const maxMg = parseInt(stateAndSetters.maxMartingales) || 3;
-                    if (martingaleLevel.current <= maxMg) {
-                        const isEvenOdd = saved.contractType === 'DIGITEVEN' || saved.contractType === 'DIGITODD';
-                        let nextContractType = saved.contractType;
-                        
-                        // "caso de esticada suff seguir mercado nao ir contra"
-                        if (isEvenOdd && exitDigit !== undefined) {
-                            const marketIsEven = exitDigit % 2 === 0;
-                            nextContractType = marketIsEven ? 'DIGITEVEN' : 'DIGITODD';
-                        }
-                        
-                        setAiThought(`Iniciando Martingale nível ${martingaleLevel.current}... (Seguindo tendência)`);
-                        addLog(`[AUTO-GALE] Preparando entrada ${nextContractType} (Nível ${martingaleLevel.current})`, "INFO");
-                        
-                        setTimeout(() => {
-                            if (executeBuyRef.current) {
-                                executeBuyRef.current(
-                                    nextContractType, 
-                                    `${saved.strategyName} (Gale ${martingaleLevel.current})`, 
-                                    `gale-${Date.now()}`, 
-                                    asset,
-                                    saved.baseStake
-                                );
-                            }
-                        }, 1200);
-                    } else {
-                        addLog(`[AUTO-GALE] Limite de Martingales atingido (${maxMg})`, "INFO");
-                        martingaleLevel.current = 0;
-                    }
-                }
+
                 
                 return;
 
@@ -682,13 +651,13 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setCurrentLiveTick(null);
         latestTickDigitRef.current = null;
 
-        if (isConnected && sendMessageRef.current) {
+        if (isConnected && ws.sendMessage) {
             addLog(`[SISTEMA] Solicitando fluxo de dados de ${asset}...`, "INFO");
-            sendMessageRef.current({ ticks: asset, subscribe: 1 });
+            ws.sendMessage({ ticks: asset, subscribe: 1 });
             // Não enviamos forget porque a Deriv gerencia assinaturas
         }
 
-    }, [asset, isConnected, addLog]);
+    }, [asset, isConnected, addLog, ws.sendMessage]);
 
     const handleConnect = useCallback(() => {
         const token = (accountType === 'real' ? realToken : demoToken).trim();
@@ -888,7 +857,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return;
         }
 
-        if (lastDigits.length < 10) {
+        if (lastDigits.length < 5) {
             setAiThought("Coletando ticks para montar leitura inicial...");
             setIsStudying(true);
             setCurrentConfidence(0);

@@ -155,7 +155,7 @@ export const AIOperatingScreen = () => {
     const manualSignalIntelligence = useMemo(() => {
         const digits = lastDigits || [];
 
-        if (digits.length < 15) {
+        if (digits.length < 5) {
             return {
                 recommendation: "AGUARDAR",
                 confidence: 0,
