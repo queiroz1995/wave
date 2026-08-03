@@ -99,21 +99,21 @@ export const useTradingWebSocketManager = ({
                 const errorCode = data.error.code;
                 
                 // Se falhar por App ID inválido ou redirecionamento não autorizado, tenta o fallback para o App ID 1089
-                if ((errorCode === 'AppIdInvalid' || errorCode === 'InvalidAppId' || errorCode === 'InvalidRedirectUrl' || errorCode === 'InvalidOrigin') && !fallbackAttempted.current && cleanAppId !== '36300') {
+                if ((errorCode === 'AppIdInvalid' || errorCode === 'InvalidAppId' || errorCode === 'InvalidRedirectUrl' || errorCode === 'InvalidOrigin') && !fallbackAttempted.current && cleanAppId !== '1089') {
                     fallbackAttempted.current = true;
-                    addLog(`[SISTEMA] App ID ${cleanAppId} rejeitado por restrição de origem. Iniciando fallback automático para o App ID público 36300...`, "INFO");
+                    addLog(`[SISTEMA] App ID ${cleanAppId} rejeitado por restrição de origem. Iniciando fallback automático para o App ID público 1089...`, "INFO");
                     
                     // Fecha o socket atual e abre com o App ID 1089
                     socket.close();
                     
                     setTimeout(() => {
-                        const fallbackSocket = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=36300`);
+                        const fallbackSocket = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=1089`);
                         ws.current = fallbackSocket;
-                        setupSocketListeners(fallbackSocket, currentConnectionId, cleanToken, '36300', accountType);
+                        setupSocketListeners(fallbackSocket, currentConnectionId, cleanToken, '1089', accountType);
                         
                         fallbackSocket.onopen = () => {
                             if (connectionId.current !== currentConnectionId || ws.current !== fallbackSocket) return;
-                            addLog("[SISTEMA] Conectado via App ID público 36300. Autenticando...", "INFO");
+                            addLog("[SISTEMA] Conectado via App ID público 1089. Autenticando...", "INFO");
                             fallbackSocket.send(JSON.stringify({ authorize: cleanToken }));
                         };
                     }, 500);

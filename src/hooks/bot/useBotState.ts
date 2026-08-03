@@ -47,7 +47,7 @@ const getInitialState = () => {
         return {
             ...DEFAULTS,
             ...savedState,
-            appId: !savedState.appId || savedState.appId === '36300' ? DEFAULT_DERIV_APP_ID : savedState.appId,
+            appId: !savedState.appId || savedState.appId === '1089' ? DEFAULT_DERIV_APP_ID : savedState.appId,
             asset: savedState.asset || '1HZ10V',
             duration: savedState.duration !== undefined ? savedState.duration : 3,
         };
@@ -90,7 +90,7 @@ export const useBotState = () => {
     const [bankManagementActualBankroll, setBankManagementActualBankroll] = useState(initialState.bankManagementActualBankroll);
     const [currency, setCurrency] = useState(initialState.currency);
 
-    const [isBotRunning, setIsBotRunning] = useState(true);
+    const [isBotRunning, setIsBotRunning] = useState(false);
     const [isPaused, setIsPaused] = useState(false);
     const [isManipulationDetected, setIsManipulationDetected] = useState(false);
     const [isStudying, setIsStudying] = useState(true);

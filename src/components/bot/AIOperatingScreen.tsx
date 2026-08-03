@@ -161,7 +161,7 @@ export const AIOperatingScreen = () => {
                 confidence: 0,
                 evenPercent: 50,
                 oddPercent: 50,
-                reason: "Sincronizando dados..."
+                reason: !isConnected ? "Aguardando Conexão..." : !isBotRunning ? "Pronto para Iniciar" : "Sincronizando dados..."
             };
         }
 
@@ -263,7 +263,7 @@ export const AIOperatingScreen = () => {
             oddPercent,
             reason
         };
-    }, [lastDigits]);
+    }, [lastDigits, isConnected, isBotRunning]);
 
     return (
         <div className="w-full max-w-md mx-auto space-y-3 animate-in fade-in slide-in-from-bottom-8 duration-1000 px-1 pb-4">
