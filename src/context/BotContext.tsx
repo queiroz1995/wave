@@ -463,6 +463,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 totalProfitRef.current += profit;
                 setTotalProfit(totalProfitRef.current);
 
+                // --- Risk Tracking ---
+                stateAndSetters.setMaxDrawdown((prev: number) => Math.min(prev, totalProfitRef.current));
+                stateAndSetters.setMaxRecoveryStake((prev: number) => Math.max(prev, saved.stake));
+                stateAndSetters.setMaxConsecutiveLosses((prev: number) => Math.max(prev, martingaleLevel.current + (result === 'LOSS' ? 1 : 0)));
+
                 if (result === 'WIN') {
                     setWins((w: number) => w + 1);
                     martingaleLevel.current = 0;

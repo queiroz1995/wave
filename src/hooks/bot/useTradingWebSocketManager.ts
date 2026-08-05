@@ -48,9 +48,6 @@ export const useTradingWebSocketManager = ({
     const isIntentionalDisconnect = useRef(false);
     const connectionId = useRef(0);
     const fallbackAttempted = useRef(false);
-    const lastConfigRef = useRef<{ token: string; appId: string; accountType: AccountType } | null>(null);
-    const autoReconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const autoReconnectAttemptsRef = useRef(0);
 
     const onMessageRef = useRef(onMessage);
     useEffect(() => {
@@ -64,31 +61,20 @@ export const useTradingWebSocketManager = ({
         }
     }, []);
 
-    const clearAutoReconnectTimer = useCallback(() => {
-        if (autoReconnectTimerRef.current) {
-            clearTimeout(autoReconnectTimerRef.current);
-            autoReconnectTimerRef.current = null;
-        }
-    }, []);
-
     const startPing = useCallback(() => {
         clearPing();
         pingInterval.current = setInterval(() => {
             if (ws.current?.readyState === WebSocket.OPEN) {
                 ws.current.send(JSON.stringify({ ping: 1 }));
             }
-        }, 10000);
+        }, 20000);
     }, [clearPing]);
 
     const disconnect = useCallback(() => {
         isIntentionalDisconnect.current = true;
         reconnectAttemptsRef.current = 0;
-        autoReconnectAttemptsRef.current = 0;
         connectionId.current += 1;
         fallbackAttempted.current = false;
-        lastConfigRef.current = null;
-
-        clearAutoReconnectTimer();
 
         if (ws.current) {
             ws.current.close();
@@ -100,7 +86,7 @@ export const useTradingWebSocketManager = ({
         setIsConnecting(false);
         setStatus({ message: 'Desconectado', color: 'bg-red-500' });
         addLog("[SISTEMA] Conexão encerrada pelo usuário.", "INFO");
-    }, [setIsConnected, setIsConnecting, setStatus, addLog, reconnectAttemptsRef, clearPing, clearAutoReconnectTimer]);
+    }, [setIsConnected, setIsConnecting, setStatus, addLog, reconnectAttemptsRef, clearPing]);
 
     const setupSocketListeners = useCallback((socket: WebSocket, currentConnectionId: number, cleanToken: string, cleanAppId: string, accountType: AccountType) => {
         socket.onmessage = (event) => {
@@ -113,7 +99,7 @@ export const useTradingWebSocketManager = ({
                 const errorCode = data.error.code;
                 
                 // Se falhar por App ID inválido ou redirecionamento não autorizado, tenta o fallback para o App ID 1089
-                if ((errorCode === 'AppIdInvalid' || errorCode === 'InvalidAppId' || errorCode === 'InvalidRedirectUrl' || errorCode === 'InvalidOrigin') && !fallbackAttempted.current && cleanAppId !== '1089') {
+                if ((errorCode === 'AppIdInvalid' || errorCode === 'InvalidAppId' || errorCode === 'InvalidRedirectUrl' || errorCode === 'InvalidOrigin' || errorCode === 'InvalidToken') && !fallbackAttempted.current && cleanAppId !== '1089') {
                     fallbackAttempted.current = true;
                     addLog(`[SISTEMA] App ID ${cleanAppId} rejeitado por restrição de origem. Iniciando fallback automático para o App ID público 1089...`, "INFO");
                     
@@ -128,7 +114,9 @@ export const useTradingWebSocketManager = ({
                         fallbackSocket.onopen = () => {
                             if (connectionId.current !== currentConnectionId || ws.current !== fallbackSocket) return;
                             addLog("[SISTEMA] Conectado via App ID público 1089. Autenticando...", "INFO");
-                            fallbackSocket.send(JSON.stringify({ authorize: cleanToken }));
+                            if (fallbackSocket.readyState === WebSocket.OPEN) {
+                                fallbackSocket.send(JSON.stringify({ authorize: cleanToken }));
+                            }
                         };
                     }, 500);
                     return;
@@ -153,7 +141,6 @@ export const useTradingWebSocketManager = ({
             if (data.msg_type === 'authorize' && data.authorize) {
                 setIsConnected(true);
                 setIsConnecting(false);
-                autoReconnectAttemptsRef.current = 0;
                 setStatus({ message: 'Link Estável', color: 'bg-emerald-500' });
                 setAccountBalance(parseFloat(data.authorize.balance));
                 setAccountId(data.authorize.loginid);
@@ -162,7 +149,9 @@ export const useTradingWebSocketManager = ({
                 }
                 const accountLabel = data.authorize.is_virtual ? 'DEMO' : 'REAL';
                 addLog(`[SUCESSO] Conectado à conta ${data.authorize.loginid} (${accountLabel}/${data.authorize.currency})`, "TRADE");
-                socket.send(JSON.stringify({ balance: 1, subscribe: 1 }));
+                if (socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({ balance: 1, subscribe: 1 }));
+                }
                 startPing();
             }
 
@@ -186,31 +175,17 @@ export const useTradingWebSocketManager = ({
 
             if (!isIntentionalDisconnect.current) {
                 const reason = event.reason ? ` Motivo: ${event.reason}` : '';
-                setStatus({ message: 'Reconectando...', color: 'bg-amber-500' });
-                const attemptNum = autoReconnectAttemptsRef.current + 1;
-                addLog(`[RECONEXÃO AUTOMÁTICA] Conexão interrompida (Código: ${event.code}).${reason} Reconectando em 2s (Tentativa ${attemptNum})...`, "ERROR");
-
-                clearAutoReconnectTimer();
-                autoReconnectAttemptsRef.current = attemptNum;
-                autoReconnectTimerRef.current = setTimeout(() => {
-                    if (!isIntentionalDisconnect.current && lastConfigRef.current) {
-                        const cfg = lastConfigRef.current;
-                        connectWithToken(cfg.token, cfg.appId, cfg.accountType);
-                    }
-                }, 2000);
+                setStatus({ message: 'Link Perdido', color: 'bg-red-500' });
+                addLog(`[AVISO] Conexão encerrada (Código: ${event.code}).${reason}`, "ERROR");
             }
         };
 
         socket.onerror = () => {
             if (connectionId.current !== currentConnectionId || ws.current !== socket) return;
 
-            addLog("[ERRO] Falha de rede no WebSocket.", "ERROR");
+            addLog("[ERRO] Falha crítica de rede no WebSocket.", "ERROR");
             setIsConnecting(false);
-            if (!isIntentionalDisconnect.current) {
-                setStatus({ message: 'Reconectando...', color: 'bg-amber-500' });
-            } else {
-                setStatus({ message: 'Falha de Link', color: 'bg-red-500' });
-            }
+            setStatus({ message: 'Falha de Link', color: 'bg-red-500' });
         };
     }, [setIsConnected, setIsConnecting, setStatus, setAccountBalance, setAccountId, setCurrency, addLog, startPing, clearPing]);
 
@@ -240,8 +215,6 @@ export const useTradingWebSocketManager = ({
 
         try {
             isIntentionalDisconnect.current = false;
-            lastConfigRef.current = { token: cleanToken, appId: cleanAppId, accountType };
-            clearAutoReconnectTimer();
             setIsConnecting(true);
             setStatus({ message: 'Iniciando Link...', color: 'bg-yellow-500' });
 
@@ -269,7 +242,9 @@ export const useTradingWebSocketManager = ({
                 socket.onopen = () => {
                     if (connectionId.current !== connId || ws.current !== socket) return;
                     addLog("[INFO] WebSocket aberto. Autenticando...", "INFO");
-                    socket.send(JSON.stringify({ authorize: cleanToken }));
+                    if (socket.readyState === WebSocket.OPEN) {
+                        socket.send(JSON.stringify({ authorize: cleanToken }));
+                    }
                 };
             };
 
@@ -317,7 +292,9 @@ export const useTradingWebSocketManager = ({
                         setCurrency(selectedAccount.currency);
                         addLog(`[SUCESSO] Conectado via PAT à conta ${selectedAccount.account_id}`, "TRADE");
                         startPing();
-                        socket.send(JSON.stringify({ balance: 1, subscribe: 1 }));
+                        if (socket.readyState === WebSocket.OPEN) {
+                            socket.send(JSON.stringify({ balance: 1, subscribe: 1 }));
+                        }
                     };
                 } catch (patError: any) {
                     addLog(`[AVISO] ${patError?.message || "Falha ao usar PAT na API nova."}`, "ERROR");

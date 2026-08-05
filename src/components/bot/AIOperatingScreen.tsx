@@ -8,10 +8,12 @@ import { QuickConfigModal } from "./QuickConfigModal";
 import { AllMarketsDigitsPanel } from "./AllMarketsDigitsPanel";
 import { AIOperatingHeroCard } from "./AIOperatingHeroCard";
 import { AIThoughtCard } from "./AIThoughtCard";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OperationsFeed } from "./OperationsFeed";
 import { VirtualLossDisplay } from "./VirtualLossDisplay";
 import { AIPullAnalyzer } from "./AIPullAnalyzer";
-import { Timer, ShieldAlert, ShieldCheck } from "lucide-react";
+import { RiskStatsCard } from "./RiskStatsCard";
+import { Timer, ShieldAlert, ShieldCheck, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const AIOperatingScreen = () => {
@@ -241,7 +243,24 @@ export const AIOperatingScreen = () => {
 
             {isBotRunning && <AIThoughtCard aiThought={aiThought} />}
 
-            <OperationsFeed signals={signals} onReset={resetOperations} />
+            <Tabs defaultValue="feed" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 bg-black/40 border border-white/10">
+                    <TabsTrigger value="feed" className="data-[state=active]:bg-white/10">
+                        <Activity className="w-4 h-4 mr-2" />
+                        Operações
+                    </TabsTrigger>
+                    <TabsTrigger value="risk" className="data-[state=active]:bg-white/10">
+                        <ShieldAlert className="w-4 h-4 mr-2" />
+                        Risco & Recovery
+                    </TabsTrigger>
+                </TabsList>
+                <TabsContent value="feed" className="mt-3">
+                    <OperationsFeed signals={signals} onReset={resetOperations} />
+                </TabsContent>
+                <TabsContent value="risk" className="mt-3">
+                    <RiskStatsCard />
+                </TabsContent>
+            </Tabs>
 
             <QuickConfigModal
                 isOpen={isConfigModalOpen}

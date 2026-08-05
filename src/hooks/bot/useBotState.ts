@@ -119,6 +119,10 @@ export const useBotState = () => {
     const [isSorosActive, setIsSorosActive] = useState(false);
     const [sorosLevels, setSorosLevels] = useState(3);
 
+    const [maxDrawdown, setMaxDrawdown] = useState(0);
+    const [maxRecoveryStake, setMaxRecoveryStake] = useState(0);
+    const [maxConsecutiveLosses, setMaxConsecutiveLosses] = useState(0);
+
     const [totalProfit, setTotalProfit] = useState(0.00);
     const [wins, setWins] = useState(0);
     const [losses, setLosses] = useState(0);
@@ -178,6 +182,7 @@ export const useBotState = () => {
         virtualLossStreak, setVirtualLossStreak, isWaitingForVirtualResult, setIsWaitingForVirtualResult,
         isWaitingForRecoveryVirtual, setIsWaitingForRecoveryVirtual,
         isSorosActive, setIsSorosActive, sorosLevels, setSorosLevels,
+        maxDrawdown, setMaxDrawdown, maxRecoveryStake, setMaxRecoveryStake, maxConsecutiveLosses, setMaxConsecutiveLosses,
         totalProfit, setTotalProfit, wins, setWins, losses, setLosses,
         lastDigits, setLastDigits, multiMarketDigits, setMultiMarketDigits, logs, setLogs, signals, setSignals, accountBalance, setAccountBalance,
         tradeStatus, setTradeStatus, addLog, addSignal, updateSignalResult, clearSignals,
