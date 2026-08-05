@@ -30,7 +30,7 @@ interface AIOperatingHeroCardProps {
     onExit: () => void;
     onReconnect: () => void;
     onConfigClick?: () => void;
-    children: React.ReactNode;
+    
 }
 
 export const AIOperatingHeroCard = ({
@@ -167,7 +167,7 @@ export const AIOperatingHeroCard = ({
                     </span>
                 </Button>
 
-                {children}
+                
 
                 <div className="bg-slate-900/40 border border-white/5 rounded-xl p-2.5 flex items-center justify-between group hover:border-white/10 transition-colors">
                     <div className="flex items-center gap-2.5">

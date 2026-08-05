@@ -6,11 +6,10 @@ import { useBotContext } from "@/context/BotContext";
 import { ContractType } from "@/types/bot";
 import { QuickConfigModal } from "./QuickConfigModal";
 import { RecentDigitsPanel } from "./RecentDigitsPanel";
+import { AllMarketsDigitsPanel } from "./AllMarketsDigitsPanel";
 import { AIOperatingHeroCard } from "./AIOperatingHeroCard";
-import { ManualSignalPanel } from "./ManualSignalPanel";
 import { AIThoughtCard } from "./AIThoughtCard";
 import { OperationsFeed } from "./OperationsFeed";
-import { ManualStakeDialog } from "./ManualStakeDialog";
 import { VirtualLossDisplay } from "./VirtualLossDisplay";
 import { AIPullAnalyzer } from "./AIPullAnalyzer";
 import { Timer, ShieldAlert, ShieldCheck } from "lucide-react";
@@ -49,21 +48,6 @@ export const AIOperatingScreen = () => {
     } = useBotContext();
 
     const hasTriggeredGoalConfettiRef = useRef(false);
-    const [isManualStakeDialogOpen, setIsManualStakeDialogOpen] = useState(false);
-    const [manualStakeValue, setManualStakeValue] = useState(initialStake);
-    const [pendingContractType, setPendingContractType] = useState<ContractType | null>(null);
-    
-    const [showManualConfirm, setShowManualConfirm] = useState(() => {
-        return localStorage.getItem("showManualConfirm") === "true";
-    });
-
-    useEffect(() => {
-        localStorage.setItem("showManualConfirm", String(showManualConfirm));
-    }, [showManualConfirm]);
-
-    useEffect(() => {
-        setManualStakeValue(initialStake);
-    }, [initialStake]);
 
     useEffect(() => {
         if (totalProfit === 0) {
@@ -117,37 +101,6 @@ export const AIOperatingScreen = () => {
 
     const handleStartClick = () => {
         toggleBot();
-    };
-
-
-    const handleManualClick = (type: ContractType) => {
-        if (!showManualConfirm) {
-            manualBuy(
-                type,
-                type === "CALL" ? "Manual Longa" : "Manual",
-                parseFloat(initialStake)
-            );
-            return;
-        }
-
-        setPendingContractType(type);
-        setManualStakeValue(initialStake);
-        setIsManualStakeDialogOpen(true);
-    };
-
-    const confirmManualBuy = () => {
-        if (pendingContractType) {
-            setInitialStake(manualStakeValue);
-
-            manualBuy(
-                pendingContractType,
-                pendingContractType === "CALL" ? "Manual Longa" : "Manual",
-                parseFloat(manualStakeValue)
-            );
-
-            setIsManualStakeDialogOpen(false);
-            setPendingContractType(null);
-        }
     };
 
     const isTradePending = tradeStatus === "SENDING" || tradeStatus === "ACTIVE";
@@ -268,9 +221,9 @@ export const AIOperatingScreen = () => {
     return (
         <div className="w-full max-w-md mx-auto space-y-3 animate-in fade-in slide-in-from-bottom-8 duration-1000 px-1 pb-4">
             
-            <RecentDigitsPanel />
-
-            <AIPullAnalyzer />
+            <AllMarketsDigitsPanel />
+            {/* <RecentDigitsPanel />
+            <AIPullAnalyzer /> */}
 
             <VirtualLossDisplay />
 
@@ -288,15 +241,7 @@ export const AIOperatingScreen = () => {
                 onExit={exitToSelection}
                 onReconnect={handleConnect}
             >
-                <ManualSignalPanel
-                    showManualConfirm={showManualConfirm}
-                    setShowManualConfirm={setShowManualConfirm}
-                    manualSignalIntelligence={manualSignalIntelligence}
-                    isConnected={isConnected}
-                    isTradePending={isTradePending}
-                    onManualClick={handleManualClick}
-                />
-            </AIOperatingHeroCard>
+                </AIOperatingHeroCard>
 
             {isBotRunning && <AIThoughtCard aiThought={aiThought} />}
 
@@ -307,19 +252,6 @@ export const AIOperatingScreen = () => {
                 onClose={() => setIsConfigModalOpen(false)}
             />
 
-            <ManualStakeDialog
-                open={isManualStakeDialogOpen}
-                onOpenChange={setIsManualStakeDialogOpen}
-                pendingContractType={pendingContractType}
-                manualStakeValue={manualStakeValue}
-                setManualStakeValue={setManualStakeValue}
-                onConfirm={confirmManualBuy}
-                takeProfit={takeProfit}
-                stopLoss={stopLoss}
-                currency={currency}
-                setTakeProfit={setTakeProfit}
-                setStopLoss={setStopLoss}
-            />
-        </div>
+            </div>
     );
 };

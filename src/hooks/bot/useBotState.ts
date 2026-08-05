@@ -36,6 +36,17 @@ const DEFAULTS = {
     currency: 'USD',
     isSmartModeActive: false,
     virtualTargetLosses: 0,
+    strategyConfig: {
+        activeIndicators: [] as string[],
+        rsiPeriod: 14,
+        rsiOverbought: 70,
+        rsiOversold: 30,
+        macdFast: 12,
+        macdSlow: 26,
+        macdSignal: 9,
+        maPeriod: 50,
+        maType: 'SMA' as 'SMA' | 'EMA',
+    }
 };
 
 const getInitialState = () => {
@@ -98,6 +109,7 @@ export const useBotState = () => {
 
     const [isSmartModeActive, setIsSmartModeActive] = useState(initialState.isSmartModeActive);
     const [virtualTargetLosses, setVirtualTargetLosses] = useState(initialState.virtualTargetLosses);
+    const [strategyConfig, setStrategyConfig] = useState(initialState.strategyConfig || DEFAULTS.strategyConfig);
     const [virtualLossStreak, setVirtualLossStreak] = useState(0);
     const [isWaitingForVirtualResult, setIsWaitingForVirtualResult] = useState(false);
     const [isWaitingForRecoveryVirtual, setIsWaitingForRecoveryVirtual] = useState(false);
@@ -109,6 +121,7 @@ export const useBotState = () => {
     const [wins, setWins] = useState(0);
     const [losses, setLosses] = useState(0);
     const [lastDigits, setLastDigits] = useState<number[]>([]);
+    const [multiMarketDigits, setMultiMarketDigits] = useState<Record<string, number[]>>({});
     const [logs, setLogs] = useState<LogEntry[]>([]);
     const [signals, setSignals] = useState<SignalEntry[]>([]);
     const [accountBalance, setAccountBalance] = useState<number | null>(null);
@@ -164,9 +177,10 @@ export const useBotState = () => {
         isWaitingForRecoveryVirtual, setIsWaitingForRecoveryVirtual,
         isSorosActive, setIsSorosActive, sorosLevels, setSorosLevels,
         totalProfit, setTotalProfit, wins, setWins, losses, setLosses,
-        lastDigits, setLastDigits, logs, setLogs, signals, setSignals, accountBalance, setAccountBalance,
+        lastDigits, setLastDigits, multiMarketDigits, setMultiMarketDigits, logs, setLogs, signals, setSignals, accountBalance, setAccountBalance,
         tradeStatus, setTradeStatus, addLog, addSignal, updateSignalResult, clearSignals,
         lastTickEpoch, setLastTickEpoch, multiAssetDigits, setMultiAssetDigits,
-        availableAccounts, setAvailableAccounts
+        availableAccounts, setAvailableAccounts,
+        strategyConfig, setStrategyConfig
     };
 };

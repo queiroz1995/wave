@@ -31,12 +31,71 @@ const invertContractType = (type: ContractType): ContractType => {
     return type === 'CALL' ? 'PUT' : 'CALL';
 };
 
+
+// --- INDICATORS HELPER ---
+const calcSMA = (data: number[], period: number) => {
+    if (data.length < period) return 0;
+    return data.slice(0, period).reduce((a, b) => a + b, 0) / period;
+};
+
+const calcEMA = (data: number[], period: number) => {
+    if (data.length < period) return 0;
+    const k = 2 / (period + 1);
+    let ema = data[period - 1];
+    for (let i = period - 2; i >= 0; i--) {
+        ema = (data[i] * k) + (ema * (1 - k));
+    }
+    return ema;
+};
+
+const calcRSI = (data: number[], period: number) => {
+    if (data.length < period + 1) return 50;
+    let gains = 0;
+    let losses = 0;
+    for (let i = 0; i < period; i++) {
+        const diff = data[i] - data[i + 1];
+        if (diff > 0) gains += diff;
+        else losses -= diff;
+    }
+    const avgGain = gains / period;
+    const avgLoss = losses / period;
+    if (avgLoss === 0) return 100;
+    const rs = avgGain / avgLoss;
+    return 100 - (100 / (1 + rs));
+};
+
+const calcMACD = (data: number[], fast: number, slow: number, signalPeriod: number) => {
+    if (data.length < slow + signalPeriod) return { macd: 0, signal: 0, hist: 0 };
+    // Not a full MACD for full history, just approx for the latest point
+    const emaFast = calcEMA(data, fast);
+    const emaSlow = calcEMA(data, slow);
+    const macdLine = emaFast - emaSlow;
+    // We would need a history of MACD to calculate EMA of MACD for signal. 
+    // We will just do SMA of macd for simplicity on digits.
+    let macdHist = [];
+    for(let i=0; i<signalPeriod; i++) {
+        const ef = calcEMA(data.slice(i), fast);
+        const es = calcEMA(data.slice(i), slow);
+        macdHist.push(ef - es);
+    }
+    const signalLine = calcSMA(macdHist, signalPeriod);
+    return { macd: macdLine, signal: signalLine, hist: macdLine - signalLine };
+};
+// --- END INDICATORS ---
+
 const getProposalContractType = (
     requestedType: ContractType,
     digitTradeMode: 'evenOdd' | 'overUnder' | 'riseFall' | 'multimodal',
-    overUnderDirection: 'OVER' | 'UNDER'
+    overUnderDirection: 'OVER' | 'UNDER',
+    asset: string
 ): ContractType => {
+    const isDigitSupported = asset.startsWith('1HZ') || asset.startsWith('R_') || asset.startsWith('JD');
+
     if (requestedType === 'DIGITEVEN' || requestedType === 'DIGITODD') {
+        if (!isDigitSupported) {
+            return requestedType === 'DIGITEVEN' ? 'CALL' : 'PUT';
+        }
+
         if (digitTradeMode === 'overUnder') {
             return overUnderDirection === 'OVER' ? 'DIGITOVER' : 'DIGITUNDER';
         }
@@ -44,6 +103,10 @@ const getProposalContractType = (
         if (digitTradeMode === 'riseFall') {
             return requestedType === 'DIGITEVEN' ? 'CALL' : 'PUT';
         }
+    }
+
+    if ((requestedType === 'DIGITOVER' || requestedType === 'DIGITUNDER') && !isDigitSupported) {
+         return requestedType === 'DIGITOVER' ? 'CALL' : 'PUT';
     }
 
     return requestedType;
@@ -156,7 +219,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     useBotPersistence(stateAndSetters);
 
     const {
-        addLog, setAccountBalance, setLastDigits, setIsBotRunning,
+        addLog, setAccountBalance, setLastDigits, multiMarketDigits, setMultiMarketDigits, setIsBotRunning,
         setTotalProfit, setWins, setLosses,
         asset, initialStake, addSignal, updateSignalResult,
         setLastTickEpoch, lastDigits, lastTickEpoch,
@@ -252,7 +315,6 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const handleWebSocketMessage = useCallback((event: { type: string, payload?: any }) => {
         const data = event.payload;
-
         if (event.type === 'error') {
             clearPendingTradeState();
             setAiThought("Falha ao enviar ordem. Recalculando cenário...");
@@ -471,7 +533,16 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const lastDigit = Number(tickStr.replace(/[^\d]/g, '').slice(-1));
             const epoch = data.tick?.epoch;
 
-            if (Number.isFinite(lastDigit) && tickSymbol === asset) {
+            if (Number.isFinite(lastDigit)) {
+                // console.log("Received tick for", tickSymbol, lastDigit);
+                if (['1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V', 'R_10', 'R_25', 'R_50', 'R_75', 'R_100'].includes(tickSymbol)) {
+                    setMultiMarketDigits(prev => {
+                        const current = prev[tickSymbol] || [];
+                        return { ...prev, [tickSymbol]: [lastDigit, ...current].slice(0, 100) };
+                    });
+                }
+
+                if (tickSymbol === asset) {
                 setCurrentLiveTick(lastDigit);
                 latestTickDigitRef.current = lastDigit;
                 setLastTickEpoch(epoch);
@@ -581,6 +652,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
         }
 
+            } // fechar o if (tickSymbol === asset) que eu abri
         if (data?.msg_type === 'balance' && data.balance?.balance !== undefined) {
             setAccountBalance(parseFloat(data.balance.balance));
             if (data.balance.currency) {
@@ -589,6 +661,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         if (data?.error) {
+            const errorCode = data.error?.code;
+            if (errorCode === 'AlreadySubscribed' || errorCode === 'InvalidSymbol' || errorCode === 'RateLimit') {
+                console.warn("Ignorando erro de tick não-crítico:", data.error.message);
+                return;
+            }
             const errorMessage = data.error?.message || "A Deriv recusou a operação.";
             handleRejectedTrade(errorMessage);
         }
@@ -632,6 +709,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Monitoramento de Ticks em Tempo Real para a Operação Ativa
     const prevEpochRef = useRef<number | null>(null);
+    const subscribedMarketsRef = useRef<Set<string>>(new Set());
     useEffect(() => {
         if (!isConnected) return;
 
@@ -647,17 +725,42 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, [lastTickEpoch, tradeStatus, duration, isConnected]);
 
     useEffect(() => {
-        setLastDigits([]);
+        setLastDigits([]); 
+        // DO NOT clear setMultiMarketDigits({}) to preserve other markets during asset switch
         setCurrentLiveTick(null);
         latestTickDigitRef.current = null;
 
         if (isConnected && ws.sendMessage) {
-            addLog(`[SISTEMA] Solicitando fluxo de dados de ${asset}...`, "INFO");
-            ws.sendMessage({ ticks: asset, subscribe: 1 });
-            // Não enviamos forget porque a Deriv gerencia assinaturas
-        }
+            const ALL_MARKETS = ['1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V', 'R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
+            
+            // Subscribe to main asset immediately if not already subscribed
+            if (!subscribedMarketsRef.current.has(asset)) {
+                addLog(`[SISTEMA] Solicitando fluxo de dados de ${asset}...`, "INFO");
+                ws.sendMessage({ ticks: asset, subscribe: 1 });
+                subscribedMarketsRef.current.add(asset);
+            }
 
+            // Slowly subscribe to others
+            ALL_MARKETS.forEach((m, i) => {
+                if (!subscribedMarketsRef.current.has(m)) {
+                    setTimeout(() => {
+                        if (ws.sendMessage) {
+                            console.log("Subscribing to market for radar:", m);
+                            ws.sendMessage({ ticks: m, subscribe: 1 });
+                            subscribedMarketsRef.current.add(m);
+                        }
+                    }, 1000 + i * 500);
+                }
+            });
+        }
     }, [asset, isConnected, addLog, ws.sendMessage]);
+    
+    // Clear subscriptions on disconnect
+    useEffect(() => {
+        if (!isConnected) {
+            subscribedMarketsRef.current.clear();
+        }
+    }, [isConnected]);
 
     const handleConnect = useCallback(() => {
         const token = (accountType === 'real' ? realToken : demoToken).trim();
@@ -775,7 +878,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isTradeInProgressRef.current = true;
 
         const reqId = Date.now();
-        const proposalContractType = getProposalContractType(contractType, digitTradeMode, overUnderDirection);
+        const proposalContractType = getProposalContractType(contractType, digitTradeMode, overUnderDirection, symbol);
 
         const calculatedDuration = Math.max(1, Math.min(10, Math.floor(Number(duration) || 1)));
         const tradeCycleId = Math.floor(Date.now() / 1000);
@@ -933,43 +1036,61 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         let reason = "";
         let thought = "";
 
+        const config = stateAndSetters.strategyConfig || {};
+        const activeInd = config.activeIndicators || [];
+        
+        // Calcs
+        const rsiVal = activeInd.includes('RSI') ? calcRSI(lastDigits, config.rsiPeriod || 14) : 50;
+        const macdVal = activeInd.includes('MACD') ? calcMACD(lastDigits, config.macdFast || 12, config.macdSlow || 26, config.macdSignal || 9) : { macd: 0, signal: 0, hist: 0 };
+        const maVal = activeInd.includes('MA') ? (config.maType === 'EMA' ? calcEMA(lastDigits, config.maPeriod || 50) : calcSMA(lastDigits, config.maPeriod || 50)) : 4.5;
+
         if (digitTradeMode === 'overUnder') {
             const pred = Number(stateAndSetters.digitPrediction) || 4;
             
             let overScore = 0;
             let underScore = 0;
 
-            // Indicador 1: Trend de Curto Prazo (SMA 5) mais sensível
-            const mean5 = window5.reduce((a, b) => a + b, 0) / 5;
-            if (mean5 > pred + 0.5) overScore += 30;
-            if (mean5 < pred - 0.5) underScore += 30;
+            // Strategy Builder (Indicators overrides base strategy if selected)
+            if (activeInd.length > 0) {
+                if (activeInd.includes('RSI')) {
+                    if (rsiVal < (config.rsiOversold || 30)) overScore += 40; // Oversold -> goes up
+                    if (rsiVal > (config.rsiOverbought || 70)) underScore += 40; // Overbought -> goes down
+                }
+                if (activeInd.includes('MACD')) {
+                    if (macdVal.hist > 0) overScore += 30; // Uptrend
+                    if (macdVal.hist < 0) underScore += 30; // Downtrend
+                }
+                if (activeInd.includes('MA')) {
+                    if (lastDigits[0] > maVal) overScore += 20; // Above MA -> up
+                    if (lastDigits[0] < maVal) underScore += 20; // Below MA -> down
+                }
+            } else {
+                // Base Default Strategy
+                const mean5 = calcSMA(lastDigits, 5);
+                if (mean5 > pred + 0.5) overScore += 30;
+                if (mean5 < pred - 0.5) underScore += 30;
+                
+                const freqOver = window30.filter(d => d > pred).length / 30;
+                const freqUnder = window30.filter(d => d < pred).length / 30;
+                if (freqOver > 0.5) overScore += 35;
+                if (freqUnder > 0.5) underScore += 35;
 
-            // Indicador 2: Pressão Histórica (Volume/Frequência) mais permissiva
-            const freqOver = window30.filter(d => d > pred).length / 30;
-            const freqUnder = window30.filter(d => d < pred).length / 30;
-            if (freqOver > 0.5) overScore += 35;
-            if (freqUnder > 0.5) underScore += 35;
-
-            // Indicador 3: Reversão à Média (Bollinger Bands mais justa)
-            if (lastDigits[0] > mean30 + stdDev30 * 1.2) {
-                underScore += 45; // Forte repulsão para baixo
-            }
-            if (lastDigits[0] < mean30 - stdDev30 * 1.2) {
-                overScore += 45; // Forte repulsão para cima
+                if (lastDigits[0] > mean30 + stdDev30 * 1.2) underScore += 45;
+                if (lastDigits[0] < mean30 - stdDev30 * 1.2) overScore += 45;
             }
 
             const maxScore = Math.max(overScore, underScore);
             
-            if (overScore >= 55) { // Threshold reduzido de 65 para 55
+            if (overScore >= 55) { 
                 contractType = 'DIGITOVER';
                 confidence = Math.min(99, overScore + 25);
-                reason = `Aceleração Quântica OVER: (Score: ${overScore}).`;
-                thought = `Alta Frequência: Breakout detectado. SMA5: ${mean5.toFixed(1)}`;
+                reason = `Aceleração Quântica OVER (Score: ${overScore}).`;
+                thought = `Fluxo de alta detectado. ${activeInd.length > 0 ? 'Via Indicadores Técnicos' : ''}`;
             } else if (underScore >= 55) {
                 contractType = 'DIGITUNDER';
                 confidence = Math.min(99, underScore + 25);
-                reason = `Aceleração Quântica UNDER: (Score: ${underScore}).`;
-                thought = `Alta Frequência: Breakdown detectado. SMA5: ${mean5.toFixed(1)}`;
+                reason = `Aceleração Quântica UNDER (Score: ${underScore}).`;
+                thought = `Fluxo de baixa detectado. ${activeInd.length > 0 ? 'Via Indicadores Técnicos' : ''}`;
             }
 
             if (!contractType) {
@@ -1149,7 +1270,10 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         status,
         handleConnect,
         handleDisconnect: ws.disconnect,
+        sendMessage: ws.sendMessage,
+        
         toggleBot: () => setIsBotRunning(!isBotRunning),
+        multiMarketDigits,
         resetOperations: () => {
             totalProfitRef.current = 0;
             setTotalProfit(0);
@@ -1186,7 +1310,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         currentLiveTick,
         activeContractTick,
         activeContractDigit
-    }), [stateAndSetters, isConnected, isConnecting, status, handleConnect, ws.disconnect, isBotRunning, setIsBotRunning, appFlow, selectedAIInfo, aiThought, manualBuy, isSettingsOpen, isConfigModalOpen, currentLiveTick, activeContractTick, activeContractDigit, setVirtualLossStreak, setIsWaitingForVirtualResult, setIsWaitingForRecoveryVirtual, setLosses, setTotalProfit, setTradeStatus, setWins]);
+    }), [stateAndSetters, isConnected, isConnecting, status, handleConnect, ws.disconnect, isBotRunning, setIsBotRunning, appFlow, selectedAIInfo, aiThought, manualBuy, isSettingsOpen, isConfigModalOpen, currentLiveTick, activeContractTick, activeContractDigit, setVirtualLossStreak, setIsWaitingForVirtualResult, setIsWaitingForRecoveryVirtual, setLosses, setTotalProfit, setTradeStatus, setWins, multiMarketDigits]);
 
         useEffect(() => {
         if (tradeStatus !== 'IDLE') {

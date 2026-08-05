@@ -12,6 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Settings } from 'lucide-react';
 import { BankManagement } from '@/components/bot/BankManagement';
+import { StrategySettings } from '@/components/bot/StrategySettings';
+import { IndicatorSettings } from '@/components/bot/IndicatorSettings';
 import { useBotContext } from '@/context/BotContext';
 
 interface SettingsSheetProps {
@@ -40,8 +42,14 @@ export const SettingsSheet = ({ trigger }: SettingsSheetProps) => {
                 </SheetHeader>
 
                 <div className="flex-grow min-h-0 overflow-y-auto custom-scrollbar">
-                    <div className="p-6">
+                    <div className="p-6 space-y-6">
                         <BankManagement />
+                        <div className="border-t border-white/10 pt-6">
+                             <IndicatorSettings />
+                        </div>
+                        <div className="border-t border-white/10 pt-6">
+                             <StrategySettings />
+                        </div>
                     </div>
                 </div>
             </SheetContent>

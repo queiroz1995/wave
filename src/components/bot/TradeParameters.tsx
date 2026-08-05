@@ -10,27 +10,37 @@ import { useBotContext } from '@/context/BotContext';
 import { toast } from "sonner";
 import { Switch } from '@/components/ui/switch';
 import { InfoTooltip } from '../InfoTooltip';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from '@/components/ui/slider';
 
-const AVAILABLE_ASSETS = [
-    { value: '1HZ10V', label: 'Volatility 10 (1s) Index' },
-    { value: '1HZ25V', label: 'Volatility 25 (1s) Index' },
-    { value: '1HZ50V', label: 'Volatility 50 (1s) Index' },
-    { value: '1HZ75V', label: 'Volatility 75 (1s) Index' },
-    { value: '1HZ100V', label: 'Volatility 100 (1s) Index' },
-    { value: 'R_10', label: 'Volatility 10 Index' },
-    { value: 'R_25', label: 'Volatility 25 Index' },
-    { value: 'R_50', label: 'Volatility 50 Index' },
-    { value: 'R_75', label: 'Volatility 75 Index' },
-    { value: 'R_100', label: 'Volatility 100 Index' },
+const ASSET_GROUPS = [
+    {
+        label: "Índices Sintéticos (Volatility 1s)",
+        options: [
+            { value: '1HZ10V', label: 'Volatility 10 (1s) Index' },
+            { value: '1HZ25V', label: 'Volatility 25 (1s) Index' },
+            { value: '1HZ50V', label: 'Volatility 50 (1s) Index' },
+            { value: '1HZ75V', label: 'Volatility 75 (1s) Index' },
+            { value: '1HZ100V', label: 'Volatility 100 (1s) Index' },
+        ]
+    },
+    {
+        label: "Índices Sintéticos (Volatility)",
+        options: [
+            { value: 'R_10', label: 'Volatility 10 Index' },
+            { value: 'R_25', label: 'Volatility 25 Index' },
+            { value: 'R_50', label: 'Volatility 50 Index' },
+            { value: 'R_75', label: 'Volatility 75 Index' },
+            { value: 'R_100', label: 'Volatility 100 Index' },
+        ]
+    }
 ];
 
 export const TradeParameters = () => {
     const {
         asset, setAsset,
         setDuration, setInitialStake,
-        isManualMode, setIsManualMode,
+        
         digitTradeMode, setDigitTradeMode,
         digitPrediction, setDigitPrediction,
         overUnderDirection, setOverUnderDirection,
@@ -49,7 +59,7 @@ export const TradeParameters = () => {
             return;
         }
         setAsset(newAsset);
-        const assetLabel = AVAILABLE_ASSETS.find(a => a.value === newAsset)?.label;
+        const assetLabel = ASSET_GROUPS.flatMap(g => g.options).find(a => a.value === newAsset)?.label;
         toast.success(`Mercado alterado para: ${assetLabel}`);
     };
 
@@ -68,8 +78,13 @@ export const TradeParameters = () => {
                     <Select value={asset} onValueChange={handleAssetChange} disabled={isBotRunning}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                            {AVAILABLE_ASSETS.map((a) => (
-                                <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
+                            {ASSET_GROUPS.map((group) => (
+                                <SelectGroup key={group.label}>
+                                    <SelectLabel>{group.label}</SelectLabel>
+                                    {group.options.map((a) => (
+                                        <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
+                                    ))}
+                                </SelectGroup>
                             ))}
                         </SelectContent>
                     </Select>
@@ -113,13 +128,7 @@ export const TradeParameters = () => {
                     </div>
                 )}
 
-                <div className="space-y-3 pt-4 border-t">
-                    <div className="flex items-center justify-between">
-                        <Label className="font-semibold">Habilitar Entradas Manuais</Label>
-                        <Switch checked={isManualMode} onCheckedChange={setIsManualMode} />
-                    </div>
-                </div>
-            </CardContent>
+                </CardContent>
         </Card>
     );
 };

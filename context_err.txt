@@ -1,0 +1,181 @@
+            }
+
+            return;
+        }
+
+        if (data?.msg_type === 'tick' && data?.tick) {
+            const tickSymbol = data.tick?.symbol;
+            const tickValue = data.tick?.quote ?? data.tick?.display_value ?? data.tick?.tick;
+            const pipSize = data.tick?.pip_size;
+            let tickStr = String(tickValue);
+            if (typeof tickValue === 'number' && typeof pipSize === 'number') {
+                tickStr = tickValue.toFixed(pipSize);
+            }
+            const lastDigit = Number(tickStr.replace(/[^\d]/g, '').slice(-1));
+            const epoch = data.tick?.epoch;
+
+            if (Number.isFinite(lastDigit)) {
+                if (['1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V', 'R_10', 'R_25', 'R_50', 'R_75', 'R_100'].includes(tickSymbol)) {
+                    setMultiMarketDigits(prev => {
+                        const current = prev[tickSymbol] || [];
+                        return { ...prev, [tickSymbol]: [lastDigit, ...current].slice(0, 100) };
+                    });
+                }
+
+                if (tickSymbol === asset) {
+                setCurrentLiveTick(lastDigit);
+                latestTickDigitRef.current = lastDigit;
+                setLastTickEpoch(epoch);
+
+                setLastDigits(prev => {
+                    return [lastDigit, ...prev].slice(0, 500);
+                });
+
+                // Processamento de Simulação de Trade Virtual Local (Contador Regressivo de Ticks)
+                if (activeVirtualTradeRef.current) {
+                    activeVirtualTradeRef.current.ticksRemaining--;
+                    
+                    if (activeVirtualTradeRef.current.ticksRemaining <= 0) {
+                        const virtualTrade = activeVirtualTradeRef.current;
+                        const exitDigit = lastDigit;
+                        const isEven = exitDigit % 2 === 0;
+                        let isWin = false;
+
+                        if (virtualTrade.prediction === 'DIGITEVEN') isWin = isEven;
+                        else if (virtualTrade.prediction === 'DIGITODD') isWin = !isEven;
+                        else if (virtualTrade.prediction === 'DIGITOVER') isWin = exitDigit > digitPrediction;
+                        else if (virtualTrade.prediction === 'DIGITUNDER') isWin = exitDigit < digitPrediction;
+
+                        const result = isWin ? 'WIN' : 'LOSS';
+
+                        // Registra o resultado virtual no terminal de dados de forma estilizada
+                        addLog(
+                            `[VIRTUAL] ${result === 'WIN' ? 'Vitória Virtual' : 'Perda Virtual'} (Dígito: ${exitDigit})`,
+                            result,
+                            { isVirtual: true, strategyName: virtualTrade.strategyName, contractType: virtualTrade.prediction, exitDigit }
+                        );
+
+
+                        let nextStreak = virtualLossStreakRef.current;
+                        if (isWin) {
+                            // Vitória Virtual: reseta a sequência de perdas virtuais
+                            setVirtualLossStreak(0);
+                            setIsWaitingForVirtualResult(false);
+                            activeVirtualTradeRef.current = null;
+                            
+                            updateSignalResult(virtualTrade.signalId, 'WIN', 0.35, 0.35, exitDigit);
+                        } else {
+                            // Perda Virtual: incrementa a sequência de perdas virtuais
+                            nextStreak = virtualLossStreakRef.current + 1;
+                            setVirtualLossStreak(nextStreak);
+                            setIsWaitingForVirtualResult(false);
+                            activeVirtualTradeRef.current = null;
+
+                            updateSignalResult(virtualTrade.signalId, 'LOSS', -0.35, 0.35, exitDigit);
+                        }
+
+                        // === MANUAL VIRTUAL LOSS CYCLE ===
+                        const isManual = virtualTrade.strategyName.toLowerCase().includes('manual');
+                        if (isManual) {
+                            const targetLosses = isSmartModeActiveRef.current ? 1 : virtualTargetLossesRef.current;
+                            if (nextStreak >= targetLosses && targetLosses > 0) {
+
+                                // MET TARGET LOSSES! Enter real trade!
+                                addLog(`[LOSS AUTOMÁTICO] Alvo atingido para entrada manual. Executando conta real...`, "INFO");
+                                setTimeout(() => {
+                                    if (executeBuyRef.current) {
+                                        const realSignalId = `manual-real-${Date.now()}`;
+                                        const r = executeBuyRef.current(
+                                            virtualTrade.prediction, 
+                                            virtualTrade.strategyName.replace('VIRTUAL: ', ''), 
+                                            realSignalId, 
+                                            asset, 
+                                            virtualTrade.baseStake
+                                        );
+                                        
+                                        if (r && r.success && !r.isVirtual) {
+                                            // Adiciona o sinal real
+                                            stateAndSetters.setSignals((prev: any) => [
+                                                {
+                                                    id: realSignalId,
+                                                    timestamp: new Date().toLocaleTimeString('pt-BR', { hour12: false }),
+                                                    type: 'Manual',
+                                                    signal: contractToSignal(virtualTrade.prediction),
+                                                    details: 'Loss automático atingido. Operação real iniciada.',
+                                                    winRate: '-'
+                                                },
+                                                ...prev
+                                            ].slice(0, 100));
+                                        }
+                                    }
+                                }, 800);
+
+                            } else if (targetLosses > 0) {
+                                // NOT YET MET. Keep trying virtual!
+                                addLog(`[LOSS AUTOMÁTICO] Entrada manual aguardando loss virtual (${nextStreak}/${targetLosses}). Tentando novamente...`, "INFO");
+                                setTimeout(() => {
+                                    if (executeBuyRef.current) {
+                                        executeBuyRef.current(
+                                            virtualTrade.prediction, 
+                                            virtualTrade.strategyName.replace('VIRTUAL: ', ''), 
+                                            `manual-virtual-${Date.now()}`, 
+                                            asset, 
+                                            virtualTrade.baseStake
+                                        );
+                                    }
+                                }, 800);
+                            }
+                        }
+
+                    }
+                }
+            }
+        }
+
+        if (data?.msg_type === 'balance' && data.balance?.balance !== undefined) {
+            setAccountBalance(parseFloat(data.balance.balance));
+            if (data.balance.currency) {
+                setCurrency(data.balance.currency);
+            }
+        }
+
+        if (data?.error) {
+            const errorMessage = data.error?.message || "A Deriv recusou a operação.";
+            handleRejectedTrade(errorMessage);
+        }
+    }, [
+        asset,
+        addLog,
+        clearPendingTradeState,
+        handleRejectedTrade,
+        setAccountBalance,
+        setTotalProfit,
+        setWins,
+        setLosses,
+        updateSignalResult,
+        setTradeStatus,
+        stateAndSetters,
+        setVirtualLossStreak,
+        digitPrediction,
+        setCurrency,
+        setIsWaitingForVirtualResult,
+        setLastDigits,
+        setLastTickEpoch
+    ]);
+
+    const ws = useTradingWebSocketManager({
+        isConnected,
+        status,
+        setIsConnected,
+        setIsConnecting,
+        setStatus,
+        setAccountBalance,
+        setAccountId,
+        setCurrency,
+        onMessage: handleWebSocketMessage,
+        reconnectAttemptsRef: { current: 0 } as any,
+        addLog
+    });
+
+    useEffect(() => {
+        sendMessageRef.current = ws.sendMessage;
