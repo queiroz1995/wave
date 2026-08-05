@@ -78,6 +78,7 @@ export const ConnectionPanel: React.FC = () => {
 
             {!isConnected ? (
                 <div className="space-y-3">
+
                     <div className="relative">
                         <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                         <Input
@@ -100,7 +101,7 @@ export const ConnectionPanel: React.FC = () => {
                     <div className="px-3 py-2 bg-cyan-500/5 border border-cyan-500/10 rounded-lg flex items-start gap-2">
                         <Info className="h-3.5 w-3.5 text-cyan-400 shrink-0 mt-0.5" />
                         <p className="text-[8px] text-cyan-300 font-bold uppercase tracking-wider leading-relaxed">
-                            O App ID já está configurado automaticamente. Insira apenas o seu Token PAT (começando com pat_).
+                            O App ID (33yxEj8JnVc9XRyM6aB2n) está embutido e configurado automaticamente. Insira apenas o seu Token de API da Deriv (com permissões de Leitura e Negociação).
                         </p>
                     </div>
                 </div>

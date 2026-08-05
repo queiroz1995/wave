@@ -99,7 +99,7 @@ export const useTradingWebSocketManager = ({
                 const errorCode = data.error.code;
                 
                 // Se falhar por App ID inválido ou redirecionamento não autorizado, tenta o fallback para o App ID 1089
-                if ((errorCode === 'AppIdInvalid' || errorCode === 'InvalidAppId' || errorCode === 'InvalidRedirectUrl' || errorCode === 'InvalidOrigin') && !fallbackAttempted.current && cleanAppId !== '1089') {
+                if ((errorCode === 'AppIdInvalid' || errorCode === 'InvalidAppId' || errorCode === 'InvalidRedirectUrl' || errorCode === 'InvalidOrigin' || errorCode === 'InvalidToken') && !fallbackAttempted.current && cleanAppId !== '1089') {
                     fallbackAttempted.current = true;
                     addLog(`[SISTEMA] App ID ${cleanAppId} rejeitado por restrição de origem. Iniciando fallback automático para o App ID público 1089...`, "INFO");
                     
@@ -186,7 +186,7 @@ export const useTradingWebSocketManager = ({
     }, [setIsConnected, setIsConnecting, setStatus, setAccountBalance, setAccountId, setCurrency, addLog, startPing, clearPing]);
 
     const connectWithToken = useCallback(async (token: string, appId: string, accountType: AccountType = 'demo') => {
-        const cleanToken = token.trim();
+        const cleanToken = token.trim().replace(/^["']|["']$/g, '').replace(/[\u200B-\u200D\uFEFF]/g, '');
         const cleanAppId = appId.trim() || DEFAULT_DERIV_APP_ID;
         const isPatToken = cleanToken.toLowerCase().startsWith('pat_');
 
