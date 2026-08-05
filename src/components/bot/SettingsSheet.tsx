@@ -12,8 +12,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Settings } from 'lucide-react';
 import { BankManagement } from '@/components/bot/BankManagement';
-import { StrategySettings } from '@/components/bot/StrategySettings';
-import { IndicatorSettings } from '@/components/bot/IndicatorSettings';
 import { useBotContext } from '@/context/BotContext';
 
 interface SettingsSheetProps {
@@ -35,21 +33,15 @@ export const SettingsSheet = ({ trigger }: SettingsSheetProps) => {
             </SheetTrigger>
             <SheetContent className="w-full sm:max-w-xl p-0 flex flex-col bg-slate-950 text-white border-l border-white/10">
                 <SheetHeader className="p-6 pb-4 border-b border-white/10">
-                    <SheetTitle className="text-white">Painel de Configurações</SheetTitle>
+                    <SheetTitle className="text-white">Planilha de Gestão</SheetTitle>
                     <SheetDescription className="text-slate-400">
-                        Acompanhe e ajuste sua planilha de gestão.
+                        Acompanhe e ajuste seu plano diário de metas e gerenciamento de banca.
                     </SheetDescription>
                 </SheetHeader>
 
                 <div className="flex-grow min-h-0 overflow-y-auto custom-scrollbar">
                     <div className="p-6 space-y-6">
                         <BankManagement />
-                        <div className="border-t border-white/10 pt-6">
-                             <IndicatorSettings />
-                        </div>
-                        <div className="border-t border-white/10 pt-6">
-                             <StrategySettings />
-                        </div>
                     </div>
                 </div>
             </SheetContent>

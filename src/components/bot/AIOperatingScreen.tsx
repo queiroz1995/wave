@@ -5,7 +5,6 @@ import confetti from "canvas-confetti";
 import { useBotContext } from "@/context/BotContext";
 import { ContractType } from "@/types/bot";
 import { QuickConfigModal } from "./QuickConfigModal";
-import { RecentDigitsPanel } from "./RecentDigitsPanel";
 import { AllMarketsDigitsPanel } from "./AllMarketsDigitsPanel";
 import { AIOperatingHeroCard } from "./AIOperatingHeroCard";
 import { AIThoughtCard } from "./AIThoughtCard";
@@ -222,9 +221,6 @@ export const AIOperatingScreen = () => {
         <div className="w-full max-w-md mx-auto space-y-3 animate-in fade-in slide-in-from-bottom-8 duration-1000 px-1 pb-4">
             
             <AllMarketsDigitsPanel />
-            {/* <RecentDigitsPanel />
-            <AIPullAnalyzer /> */}
-
             <VirtualLossDisplay />
 
             <AIOperatingHeroCard

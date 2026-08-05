@@ -171,21 +171,8 @@ export const RecentDigitsPanel = () => {
                 <div
                     id="digits-scroll-container"
                     ref={scrollContainerRef}
-                    className="flex w-full flex-row flex-nowrap gap-2 overflow-x-scroll py-1 cursor-grab select-none touch-pan-x scrollbar-none"
-                    style={{
-                        scrollbarWidth: 'none',
-                        msOverflowStyle: 'none',
-                        WebkitOverflowScrolling: 'touch',
-                    }}
+                    className="flex w-full flex-row flex-nowrap gap-2 overflow-x-auto py-2 cursor-grab select-none touch-pan-x custom-scrollbar"
                 >
-                    <style dangerouslySetInnerHTML={{ __html: `
-                        #digits-scroll-container::-webkit-scrollbar {
-                            display: none !important;
-                            width: 0 !important;
-                            height: 0 !important;
-                        }
-                    `}} />
-
                     {lastDigits.length > 0 ? (
                         lastDigits.map((digit: number, index: number) => {
                             const isEven = digit % 2 === 0;

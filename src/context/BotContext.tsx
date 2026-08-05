@@ -221,11 +221,11 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const {
         addLog, setAccountBalance, setLastDigits, multiMarketDigits, setMultiMarketDigits, setIsBotRunning,
         setTotalProfit, setWins, setLosses,
-        asset, initialStake, addSignal, updateSignalResult,
+        asset, setAsset, initialStake, addSignal, updateSignalResult,
         setLastTickEpoch, lastDigits, lastTickEpoch,
         setTradeStatus, tradeStatus, isBotRunning, isPaused,
         accountType, realToken, demoToken,
-        appId, setAccountId, duration, takeProfit, stopLoss, totalProfit,
+        appId, setAccountId, duration, takeProfit, setTakeProfit, stopLoss, setStopLoss, totalProfit, accountBalance,
         setCurrentConfidence, setIsStudying, setIsPaused, setIsManipulationDetected,
         digitTradeMode, overUnderDirection, setCurrency, currency, setSignals,
         digitPrediction,
@@ -970,6 +970,21 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsStudying(false);
     }, [isConnected, isBotRunning, tradeStatus, lastDigits.length, setCurrentConfidence, setIsStudying]);
 
+    // Gestão Automática de Banca na Memória da IA
+    useEffect(() => {
+        const balanceNum = typeof accountBalance === 'number' ? accountBalance : parseFloat(String(accountBalance || '0'));
+        if (balanceNum > 0) {
+            const currentTP = parseFloat(takeProfit);
+            const currentSL = parseFloat(stopLoss);
+            if (!currentTP || currentTP <= 0) {
+                setTakeProfit((balanceNum * 0.05).toFixed(2));
+            }
+            if (!currentSL || currentSL <= 0) {
+                setStopLoss((balanceNum * 0.15).toFixed(2));
+            }
+        }
+    }, [accountBalance, takeProfit, stopLoss, setTakeProfit, setStopLoss]);
+
     useEffect(() => {
         const targetProfit = parseFloat(takeProfit) || 0;
         const maxLoss = parseFloat(stopLoss) || 0;
@@ -989,128 +1004,99 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsPaused(false);
     }, [takeProfit, stopLoss, totalProfit, setIsPaused]);
 
-    useEffect(() => {
-        if (!isBotRunning || !isConnected) return;
-        if (isTradeInProgressRef.current || tradeStatus !== 'IDLE' || isWaitingForVirtualResult) return;
-        if (isPaused) return;
-        if (lastDigits.length < 30 || !lastTickEpoch) return;
-        if (lastAutoTradeEpochRef.current === lastTickEpoch) return;
+    const evaluateMarketOpportunity = useCallback((
+        symbol: string,
+        digits: number[],
+        tradeMode: 'evenOdd' | 'overUnder',
+        digitPred: number,
+        ouDirection: 'OVER' | 'UNDER',
+        strategyConfig: any
+    ) => {
+        if (!digits || digits.length < 5) {
+            return { symbol, contractType: null, confidence: 0, score: 0, reason: '', thought: '' };
+        }
 
-        // --- SISTEMA QUÂNTICO SUPER AVANÇADO ---
-        // 1. Amostragem de Dados
-        const window60 = lastDigits.slice(0, 60);
-        const window30 = lastDigits.slice(0, 30);
-        const window15 = lastDigits.slice(0, 15);
-        const window5 = lastDigits.slice(0, 5);
+        const window60 = digits.slice(0, 60);
+        const window30 = digits.slice(0, 30);
+        const window15 = digits.slice(0, 15);
+        const len30 = Math.max(1, window30.length);
 
-        // 2. Volatilidade e Médias Móveis (SMA / Desvio Padrão)
-        const mean30 = window30.reduce((a, b) => a + b, 0) / 30;
-        const variance30 = window30.reduce((a, b) => a + Math.pow(b - mean30, 2), 0) / 30;
+        const mean30 = window30.reduce((a, b) => a + b, 0) / len30;
+        const variance30 = window30.reduce((a, b) => a + Math.pow(b - mean30, 2), 0) / len30;
         const stdDev30 = Math.sqrt(variance30);
 
-        // 3. Entropia Quântica (Medição de Caos)
-        const counts = new Array(10).fill(0);
-        window60.forEach(d => counts[d]++);
-        let entropy = 0;
-        for (const count of counts) {
-            if (count > 0) {
-                const p = count / window60.length;
-                entropy -= p * Math.log2(p);
-            }
-        }
-
-        // Filtro Anti-Manipulação Institucional relaxado para permitir mais entradas
-        const isConsecutiveAnomaly = lastDigits[0] === lastDigits[1] && lastDigits[1] === lastDigits[2] && lastDigits[2] === lastDigits[3] && lastDigits[3] === lastDigits[4];
-        if (isConsecutiveAnomaly || entropy > 3.4 || stdDev30 < 0.8) {
-            setIsManipulationDetected(true);
-            setAiThought("⚠️ Anomalia Quântica Extrema. Mercado paralisado. Protegendo capital...");
-            setCurrentConfidence(0);
-            return;
-        } else {
-            setIsManipulationDetected(false);
-        }
-
-        // 4. Confluência e Escoragem (Modo Agressivo)
         let contractType: ContractType | null = null;
         let confidence = 0;
+        let score = 0;
         let reason = "";
         let thought = "";
 
-        const config = stateAndSetters.strategyConfig || {};
-        const activeInd = config.activeIndicators || [];
-        
-        // Calcs
-        const rsiVal = activeInd.includes('RSI') ? calcRSI(lastDigits, config.rsiPeriod || 14) : 50;
-        const macdVal = activeInd.includes('MACD') ? calcMACD(lastDigits, config.macdFast || 12, config.macdSlow || 26, config.macdSignal || 9) : { macd: 0, signal: 0, hist: 0 };
-        const maVal = activeInd.includes('MA') ? (config.maType === 'EMA' ? calcEMA(lastDigits, config.maPeriod || 50) : calcSMA(lastDigits, config.maPeriod || 50)) : 4.5;
+        const activeInd = strategyConfig?.activeIndicators || [];
+        const rsiVal = activeInd.includes('RSI') ? calcRSI(digits, strategyConfig?.rsiPeriod || 14) : 50;
+        const macdVal = activeInd.includes('MACD') ? calcMACD(digits, strategyConfig?.macdFast || 12, strategyConfig?.macdSlow || 26, strategyConfig?.macdSignal || 9) : { macd: 0, signal: 0, hist: 0 };
+        const maVal = activeInd.includes('MA') ? (strategyConfig?.maType === 'EMA' ? calcEMA(digits, strategyConfig?.maPeriod || 50) : calcSMA(digits, strategyConfig?.maPeriod || 50)) : 4.5;
 
-        if (digitTradeMode === 'overUnder') {
-            const pred = Number(stateAndSetters.digitPrediction) || 4;
-            
+        if (tradeMode === 'overUnder') {
+            const pred = Number(digitPred) || 4;
             let overScore = 0;
             let underScore = 0;
 
-            // Strategy Builder (Indicators overrides base strategy if selected)
             if (activeInd.length > 0) {
                 if (activeInd.includes('RSI')) {
-                    if (rsiVal < (config.rsiOversold || 30)) overScore += 40; // Oversold -> goes up
-                    if (rsiVal > (config.rsiOverbought || 70)) underScore += 40; // Overbought -> goes down
+                    if (rsiVal < (strategyConfig?.rsiOversold || 30)) overScore += 40;
+                    if (rsiVal > (strategyConfig?.rsiOverbought || 70)) underScore += 40;
                 }
                 if (activeInd.includes('MACD')) {
-                    if (macdVal.hist > 0) overScore += 30; // Uptrend
-                    if (macdVal.hist < 0) underScore += 30; // Downtrend
+                    if (macdVal.hist > 0) overScore += 30;
+                    if (macdVal.hist < 0) underScore += 30;
                 }
                 if (activeInd.includes('MA')) {
-                    if (lastDigits[0] > maVal) overScore += 20; // Above MA -> up
-                    if (lastDigits[0] < maVal) underScore += 20; // Below MA -> down
+                    if (digits[0] > maVal) overScore += 20;
+                    if (digits[0] < maVal) underScore += 20;
                 }
             } else {
-                // Base Default Strategy
-                const mean5 = calcSMA(lastDigits, 5);
+                const mean5 = calcSMA(digits, 5);
                 if (mean5 > pred + 0.5) overScore += 30;
                 if (mean5 < pred - 0.5) underScore += 30;
-                
-                const freqOver = window30.filter(d => d > pred).length / 30;
-                const freqUnder = window30.filter(d => d < pred).length / 30;
+
+                const freqOver = window30.filter(d => d > pred).length / len30;
+                const freqUnder = window30.filter(d => d < pred).length / len30;
                 if (freqOver > 0.5) overScore += 35;
                 if (freqUnder > 0.5) underScore += 35;
 
-                if (lastDigits[0] > mean30 + stdDev30 * 1.2) underScore += 45;
-                if (lastDigits[0] < mean30 - stdDev30 * 1.2) overScore += 45;
+                if (digits[0] > mean30 + stdDev30 * 1.2) underScore += 45;
+                if (digits[0] < mean30 - stdDev30 * 1.2) overScore += 45;
             }
 
-            const maxScore = Math.max(overScore, underScore);
-            
-            if (overScore >= 55) { 
+            score = Math.max(overScore, underScore);
+
+            if (overScore >= 55) {
                 contractType = 'DIGITOVER';
                 confidence = Math.min(99, overScore + 25);
-                reason = `Aceleração Quântica OVER (Score: ${overScore}).`;
-                thought = `Fluxo de alta detectado. ${activeInd.length > 0 ? 'Via Indicadores Técnicos' : ''}`;
+                reason = `[${symbol}] Aceleração Quântica OVER (Score: ${overScore}).`;
+                thought = `Radar Quântico (${symbol}): Fluxo de alta detectado em O/U.`;
             } else if (underScore >= 55) {
                 contractType = 'DIGITUNDER';
                 confidence = Math.min(99, underScore + 25);
-                reason = `Aceleração Quântica UNDER (Score: ${underScore}).`;
-                thought = `Fluxo de baixa detectado. ${activeInd.length > 0 ? 'Via Indicadores Técnicos' : ''}`;
+                reason = `[${symbol}] Aceleração Quântica UNDER (Score: ${underScore}).`;
+                thought = `Radar Quântico (${symbol}): Fluxo de baixa detectado em O/U.`;
+            } else {
+                contractType = overScore >= underScore ? 'DIGITOVER' : 'DIGITUNDER';
+                confidence = Math.min(99, score + 20);
+                reason = `[${symbol}] Tendência O/U (Over: ${overScore} / Under: ${underScore}).`;
+                thought = `Radar Quântico (${symbol}): Analisando fluxo O/U.`;
             }
-
-            if (!contractType) {
-                setCurrentConfidence(Math.max(45, maxScore));
-                setAiThought(`⚡ Modo Turbo: Analisando fluxo O/U (O: ${overScore} / U: ${underScore})`);
-            }
-
         } else {
-            // MODO PAR / ÍMPAR (Even / Odd)
+            // EVEN / ODD
             let evenScore = 0;
             let oddScore = 0;
 
-            // Indicador 1: Cadeias de Markov (Previsão de Transição de Estado)
             let evensAfterEven = 0, oddsAfterEven = 0;
             let evensAfterOdd = 0, oddsAfterOdd = 0;
-            
-            for (let i = 1; i < 30; i++) {
-                const currentIsEven = lastDigits[i - 1] % 2 === 0;
-                const prevIsEven = lastDigits[i] % 2 === 0;
-                
+
+            for (let i = 1; i < Math.min(30, digits.length); i++) {
+                const currentIsEven = digits[i - 1] % 2 === 0;
+                const prevIsEven = digits[i] % 2 === 0;
                 if (prevIsEven) {
                     if (currentIsEven) evensAfterEven++;
                     else oddsAfterEven++;
@@ -1120,9 +1106,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             }
 
-            const lastIsEven = lastDigits[0] % 2 === 0;
+            const lastIsEven = digits[0] % 2 === 0;
             let probEven = 50, probOdd = 50;
-
             if (lastIsEven) {
                 const total = evensAfterEven + oddsAfterEven;
                 if (total > 0) {
@@ -1137,84 +1122,138 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             }
 
-            if (probEven > 55) evenScore += 30; // Threshold mais fácil
+            if (probEven > 55) evenScore += 30;
             if (probOdd > 55) oddScore += 30;
 
-            // Indicador 2: Exaustão de Sequência (Streaks Históricas)
             let currentStreak = 1;
             for (let i = 1; i < window30.length; i++) {
                 if ((window30[i] % 2 === 0) === lastIsEven) currentStreak++;
                 else break;
             }
 
-            const getWindowMaxStreak = (windowDigits, isEven) => {
-                let max = 0, current = 0;
-                for (let i = windowDigits.length - 1; i >= 0; i--) {
-                    if ((windowDigits[i] % 2 === 0) === isEven) {
-                        current++;
-                        if (current > max) max = current;
-                    } else current = 0;
-                }
-                return max;
-            };
+            let maxStreak = 0, curr = 0;
+            for (let i = window30.length - 1; i >= 0; i--) {
+                if ((window30[i] % 2 === 0) === lastIsEven) {
+                    curr++;
+                    if (curr > maxStreak) maxStreak = curr;
+                } else curr = 0;
+            }
 
-            const maxEven30 = getWindowMaxStreak(window30, true);
-            const maxOdd30 = getWindowMaxStreak(window30, false);
-            
-            const limit = lastIsEven ? maxEven30 : maxOdd30;
-
-            // Antecipa a exaustão para entrar mais rápido (limit - 2 em vez de limit - 1)
-            if (currentStreak >= Math.max(2, limit - 2)) {
+            if (currentStreak >= Math.max(2, maxStreak - 2)) {
                 if (lastIsEven) oddScore += 50;
                 else evenScore += 50;
             }
 
-            // Indicador 3: Viés de Volume Sensível
             const evensIn15 = window15.filter(d => d % 2 === 0).length;
             if (evensIn15 > 8) evenScore += 20;
             else if (evensIn15 < 7) oddScore += 20;
 
-            // Indicador 4: Quebra Estrutural Quântica
             if (mean30 > 4.5 && lastIsEven) oddScore += 15;
             if (mean30 < 4.5 && !lastIsEven) evenScore += 15;
 
-            const maxScore = Math.max(evenScore, oddScore);
+            score = Math.max(evenScore, oddScore);
 
             if (evenScore >= 55) {
                 contractType = 'DIGITEVEN';
                 confidence = Math.min(99, evenScore + 25);
-                reason = `Disparo PAR: Score Agressivo (${evenScore}).`;
-                thought = `Aceleração Neural: Gatilho de alta frequência acionado para PAR. Markov: ${probEven.toFixed(0)}%`;
+                reason = `[${symbol}] Disparo PAR: Score Radar (${evenScore}).`;
+                thought = `Radar Quântico (${symbol}): Oportunidade detectada para PAR (Markov ${probEven.toFixed(0)}%).`;
             } else if (oddScore >= 55) {
                 contractType = 'DIGITODD';
                 confidence = Math.min(99, oddScore + 25);
-                reason = `Disparo ÍMPAR: Score Agressivo (${oddScore}).`;
-                thought = `Aceleração Neural: Gatilho de alta frequência acionado para ÍMPAR. Markov: ${probOdd.toFixed(0)}%`;
-            }
-
-            if (!contractType) {
-                setCurrentConfidence(Math.max(45, maxScore));
-                setAiThought(`⚡ Modo Turbo: Analisando distorções P/I (P: ${evenScore} / I: ${oddScore})`);
+                reason = `[${symbol}] Disparo ÍMPAR: Score Radar (${oddScore}).`;
+                thought = `Radar Quântico (${symbol}): Oportunidade detectada para ÍMPAR (Markov ${probOdd.toFixed(0)}%).`;
+            } else {
+                contractType = evenScore >= oddScore ? 'DIGITEVEN' : 'DIGITODD';
+                confidence = Math.min(99, score + 20);
+                reason = `[${symbol}] Viés P/I (Par: ${evenScore} / Ímpar: ${oddScore}).`;
+                thought = `Radar Quântico (${symbol}): Analisando viés estatístico.`;
             }
         }
 
-        const minConfidence = Math.min(50, Number(stateAndSetters.marketStabilityThreshold) || 50); // Reduzido min de 55 pra 50
+        return {
+            symbol,
+            contractType,
+            confidence,
+            score,
+            reason,
+            thought
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!isBotRunning || !isConnected) return;
+        if (isTradeInProgressRef.current || tradeStatus !== 'IDLE' || isWaitingForVirtualResult) return;
+        if (isPaused) return;
+        if (!lastTickEpoch) return;
+        if (lastAutoTradeEpochRef.current === lastTickEpoch) return;
+
+        const ALL_MARKETS = ['1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V', 'R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
+
+        let bestOpp: ReturnType<typeof evaluateMarketOpportunity> | null = null;
+        let highestScore = -1;
+
+        for (const mSymbol of ALL_MARKETS) {
+            const mDigits = (multiMarketDigits && multiMarketDigits[mSymbol]) || (mSymbol === asset ? lastDigits : []);
+            if (!mDigits || mDigits.length < 5) continue;
+
+            const evalRes = evaluateMarketOpportunity(
+                mSymbol,
+                mDigits,
+                digitTradeMode,
+                Number(digitPrediction) || 4,
+                overUnderDirection,
+                stateAndSetters.strategyConfig
+            );
+
+            if (evalRes.score > highestScore || !bestOpp) {
+                highestScore = evalRes.score;
+                bestOpp = evalRes;
+            }
+        }
+
+        if (!bestOpp || !bestOpp.contractType) return;
+
+        // --- REGRA DE RECUPERAÇÃO IMEDIATA APÓS LOSS ---
+        const isRecoveryCycle = martingaleLevel.current > 0;
         
-        if (contractType && confidence >= minConfidence) {
-            setCurrentConfidence(confidence);
+        const targetContract = bestOpp.contractType;
+        let targetConfidence = bestOpp.confidence;
+        let targetReason = bestOpp.reason;
+        let targetThought = bestOpp.thought;
+
+        if (isRecoveryCycle) {
+            // Se estiver em recuperação (Loss anterior), ENTRA IMEDIATAMENTE no próximo tick sem esperar padrão
+            targetConfidence = 99;
+            targetReason = `⚡ [RECUPERAÇÃO IMEDIATA - MARTINGALE LVL ${martingaleLevel.current}] Entrada de recuperação acionada em ${bestOpp.symbol} sem aguardar novo padrão.`;
+            targetThought = `⚡ RECUPERAÇÃO DE LOSS: Entrada imediata acionada em ${bestOpp.symbol} para recuperar a banca.`;
+        }
+
+        const minConfidence = isRecoveryCycle ? 0 : Math.min(50, Number(stateAndSetters.marketStabilityThreshold) || 50);
+
+        if (targetConfidence >= minConfidence) {
+            setCurrentConfidence(targetConfidence);
             const signalId = `auto-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-            const result = executeBuy(contractType, 'Módulo Super Quântico', signalId, asset);
+            
+            // Troca o ativo selecionado na UI para o mercado de melhor oportunidade
+            if (bestOpp.symbol !== asset && setAsset) {
+                setAsset(bestOpp.symbol);
+            }
+
+            const result = executeBuy(targetContract, isRecoveryCycle ? 'Recuperação Imediata Martingale' : 'Radar Quântico Multi-Mercado', signalId, bestOpp.symbol);
 
             if (result && result.success) {
                 lastAutoTradeEpochRef.current = lastTickEpoch;
                 addSignal({
                     id: signalId,
-                    strategy: result.isVirtual ? 'VIRTUAL: Módulo Super Quântico Turbo' : 'Módulo Super Quântico Turbo',
-                    signal: contractToSignal(contractType),
-                    details: reason,
-                    winRate: `${confidence}%`
+                    strategy: isRecoveryCycle 
+                        ? `⚡ RECUPERAÇÃO MARTINGALE (${bestOpp.symbol})` 
+                        : (result.isVirtual ? `VIRTUAL: Radar Multi-Mercado (${bestOpp.symbol})` : `Radar Multi-Mercado (${bestOpp.symbol})`),
+                    signal: contractToSignal(targetContract),
+                    details: targetReason,
+                    winRate: `${targetConfidence}%`
                 });
-                setAiThought(thought);
+                setAiThought(targetThought);
             }
         }
     }, [
@@ -1225,14 +1264,19 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         lastDigits,
         lastTickEpoch,
         asset,
+        setAsset,
         addSignal,
         executeBuy,
         setCurrentConfidence,
         setIsManipulationDetected,
         stateAndSetters.marketStabilityThreshold,
+        stateAndSetters.strategyConfig,
         isWaitingForVirtualResult,
         digitTradeMode,
-        stateAndSetters.digitPrediction
+        digitPrediction,
+        overUnderDirection,
+        multiMarketDigits,
+        evaluateMarketOpportunity
     ]);
 
     const manualBuy = useCallback((contractType: ContractType, source: string = 'Manual', overrideStake?: number) => {
