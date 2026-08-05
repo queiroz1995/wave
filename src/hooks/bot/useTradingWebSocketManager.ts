@@ -113,7 +113,7 @@ export const useTradingWebSocketManager = ({
                 const errorCode = data.error.code;
                 
                 // Se falhar por App ID inválido ou redirecionamento não autorizado, tenta o fallback para o App ID 1089
-                if ((errorCode === 'AppIdInvalid' || errorCode === 'InvalidAppId' || errorCode === 'InvalidRedirectUrl' || errorCode === 'InvalidOrigin' || errorCode === 'InvalidToken') && !fallbackAttempted.current && cleanAppId !== '1089') {
+                if ((errorCode === 'AppIdInvalid' || errorCode === 'InvalidAppId' || errorCode === 'InvalidRedirectUrl' || errorCode === 'InvalidOrigin') && !fallbackAttempted.current && cleanAppId !== '1089') {
                     fallbackAttempted.current = true;
                     addLog(`[SISTEMA] App ID ${cleanAppId} rejeitado por restrição de origem. Iniciando fallback automático para o App ID público 1089...`, "INFO");
                     
