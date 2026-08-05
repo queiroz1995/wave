@@ -251,6 +251,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const totalProfitRef = useRef(0.00);
     const martingaleLevel = useRef(0);
+    const lastTradedContractTypeRef = useRef<ContractType | null>(null);
     const pendingContracts = useRef<Map<string, any>>(new Map());
     const proposalTracker = useRef<Map<number, { strategyName: string, signalId: string, stake: number, contractType: ContractType, tradeCycleId: number, baseStake: number }>>(new Map());
     const buyTracker = useRef<Map<number, { strategyName: string, signalId: string, stake: number, contractType: ContractType, tradeCycleId: number, baseStake: number }>>(new Map());
@@ -465,6 +466,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 if (result === 'WIN') {
                     setWins((w: number) => w + 1);
                     martingaleLevel.current = 0;
+                    lastTradedContractTypeRef.current = null;
                     setVirtualLossStreak(0); // Reset virtual loss streak to 0 on real WIN!
                 } else {
                     setLosses((l: number) => l + 1);
@@ -876,6 +878,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         isTradeInProgressRef.current = true;
+        lastTradedContractTypeRef.current = contractType;
 
         const reqId = Date.now();
         const proposalContractType = getProposalContractType(contractType, digitTradeMode, overUnderDirection, symbol);
@@ -1217,16 +1220,19 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // --- REGRA DE RECUPERAÇÃO IMEDIATA APÓS LOSS ---
         const isRecoveryCycle = martingaleLevel.current > 0;
         
-        const targetContract = bestOpp.contractType;
+        let targetContract = bestOpp.contractType;
         let targetConfidence = bestOpp.confidence;
         let targetReason = bestOpp.reason;
         let targetThought = bestOpp.thought;
 
         if (isRecoveryCycle) {
-            // Se estiver em recuperação (Loss anterior), ENTRA IMEDIATAMENTE no próximo tick sem esperar padrão
+            // Se estiver em recuperação (Loss anterior), MANTÉM O MESMO TIPO DE CONTRATO (ex: se entrou PAR e deu loss, recupera no PAR sem inverter)
+            if (lastTradedContractTypeRef.current) {
+                targetContract = lastTradedContractTypeRef.current;
+            }
             targetConfidence = 99;
-            targetReason = `⚡ [RECUPERAÇÃO IMEDIATA - MARTINGALE LVL ${martingaleLevel.current}] Entrada de recuperação acionada em ${bestOpp.symbol} sem aguardar novo padrão.`;
-            targetThought = `⚡ RECUPERAÇÃO DE LOSS: Entrada imediata acionada em ${bestOpp.symbol} para recuperar a banca.`;
+            targetReason = `⚡ [RECUPERAÇÃO IMEDIATA - MARTINGALE LVL ${martingaleLevel.current}] Recuperação acionada mantendo o mesmo padrão (${contractToSignal(targetContract)}) em ${bestOpp.symbol}.`;
+            targetThought = `⚡ RECUPERAÇÃO DE LOSS: Mantendo a mesma direção (${contractToSignal(targetContract)}) em ${bestOpp.symbol} sem inverter.`;
         }
 
         const minConfidence = isRecoveryCycle ? 0 : Math.min(50, Number(stateAndSetters.marketStabilityThreshold) || 50);
