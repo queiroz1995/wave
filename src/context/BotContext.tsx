@@ -8,7 +8,7 @@ import { ContractType } from '@/types/bot';
 import { toast } from "sonner";
 import { saveTradeToHistory } from '@/utils/tradeStorage';
 import { useCloudBackgroundManager } from '../hooks/bot/useCloudBackgroundManager';
-import { isDigitVirtualLoss, getMarketVirtualLossStreak } from '@/utils/virtualLossHelper';
+import { isDigitVirtualLoss, getMarketVirtualLossStreak, checkLossDigitHigh, getLossDigits } from '@/utils/virtualLossHelper';
 
 const BotContext = createContext<any>(undefined);
 
@@ -838,6 +838,27 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         
         const marketSymbol = symbol || asset;
         const marketDigits = (multiMarketDigits && multiMarketDigits[marketSymbol]) || (marketSymbol === asset ? lastDigits : []);
+
+        // --- FILTRO DE PORCENTAGEM DO DÍGITO DE PERDA ALTA ---
+        if (stateAndSetters.isLossDigitFilterActive) {
+            const lossCheck = checkLossDigitHigh(
+                marketDigits,
+                digitTradeMode,
+                Number(stateAndSetters.digitPrediction) || 4,
+                overUnderDirection,
+                Number(stateAndSetters.maxLossDigitPercent) || 18,
+                contractType,
+                50
+            );
+
+            if (lossCheck.isHigh) {
+                const highDetails = lossCheck.highLossDigits.map(h => `${h.digit} (${h.percentage.toFixed(1)}%)`).join(', ');
+                addLog(`[BLOQUEIO DÍGITO DE PERDA] Entrada em ${contractToSignal(contractType)} ignorada em ${marketSymbol}: Frequência alta no dígito de perda [${highDetails}] (Limite: ${stateAndSetters.maxLossDigitPercent}%).`, "INFO");
+                setAiThought(`[${marketSymbol}] Entrada não realizada: Frequência do dígito de perda [${highDetails}] está alta.`);
+                return { success: false, isVirtual: false, blockedByLossDigit: true };
+            }
+        }
+
         const marketTickLossStreak = getMarketVirtualLossStreak(
             marketDigits,
             digitTradeMode,
@@ -1204,6 +1225,26 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 confidence = Math.min(99, score + 20);
                 reason = `[${symbol}] Viés P/I (Par: ${evenScore} / Ímpar: ${oddScore}).`;
                 thought = `Radar Quântico (${symbol}): Analisando viés estatístico.`;
+            }
+        }
+
+        // Validação adicional de Filtro de Dígito de Perda no Radar
+        if (contractType && stateAndSetters.isLossDigitFilterActive) {
+            const lossCheck = checkLossDigitHigh(
+                digits,
+                tradeMode,
+                Number(digitPred) || 4,
+                ouDirection,
+                Number(stateAndSetters.maxLossDigitPercent) || 18,
+                contractType,
+                50
+            );
+            if (lossCheck.isHigh) {
+                const highDetails = lossCheck.highLossDigits.map(h => `${h.digit} (${h.percentage.toFixed(1)}%)`).join(', ');
+                confidence = 0;
+                score = 0;
+                reason = `[${symbol}] Bloqueado: Dígito de perda alta [${highDetails}].`;
+                thought = `Radar Quântico (${symbol}): Entrada bloqueada por alta porcentagem no dígito de perda.`;
             }
         }
 

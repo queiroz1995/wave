@@ -13,6 +13,7 @@ export const useBotPersistence = (state: ReturnType<typeof useBotState>) => {
         bankManagementInitialBankroll, bankManagementDailyGoalPercent,
         bankManagementDailyStopPercent, bankManagementCurrentDay,
         bankManagementActualBankroll, isSmartModeActive, virtualTargetLosses,
+        isLossDigitFilterActive, maxLossDigitPercent,
         strategyConfig
     } = state;
     
@@ -26,6 +27,7 @@ export const useBotPersistence = (state: ReturnType<typeof useBotState>) => {
             bankManagementInitialBankroll, bankManagementDailyGoalPercent,
             bankManagementDailyStopPercent, bankManagementCurrentDay,
             bankManagementActualBankroll, isSmartModeActive, virtualTargetLosses,
+            isLossDigitFilterActive, maxLossDigitPercent,
             strategyConfig
         };
         localStorage.setItem('derivBotState', JSON.stringify(stateToSave));
@@ -38,6 +40,7 @@ export const useBotPersistence = (state: ReturnType<typeof useBotState>) => {
         bankManagementInitialBankroll, bankManagementDailyGoalPercent,
         bankManagementDailyStopPercent, bankManagementCurrentDay,
         bankManagementActualBankroll, isSmartModeActive, virtualTargetLosses,
+        isLossDigitFilterActive, maxLossDigitPercent,
         strategyConfig
     ]);
 };

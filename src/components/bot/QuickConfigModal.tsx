@@ -35,6 +35,8 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
         isSorosActive, setIsSorosActive,
         sorosLevels, setSorosLevels,
         duration, setDuration,
+        isLossDigitFilterActive, setIsLossDigitFilterActive,
+        maxLossDigitPercent, setMaxLossDigitPercent,
         isConnected
     } = useBotContext();
     
@@ -53,6 +55,10 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
     const [tempVirtualLossMode, setTempVirtualLossMode] = useState<'auto' | 'manual'>('auto');
     const [tempVirtualLosses, setTempVirtualLosses] = useState<string | number>(virtualTargetLosses || 1);
 
+    // Estados para o Filtro de Dígito de Perda Alto (0 a 9)
+    const [tempLossDigitFilterActive, setTempLossDigitFilterActive] = useState(isLossDigitFilterActive !== false);
+    const [tempMaxLossDigitPercent, setTempMaxLossDigitPercent] = useState<string | number>(maxLossDigitPercent ?? 18);
+
     useEffect(() => {
         if (isOpen) {
             setTempStake(initialStake);
@@ -70,8 +76,12 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
             setTempVirtualLossActive(isVirtualActive);
             setTempVirtualLossMode(isSmartModeActive ? 'auto' : 'manual');
             setTempVirtualLosses(virtualTargetLosses > 0 ? virtualTargetLosses : 1);
+
+            // Sincroniza estados do Filtro de Dígito de Perda
+            setTempLossDigitFilterActive(isLossDigitFilterActive !== false);
+            setTempMaxLossDigitPercent(maxLossDigitPercent ?? 18);
         }
-    }, [isOpen, initialStake, takeProfit, stopLoss, martingaleFactor, maxLevels, isMartingaleActive, isSorosActive, sorosLevels, duration, isSmartModeActive, virtualTargetLosses]);
+    }, [isOpen, initialStake, takeProfit, stopLoss, martingaleFactor, maxLevels, isMartingaleActive, isSorosActive, sorosLevels, duration, isSmartModeActive, virtualTargetLosses, isLossDigitFilterActive, maxLossDigitPercent]);
 
     const handleConfirm = () => {
         try {
@@ -109,6 +119,11 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                     if (typeof setVirtualTargetLosses === 'function') setVirtualTargetLosses(finalVirtualLosses);
                 }
             }
+
+            // Salva configurações do Filtro de Dígito de Perda Alto
+            if (typeof setIsLossDigitFilterActive === 'function') setIsLossDigitFilterActive(tempLossDigitFilterActive);
+            const finalMaxPercent = tempMaxLossDigitPercent === "" ? 18 : Math.max(5, Math.min(50, Number(tempMaxLossDigitPercent)));
+            if (typeof setMaxLossDigitPercent === 'function') setMaxLossDigitPercent(finalMaxPercent);
 
             toast.success("Configurações salvas com sucesso!");
             onClose();
@@ -318,6 +333,52 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
                                         </div>
                                     </div>
                                 )}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Seção: Filtro de Porcentagem do Dígito de Perda (0 a 9) */}
+                    <div className="space-y-2 bg-slate-900/20 p-2.5 rounded-xl border border-white/5">
+                        <div className="flex items-center justify-between border-b border-white/5 pb-1">
+                            <div className="flex items-center gap-1.5">
+                                <Target className="h-3 w-3 text-rose-400" />
+                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Filtro Dígito de Perda Alto</span>
+                            </div>
+                            <Switch 
+                                checked={tempLossDigitFilterActive} 
+                                onCheckedChange={(checked) => setTempLossDigitFilterActive(checked)}
+                                className="h-4 w-7 [&>span]:h-3 [&>span]:w-3"
+                            />
+                        </div>
+
+                        {tempLossDigitFilterActive && (
+                            <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <Label className="text-[8px] font-black uppercase tracking-widest ml-1 text-slate-400">
+                                    Porcentagem Máxima Tolerada do Dígito de Loss (%)
+                                </Label>
+                                <div className="relative flex items-center">
+                                    <Input 
+                                        type="number"
+                                        min={5}
+                                        max={50}
+                                        value={tempMaxLossDigitPercent}
+                                        onChange={(e) => setTempMaxLossDigitPercent(e.target.value === "" ? "" : Number(e.target.value))}
+                                        className="h-9 pr-8 rounded-lg font-bold text-base bg-slate-900/40 border border-white/10 text-white focus-visible:ring-rose-500/30 focus-visible:border-rose-500/50 w-full"
+                                        placeholder="18"
+                                    />
+                                    {tempMaxLossDigitPercent !== "" && (
+                                        <button 
+                                            type="button"
+                                            onClick={() => setTempMaxLossDigitPercent("")}
+                                            className="absolute right-2.5 p-0.5 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors z-10"
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    )}
+                                </div>
+                                <p className="text-[8px] text-slate-400 italic">
+                                    Se o dígito de perda (0 a 9) tiver frequência $\ge$ a essa porcentagem, o bot não realizará a entrada.
+                                </p>
                             </div>
                         )}
                     </div>

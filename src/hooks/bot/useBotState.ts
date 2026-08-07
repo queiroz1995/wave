@@ -36,6 +36,8 @@ const DEFAULTS = {
     currency: 'USD',
     isSmartModeActive: false,
     virtualTargetLosses: 0,
+    isLossDigitFilterActive: true,
+    maxLossDigitPercent: 18,
     strategyConfig: {
         activeIndicators: [] as string[],
         rsiPeriod: 14,
@@ -111,6 +113,8 @@ export const useBotState = () => {
 
     const [isSmartModeActive, setIsSmartModeActive] = useState(initialState.isSmartModeActive);
     const [virtualTargetLosses, setVirtualTargetLosses] = useState(initialState.virtualTargetLosses);
+    const [isLossDigitFilterActive, setIsLossDigitFilterActive] = useState(initialState.isLossDigitFilterActive !== false);
+    const [maxLossDigitPercent, setMaxLossDigitPercent] = useState<number | string>(initialState.maxLossDigitPercent ?? 18);
     const [strategyConfig, setStrategyConfig] = useState(initialState.strategyConfig || DEFAULTS.strategyConfig);
     const [virtualLossStreak, setVirtualLossStreak] = useState(0);
     const [isWaitingForVirtualResult, setIsWaitingForVirtualResult] = useState(false);
@@ -179,6 +183,7 @@ export const useBotState = () => {
         isBotRunning, setIsBotRunning, isPaused, setIsPaused, isManipulationDetected, setIsManipulationDetected,
         isStudying, setIsStudying, currentConfidence, setCurrentConfidence,
         isSmartModeActive, setIsSmartModeActive, virtualTargetLosses, setVirtualTargetLosses,
+        isLossDigitFilterActive, setIsLossDigitFilterActive, maxLossDigitPercent, setMaxLossDigitPercent,
         virtualLossStreak, setVirtualLossStreak, isWaitingForVirtualResult, setIsWaitingForVirtualResult,
         isWaitingForRecoveryVirtual, setIsWaitingForRecoveryVirtual,
         isSorosActive, setIsSorosActive, sorosLevels, setSorosLevels,
