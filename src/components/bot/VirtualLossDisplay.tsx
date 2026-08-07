@@ -1,10 +1,10 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { ShieldAlert, Zap, Trophy, Target, ShieldCheck } from 'lucide-react';
+import { ShieldAlert, Zap, Trophy, Target, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export const VirtualLossDisplay = () => {
@@ -14,6 +14,15 @@ export const VirtualLossDisplay = () => {
         isWaitingForVirtualResult, isBotRunning,
         isWaitingForRecoveryVirtual
     } = useBotContext();
+
+    const [isHidden, setIsHidden] = useState<boolean>(() => {
+        return localStorage.getItem('panel_hide_virtual_loss') === 'true';
+    });
+
+    const toggleHidden = (hidden: boolean) => {
+        setIsHidden(hidden);
+        localStorage.setItem('panel_hide_virtual_loss', String(hidden));
+    };
 
     if (!isBotRunning) return null;
     
@@ -30,6 +39,24 @@ export const VirtualLossDisplay = () => {
     const iconColor = showRecoveryFilter ? "text-red-500" : "text-blue-500";
     const phaseLabel = showRecoveryFilter ? "Protocolo de Segurança Ativo" : "Mapeando Oportunidade";
     
+    if (isHidden) {
+        return (
+            <div className="mb-4 flex items-center justify-between px-3 py-2 bg-primary/5 border border-primary/20 rounded-2xl">
+                <div className="flex items-center gap-2">
+                    <Icon className={cn("h-4 w-4", iconColor)} />
+                    <span className="text-[10px] font-black uppercase text-primary">{phaseLabel}</span>
+                </div>
+                <button
+                    onClick={() => toggleHidden(false)}
+                    className="p-1 hover:bg-white/10 rounded-lg text-slate-400 hover:text-cyan-400 transition-colors"
+                    title="Mostrar Filtro Virtual"
+                >
+                    <EyeOff className="w-4 h-4" />
+                </button>
+            </div>
+        );
+    }
+
     return (
         <Card className={cn(
             "mb-4 overflow-hidden rounded-2xl border-2 transition-all duration-500",
@@ -43,12 +70,21 @@ export const VirtualLossDisplay = () => {
                             {phaseLabel}
                         </span>
                     </div>
-                    <span className={cn(
-                        "text-[10px] font-mono font-black px-3 py-1 rounded-full",
-                        showRecoveryFilter ? "bg-red-500/20 text-red-600" : "bg-primary/10 text-primary"
-                    )}>
-                        {showRecoveryFilter ? "AGUARDANDO LOSS VIRTUAL" : `${virtualLossStreak} / ${virtualTargetLosses}`}
-                    </span>
+                    <div className="flex items-center gap-2">
+                        <span className={cn(
+                            "text-[10px] font-mono font-black px-3 py-1 rounded-full",
+                            showRecoveryFilter ? "bg-red-500/20 text-red-600" : "bg-primary/10 text-primary"
+                        )}>
+                            {showRecoveryFilter ? "AGUARDANDO LOSS VIRTUAL" : `${virtualLossStreak} / ${virtualTargetLosses}`}
+                        </span>
+                        <button
+                            onClick={() => toggleHidden(true)}
+                            className="p-1 hover:bg-white/10 rounded-lg text-slate-400 hover:text-cyan-400 transition-colors"
+                            title="Ocultar Filtro Virtual"
+                        >
+                            <Eye className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
                 
                 <Progress 

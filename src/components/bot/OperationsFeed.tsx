@@ -102,6 +102,7 @@ export const OperationsFeed = ({ signals, onReset }: OperationsFeedProps) => {
                             const profitValue = Number.isFinite(Number(signal.profit)) ? Number(signal.profit) : 0;
                             const digitValue = signal.exitDigit ?? signal.digit ?? signal.exit_digit ?? signal.finalDigit;
                             const isVirtual = String(signal.strategy || '').includes("VIRTUAL");
+                            const marketSymbol = signal.asset || signal.symbol || signal.market || (signal.strategy && signal.strategy.match(/\(([^)]+)\)/)?.[1]);
                             
                             // Considera como operação ativa se não finalizou e é o primeiro item da lista (mais recente)
                             const isActiveTrade = !hasFinished && index === 0;
@@ -118,12 +119,18 @@ export const OperationsFeed = ({ signals, onReset }: OperationsFeedProps) => {
                                                 : "bg-slate-900/40 hover:bg-slate-900/80 border-white/5"
                                     )}
                                 >
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
                                         <span className="text-[8px] font-mono text-slate-500">{signal.timestamp}</span>
                                         
                                         {isVirtual && (
                                             <span className="px-1 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[7px] font-black uppercase tracking-wider">
                                                 Virtual
+                                            </span>
+                                        )}
+
+                                        {marketSymbol && (
+                                            <span className="px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-[8px] font-mono font-bold uppercase tracking-wider">
+                                                {marketSymbol}
                                             </span>
                                         )}
 

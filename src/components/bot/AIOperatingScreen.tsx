@@ -13,7 +13,8 @@ import { OperationsFeed } from "./OperationsFeed";
 import { VirtualLossDisplay } from "./VirtualLossDisplay";
 import { AIPullAnalyzer } from "./AIPullAnalyzer";
 import { RiskStatsCard } from "./RiskStatsCard";
-import { Timer, ShieldAlert, ShieldCheck, Activity } from "lucide-react";
+import { CloudModeCard } from "./CloudModeCard";
+import { Timer, ShieldAlert, ShieldCheck, Activity, Cloud } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const AIOperatingScreen = () => {
@@ -243,14 +244,16 @@ export const AIOperatingScreen = () => {
 
             {isBotRunning && <AIThoughtCard aiThought={aiThought} />}
 
+            <CloudModeCard />
+
             <Tabs defaultValue="feed" className="w-full">
                 <TabsList className="grid w-full grid-cols-2 bg-black/40 border border-white/10">
-                    <TabsTrigger value="feed" className="data-[state=active]:bg-white/10">
-                        <Activity className="w-4 h-4 mr-2" />
+                    <TabsTrigger value="feed" className="data-[state=active]:bg-white/10 text-xs">
+                        <Activity className="w-3.5 h-3.5 mr-1.5" />
                         Operações
                     </TabsTrigger>
-                    <TabsTrigger value="risk" className="data-[state=active]:bg-white/10">
-                        <ShieldAlert className="w-4 h-4 mr-2" />
+                    <TabsTrigger value="risk" className="data-[state=active]:bg-white/10 text-xs">
+                        <ShieldAlert className="w-3.5 h-3.5 mr-1.5" />
                         Risco & Recovery
                     </TabsTrigger>
                 </TabsList>

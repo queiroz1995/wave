@@ -106,19 +106,17 @@ export const useTradingWebSocketManager = ({
                     // Fecha o socket atual e abre com o App ID 1089
                     socket.close();
                     
-                    setTimeout(() => {
-                        const fallbackSocket = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=1089`);
-                        ws.current = fallbackSocket;
-                        setupSocketListeners(fallbackSocket, currentConnectionId, cleanToken, '1089', accountType);
-                        
-                        fallbackSocket.onopen = () => {
-                            if (connectionId.current !== currentConnectionId || ws.current !== fallbackSocket) return;
-                            addLog("[SISTEMA] Conectado via App ID público 1089. Autenticando...", "INFO");
-                            if (fallbackSocket.readyState === WebSocket.OPEN) {
-                                fallbackSocket.send(JSON.stringify({ authorize: cleanToken }));
-                            }
-                        };
-                    }, 500);
+                    const fallbackSocket = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=1089`);
+                    ws.current = fallbackSocket;
+                    setupSocketListeners(fallbackSocket, currentConnectionId, cleanToken, '1089', accountType);
+                    
+                    fallbackSocket.onopen = () => {
+                        if (connectionId.current !== currentConnectionId || ws.current !== fallbackSocket) return;
+                        addLog("[SISTEMA] Conectado via App ID público 1089. Autenticando...", "INFO");
+                        if (fallbackSocket.readyState === WebSocket.OPEN) {
+                            fallbackSocket.send(JSON.stringify({ authorize: cleanToken }));
+                        }
+                    };
                     return;
                 }
 

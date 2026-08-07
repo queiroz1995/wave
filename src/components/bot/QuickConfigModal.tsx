@@ -46,7 +46,7 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
     const [tempMartingaleActive, setTempMartingaleActive] = useState(isMartingaleActive !== false);
     const [tempSorosActive, setTempSorosActive] = useState(isSorosActive || false);
     const [tempSorosLevels, setTempSorosLevels] = useState<string | number>(sorosLevels || 3);
-    const [tempDuration, setTempDuration] = useState<string | number>(duration || 3);
+    const [tempDuration, setTempDuration] = useState<string | number>(duration || 1);
 
     // Estados para o Filtro de Loss Virtual
     const [tempVirtualLossActive, setTempVirtualLossActive] = useState(true);
@@ -63,7 +63,7 @@ export const QuickConfigModal: React.FC<QuickConfigModalProps> = ({ isOpen, onCl
             setTempMartingaleActive(isMartingaleActive !== false);
             setTempSorosActive(isSorosActive || false);
             setTempSorosLevels(sorosLevels || 3);
-            setTempDuration(duration || 3);
+            setTempDuration(duration || 1);
 
             // Sincroniza estados do Loss Virtual
             const isVirtualActive = isSmartModeActive || virtualTargetLosses > 0;

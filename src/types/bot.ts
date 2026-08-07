@@ -6,6 +6,7 @@ export interface LogEntry {
     timestamp: string;
     message: string;
     type: LogType;
+    asset?: string;
     stake?: number;
     profit?: number;
     strategyName?: string;
@@ -20,8 +21,9 @@ export type SignalType = 'EVEN' | 'ODD' | 'OVER' | 'UNDER' | 'CALL' | 'PUT';
 export interface SignalEntry {
     id: string;
     timestamp: string;
+    asset?: string;
     strategy: string;
-    signal: SignalType;
+    signal: SignalType | string;
     details: string;
     winRate?: string;
     result?: 'WIN' | 'LOSS';

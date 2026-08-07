@@ -1,10 +1,18 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { cn } from '@/lib/utils';
-import { Target, TrendingUp } from 'lucide-react';
+import { Target, TrendingUp, Eye, EyeOff } from 'lucide-react';
 
 export const AIPullAnalyzer = () => {
     const { lastDigits } = useBotContext();
+    const [isHidden, setIsHidden] = useState<boolean>(() => {
+        return localStorage.getItem('panel_hide_pull_analyzer') === 'true';
+    });
+
+    const toggleHidden = (hidden: boolean) => {
+        setIsHidden(hidden);
+        localStorage.setItem('panel_hide_pull_analyzer', String(hidden));
+    };
 
     const pullAnalysis = useMemo(() => {
         const digits = lastDigits || [];
@@ -49,6 +57,26 @@ export const AIPullAnalyzer = () => {
         return null; // Don't show if there are no pulls > 90%
     }
 
+    if (isHidden) {
+        return (
+            <div className="w-full bg-slate-950/80 backdrop-blur-xl border border-white/10 rounded-xl px-3 py-2 flex items-center justify-between mb-3">
+                <div className="flex items-center gap-1.5">
+                    <Target className="h-3.5 w-3.5 text-purple-400" />
+                    <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                        Puxadores Detectados ({pullAnalysis.length})
+                    </span>
+                </div>
+                <button
+                    onClick={() => toggleHidden(false)}
+                    className="p-1 hover:bg-white/10 rounded-lg text-slate-400 hover:text-purple-400 transition-colors"
+                    title="Mostrar Puxadores"
+                >
+                    <EyeOff className="w-4 h-4" />
+                </button>
+            </div>
+        );
+    }
+
     return (
         <div className="w-full bg-slate-950/80 backdrop-blur-xl border border-white/10 rounded-2xl p-3.5 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] relative overflow-hidden group mb-3">
             <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-transparent to-transparent opacity-50 pointer-events-none" />
@@ -60,6 +88,13 @@ export const AIPullAnalyzer = () => {
                             I.A. Detectou Puxadores (&gt;90%)
                         </span>
                     </div>
+                    <button
+                        onClick={() => toggleHidden(true)}
+                        className="p-1 hover:bg-white/10 rounded-lg text-slate-400 hover:text-purple-400 transition-colors"
+                        title="Ocultar Puxadores"
+                    >
+                        <Eye className="w-4 h-4" />
+                    </button>
                 </div>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                     {pullAnalysis.map((pull, idx) => (

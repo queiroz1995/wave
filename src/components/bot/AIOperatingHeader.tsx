@@ -1,10 +1,9 @@
 "use client";
 
 import React from "react";
-import { Activity, Target } from "lucide-react";
+import { Activity, Target, Cloud, Settings, Zap, X, ChevronLeft, DollarSign, TrendingUp, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useBotContext } from "@/context/BotContext";
-import { Settings, Zap, X, ChevronLeft, DollarSign, TrendingUp, TrendingDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const AIOperatingHeader = () => {
@@ -24,7 +23,8 @@ export const AIOperatingHeader = () => {
         stopLoss,
         currency,
         isStudying,
-        currentConfidence
+        currentConfidence,
+        cloudBackground
     } = useBotContext();
 
     const totalTrades = wins + losses;
@@ -47,28 +47,37 @@ export const AIOperatingHeader = () => {
                     <ChevronLeft className="h-4 w-4" />
                 </Button>
 
-                <div className="flex items-center gap-2 bg-slate-900/60 backdrop-blur-xl p-1 pr-2.5 rounded-full border border-white/10">
-                    <div
-                        className={cn(
-                            "h-5 w-5 rounded-full flex items-center justify-center transition-all duration-500",
-                            isBotRunning ? "bg-emerald-500/20 text-emerald-400" : "bg-slate-800/50 text-slate-500"
-                        )}
-                    >
-                        <Activity className={cn("h-2.5 w-2.5", isBotRunning && "animate-pulse")} />
-                    </div>
-                    <div className="flex flex-col">
-                        <span className="text-[7px] font-black uppercase tracking-tighter leading-none text-slate-400">
-                            Status
-                        </span>
-                        <span
+                <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 bg-slate-900/60 backdrop-blur-xl p-1 pr-2.5 rounded-full border border-white/10">
+                        <div
                             className={cn(
-                                "text-[7px] font-bold uppercase tracking-widest leading-none mt-0.5",
-                                isBotRunning ? "text-emerald-400" : "text-slate-500"
+                                "h-5 w-5 rounded-full flex items-center justify-center transition-all duration-500",
+                                isBotRunning ? "bg-emerald-500/20 text-emerald-400" : "bg-slate-800/50 text-slate-500"
                             )}
                         >
-                            {isBotRunning ? (isStudying ? "Sincronizando..." : isPaused ? "Pausado" : "Sniper Online") : "Offline"}
-                        </span>
+                            <Activity className={cn("h-2.5 w-2.5", isBotRunning && "animate-pulse")} />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[7px] font-black uppercase tracking-tighter leading-none text-slate-400">
+                                Status
+                            </span>
+                            <span
+                                className={cn(
+                                    "text-[7px] font-bold uppercase tracking-widest leading-none mt-0.5",
+                                    isBotRunning ? "text-emerald-400" : "text-slate-500"
+                                )}
+                            >
+                                {isBotRunning ? (isStudying ? "Sincronizando..." : isPaused ? "Pausado" : "Sniper Online") : "Offline"}
+                            </span>
+                        </div>
                     </div>
+
+                    {cloudBackground?.isCloudModeEnabled && (
+                        <div className="flex items-center gap-1 bg-cyan-500/10 backdrop-blur-xl px-2 py-1 rounded-full border border-cyan-500/20" title="Modo Nuvem Ativo (Operação em segundo plano / tela bloqueada)">
+                            <Cloud className={cn("h-3 w-3 text-cyan-400", isBotRunning && "animate-pulse")} />
+                            <span className="text-[8px] font-extrabold text-cyan-400 uppercase tracking-widest">Nuvem</span>
+                        </div>
+                    )}
                 </div>
 
                 {isBotRunning && !isStudying && (

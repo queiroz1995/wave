@@ -4,12 +4,23 @@ import React, { useEffect, useRef } from 'react';
 import { useBotContext } from '@/context/BotContext';
 import { cn } from '@/lib/utils';
 import { Zap, BarChart3, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { isDigitVirtualLoss as checkDigitVirtualLoss } from '@/utils/virtualLossHelper';
 
 type Period = 30 | 40 | 60 | 100;
 
 export const RecentDigitsPanel = () => {
-    const { lastDigits, currentLiveTick, asset, manualBuy, tradeStatus, digitTradeMode, digitPrediction, isConnected } = useBotContext();
+    const { 
+        lastDigits, currentLiveTick, asset, manualBuy, tradeStatus, 
+        digitTradeMode, digitPrediction, overUnderDirection, isConnected,
+        virtualTargetLosses, isSmartModeActive 
+    } = useBotContext();
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    const targetLosses = isSmartModeActive ? 1 : virtualTargetLosses;
+
+    const isDigitVirtualLoss = (digit: number): boolean => {
+        return checkDigitVirtualLoss(digit, digitTradeMode, Number(digitPrediction) || 4, overUnderDirection);
+    };
 
     const getMaxStreak = (digits: number[], type: 'even' | 'odd') => {
         let maxStreak = 0;
@@ -177,24 +188,34 @@ export const RecentDigitsPanel = () => {
                         lastDigits.map((digit: number, index: number) => {
                             const isEven = digit % 2 === 0;
                             const isZero = digit === 0;
+                            const isLoss = isDigitVirtualLoss(digit);
 
                             return (
                                 <div
                                     key={`${index}-${digit}`}
                                     className={cn(
-                                        "flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl border transition-all duration-300",
-                                        isZero
-                                            ? "border-blue-500/30 bg-blue-500/10 text-blue-400"
-                                            : isEven
-                                                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                                                : "border-rose-500/30 bg-rose-500/10 text-rose-400"
+                                        "relative flex h-12 w-11 shrink-0 flex-col items-center justify-center rounded-xl border transition-all duration-300",
+                                        index === 0 ? "ring-2 ring-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.5)]" : "",
+                                        isLoss 
+                                            ? "border-rose-500/40 bg-rose-500/10 text-rose-300" 
+                                            : "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
                                     )}
+                                    title={`Tick #${index + 1}: Dígito ${digit} -> ${isLoss ? 'LOSS VIRTUAL ❌' : 'WIN VIRTUAL 🟢'}`}
                                 >
                                     <span className="font-mono text-sm font-black leading-none">
                                         {digit}
                                     </span>
-                                    <span className="mt-1 text-[7px] font-black uppercase tracking-tighter opacity-60">
+                                    <span className="mt-0.5 text-[6px] font-black uppercase tracking-tighter opacity-80">
                                         {isZero ? 'Zero' : isEven ? 'Par' : 'Ímp'}
+                                    </span>
+                                    {/* Tag de Loss Virtual */}
+                                    <span className={cn(
+                                        "absolute -bottom-1 -right-1 text-[7px] font-black leading-none px-1 py-0.5 rounded-md border shadow-sm",
+                                        isLoss 
+                                            ? "bg-rose-600 text-white border-rose-400" 
+                                            : "bg-emerald-600 text-white border-emerald-400"
+                                    )}>
+                                        {isLoss ? 'L' : 'W'}
                                     </span>
                                 </div>
                             );

@@ -93,12 +93,17 @@ const LogItem: React.FC<LogItemProps> = ({ log }) => {
                                     </span>
                                 )}
                             </p>
-                            <p className="text-[10px] text-muted-foreground/80 mt-1">
+                            <p className="text-[10px] text-muted-foreground/80 mt-1 flex items-center gap-1.5 flex-wrap">
+                                {log.asset && (
+                                    <span className="font-mono font-bold text-[9px] px-1 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/30">
+                                        {log.asset}
+                                    </span>
+                                )}
                                 {log.strategyName && (
-                                    <>Estratégia: <span className="font-semibold text-primary/80">{log.strategyName}</span></>
+                                    <span>Estratégia: <span className="font-semibold text-primary/80">{log.strategyName}</span></span>
                                 )}
                                 {(log.contractType || log.barrier !== undefined) && (
-                                    <span className="ml-1">
+                                    <span>
                                         | Contrato: <span className="font-semibold text-primary/80">{formatContractType(log.contractType)}</span>
                                         {log.barrier !== undefined && ` (Barreira: ${log.barrier})`}
                                     </span>

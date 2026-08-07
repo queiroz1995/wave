@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import {
     Bot,
     BrainCircuit,
@@ -10,7 +10,9 @@ import {
     RefreshCw,
     TrendingDown,
     TrendingUp,
-    Settings
+    Settings,
+    Eye,
+    EyeOff
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,7 +32,7 @@ interface AIOperatingHeroCardProps {
     onExit: () => void;
     onReconnect: () => void;
     onConfigClick?: () => void;
-    
+    children?: React.ReactNode;
 }
 
 export const AIOperatingHeroCard = ({
@@ -48,7 +50,43 @@ export const AIOperatingHeroCard = ({
     onConfigClick,
     children
 }: AIOperatingHeroCardProps) => {
+    const [isHidden, setIsHidden] = useState<boolean>(() => {
+        return localStorage.getItem('panel_hide_hero_card') === 'true';
+    });
+
+    const toggleHidden = (hidden: boolean) => {
+        setIsHidden(hidden);
+        localStorage.setItem('panel_hide_hero_card', String(hidden));
+    };
+
     const isWin = totalProfit >= 0;
+
+    if (isHidden) {
+        return (
+            <Card className="p-3 bg-slate-950/60 backdrop-blur-xl border border-white/10 rounded-2xl flex items-center justify-between shadow-lg">
+                <div className="flex items-center gap-2">
+                    <div className="h-7 w-7 bg-slate-900 rounded-lg p-0.5 border border-white/10 flex items-center justify-center">
+                        <Bot className="h-4 w-4 text-cyan-400" />
+                    </div>
+                    <div>
+                        <span className="text-xs font-black text-white italic tracking-tight">QUANTUM ENGINE</span>
+                        <span className={cn("ml-2 text-xs font-mono font-bold", isWin ? "text-emerald-400" : "text-rose-400")}>
+                            {isWin ? "+" : ""}${totalProfit.toFixed(2)}
+                        </span>
+                    </div>
+                </div>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-cyan-400"
+                    onClick={() => toggleHidden(false)}
+                    title="Expandir Painel Principal"
+                >
+                    <EyeOff className="h-3.5 w-3.5" />
+                </Button>
+            </Card>
+        );
+    }
 
     return (
         <Card className="relative overflow-hidden bg-slate-950/60 backdrop-blur-xl border border-white/10 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)] rounded-[1.5rem] transition-all duration-500 hover:border-cyan-500/20">
@@ -89,6 +127,15 @@ export const AIOperatingHeroCard = ({
                     </div>
 
                     <div className="flex items-center gap-1">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 hover:text-cyan-400 transition-all"
+                            onClick={() => toggleHidden(true)}
+                            title="Ocultar Painel Principal"
+                        >
+                            <Eye className="h-3.5 w-3.5" />
+                        </Button>
                         {onConfigClick && (
                             <Button
                                 variant="ghost"

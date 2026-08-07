@@ -12,7 +12,7 @@ const DEFAULTS = {
     appId: DEFAULT_DERIV_APP_ID,
     accountType: 'demo' as 'real' | 'demo',
     asset: '1HZ10V',
-    duration: 3,
+    duration: 1,
     initialStake: '0.35',
     digitTradeMode: 'evenOdd' as 'evenOdd' | 'overUnder' | 'riseFall' | 'multimodal',
     attackMode: 'safe',
@@ -62,7 +62,7 @@ const getInitialState = () => {
             demoToken: savedState.demoToken || '',
             appId: (!savedState.appId || savedState.appId === '1089') ? DEFAULT_DERIV_APP_ID : savedState.appId,
             asset: savedState.asset || '1HZ10V',
-            duration: savedState.duration !== undefined ? savedState.duration : 3,
+            duration: savedState.duration !== undefined ? savedState.duration : 1,
         };
     } catch (e) {
         return { ...DEFAULTS };
@@ -156,8 +156,8 @@ export const useBotState = () => {
         return id;
     }, []);
 
-    const updateSignalResult = useCallback((id: string, result: 'WIN' | 'LOSS', profit: number, stake: number | undefined, exitDigit?: number) => {
-        setSignals(prev => prev.map(s => s.id === id ? { ...s, result, profit, stake, exitDigit } : s));
+    const updateSignalResult = useCallback((id: string, result: 'WIN' | 'LOSS', profit: number, stake: number | undefined, exitDigit?: number, asset?: string) => {
+        setSignals(prev => prev.map(s => s.id === id ? { ...s, result, profit, stake, exitDigit, asset: asset || s.asset } : s));
     }, []);
 
     const clearSignals = useCallback(() => {

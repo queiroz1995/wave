@@ -7,6 +7,8 @@ import { useTradingWebSocketManager } from '../hooks/bot/useTradingWebSocketMana
 import { ContractType } from '@/types/bot';
 import { toast } from "sonner";
 import { saveTradeToHistory } from '@/utils/tradeStorage';
+import { useCloudBackgroundManager } from '../hooks/bot/useCloudBackgroundManager';
+import { isDigitVirtualLoss, getMarketVirtualLossStreak } from '@/utils/virtualLossHelper';
 
 const BotContext = createContext<any>(undefined);
 
@@ -243,15 +245,19 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
 
+    const cloudBackground = useCloudBackgroundManager(isBotRunning);
+
     const [currentLiveTick, setCurrentLiveTick] = useState<number | null>(null);
     const latestTickDigitRef = useRef<number | null>(null);
 
     const [activeContractTick, setActiveContractTick] = useState(0);
     const [activeContractDigit, setActiveContractDigit] = useState<number | null>(null);
+    const cycleStartProfitRef = useRef<number>(0);
 
     const totalProfitRef = useRef(0.00);
     const martingaleLevel = useRef(0);
     const lastTradedContractTypeRef = useRef<ContractType | null>(null);
+    const lastTradedSymbolRef = useRef<string | null>(null);
     const pendingContracts = useRef<Map<string, any>>(new Map());
     const proposalTracker = useRef<Map<number, { strategyName: string, signalId: string, stake: number, contractType: ContractType, tradeCycleId: number, baseStake: number }>>(new Map());
     const buyTracker = useRef<Map<number, { strategyName: string, signalId: string, stake: number, contractType: ContractType, tradeCycleId: number, baseStake: number }>>(new Map());
@@ -344,6 +350,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 return;
             }
 
+            const tradeSymbol = tracked.symbol || asset;
+
             const saved = {
                 signalId: tracked.signalId,
                 stake: tracked.stake,
@@ -351,6 +359,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 contractType: tracked.contractType,
                 tradeCycleId: tracked.tradeCycleId,
                 baseStake: tracked.baseStake,
+                symbol: tradeSymbol,
                 subscriptionId: undefined
             };
 
@@ -363,7 +372,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 req_id: data.req_id
             });
 
-            setAiThought(`Entrada confirmada. Executando ${contractToSignal(tracked.contractType)}...`);
+            addLog(`[COMPRA - ${tradeSymbol}] Enviando ordem no mercado ${tradeSymbol} (${contractToSignal(tracked.contractType)})`, "INFO");
+            setAiThought(`[${tradeSymbol}] Entrada confirmada. Executando ${contractToSignal(tracked.contractType)} em ${tradeSymbol}...`);
             return;
         }
 
@@ -384,6 +394,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 return;
             }
 
+            const tradeSymbol = saved.symbol || asset;
+
             pendingContracts.current.set(contractId, saved);
             buyTracker.current.delete(data.req_id);
 
@@ -393,9 +405,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 subscribe: 1
             });
 
-            addLog(`[OK] Ordem ativa: ${contractId}`, "TRADE");
+            addLog(`[ORDEM ATIVA - ${tradeSymbol}] Ordem #${contractId} iniciada em ${tradeSymbol}`, "TRADE");
             setTradeStatus('ACTIVE');
-            setAiThought("Contrato ativo. Monitorando resultado...");
+            setAiThought(`[${tradeSymbol}] Contrato #${contractId} ativo em ${tradeSymbol}. Monitorando...`);
             return;
         }
 
@@ -464,18 +476,24 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setTotalProfit(totalProfitRef.current);
 
                 // --- Risk Tracking ---
-                stateAndSetters.setMaxDrawdown((prev: number) => Math.min(prev, totalProfitRef.current));
+                const currentCycleProfit = totalProfitRef.current - cycleStartProfitRef.current;
+                stateAndSetters.setMaxDrawdown((prev: number) => Math.min(prev, currentCycleProfit));
                 stateAndSetters.setMaxRecoveryStake((prev: number) => Math.max(prev, saved.stake));
                 stateAndSetters.setMaxConsecutiveLosses((prev: number) => Math.max(prev, martingaleLevel.current + (result === 'LOSS' ? 1 : 0)));
+
+                const tradeSymbol = saved.symbol || asset;
 
                 if (result === 'WIN') {
                     setWins((w: number) => w + 1);
                     martingaleLevel.current = 0;
                     lastTradedContractTypeRef.current = null;
+                    lastTradedSymbolRef.current = null;
                     setVirtualLossStreak(0); // Reset virtual loss streak to 0 on real WIN!
                 } else {
                     setLosses((l: number) => l + 1);
                     martingaleLevel.current++;
+                    lastTradedContractTypeRef.current = saved.contractType;
+                    lastTradedSymbolRef.current = tradeSymbol;
                 }
 
                 updateSignalResult(
@@ -483,12 +501,13 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     result,
                     profit,
                     saved.stake,
-                    exitDigit
+                    exitDigit,
+                    tradeSymbol
                 );
 
                 saveTradeToHistory({
                     id: saved.signalId,
-                    asset: asset,
+                    asset: tradeSymbol,
                     strategy: saved.strategyName,
                     signal: contractToSignal(saved.contractType),
                     stake: saved.stake,
@@ -498,9 +517,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 });
 
                 addLog(
-                    `[RESULTADO] ${result} ${profit >= 0 ? '+' : ''}$${profit.toFixed(2)} (Dígito: ${exitDigit})`,
+                    `[RESULTADO - ${tradeSymbol}] Mercado ${tradeSymbol} | ${result === 'WIN' ? 'VITÓRIA' : 'DERROTA'} ${profit >= 0 ? '+' : ''}$${profit.toFixed(2)} (Dígito: ${exitDigit})`,
                     result,
-                    { exitDigit }
+                    { exitDigit, asset: tradeSymbol, strategyName: saved.strategyName, contractType: saved.contractType, profit }
                 );
 
                 if (pendingKey) {
@@ -550,116 +569,112 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
 
                 if (tickSymbol === asset) {
-                setCurrentLiveTick(lastDigit);
-                latestTickDigitRef.current = lastDigit;
-                setLastTickEpoch(epoch);
+                    setCurrentLiveTick(lastDigit);
+                    latestTickDigitRef.current = lastDigit;
+                    setLastTickEpoch(epoch);
 
-                setLastDigits(prev => {
-                    return [lastDigit, ...prev].slice(0, 500);
-                });
+                    setLastDigits(prev => {
+                        return [lastDigit, ...prev].slice(0, 500);
+                    });
+                }
 
-                // Processamento de Simulação de Trade Virtual Local (Contador Regressivo de Ticks)
+                // Processamento de Simulação de Trade Virtual Local (Contador Regressivo de Ticks para Qualquer Ativo do Radar)
                 if (activeVirtualTradeRef.current) {
-                    activeVirtualTradeRef.current.ticksRemaining--;
-                    
-                    if (activeVirtualTradeRef.current.ticksRemaining <= 0) {
-                        const virtualTrade = activeVirtualTradeRef.current;
-                        const exitDigit = lastDigit;
-                        const isEven = exitDigit % 2 === 0;
-                        let isWin = false;
+                    const virtualSymbol = activeVirtualTradeRef.current.symbol || asset;
+                    if (tickSymbol === virtualSymbol) {
+                        activeVirtualTradeRef.current.ticksRemaining--;
+                        
+                        if (activeVirtualTradeRef.current.ticksRemaining <= 0) {
+                            const virtualTrade = activeVirtualTradeRef.current;
+                            const exitDigit = lastDigit;
+                            const isEven = exitDigit % 2 === 0;
+                            let isWin = false;
 
-                        if (virtualTrade.prediction === 'DIGITEVEN') isWin = isEven;
-                        else if (virtualTrade.prediction === 'DIGITODD') isWin = !isEven;
-                        else if (virtualTrade.prediction === 'DIGITOVER') isWin = exitDigit > digitPrediction;
-                        else if (virtualTrade.prediction === 'DIGITUNDER') isWin = exitDigit < digitPrediction;
+                            if (virtualTrade.prediction === 'DIGITEVEN') isWin = isEven;
+                            else if (virtualTrade.prediction === 'DIGITODD') isWin = !isEven;
+                            else if (virtualTrade.prediction === 'DIGITOVER') isWin = exitDigit > digitPrediction;
+                            else if (virtualTrade.prediction === 'DIGITUNDER') isWin = exitDigit < digitPrediction;
 
-                        const result = isWin ? 'WIN' : 'LOSS';
+                            const result = isWin ? 'WIN' : 'LOSS';
 
-                        // Registra o resultado virtual no terminal de dados de forma estilizada
-                        addLog(
-                            `[VIRTUAL] ${result === 'WIN' ? 'Vitória Virtual' : 'Perda Virtual'} (Dígito: ${exitDigit})`,
-                            result,
-                            { isVirtual: true, strategyName: virtualTrade.strategyName, contractType: virtualTrade.prediction, exitDigit }
-                        );
+                            // Registra o resultado virtual no terminal de dados de forma estilizada
+                            addLog(
+                                `[VIRTUAL - ${virtualSymbol}] Mercado ${virtualSymbol} | ${result === 'WIN' ? 'Vitória Virtual' : 'Perda Virtual'} (Dígito: ${exitDigit})`,
+                                result,
+                                { isVirtual: true, asset: virtualSymbol, strategyName: virtualTrade.strategyName, contractType: virtualTrade.prediction, exitDigit }
+                            );
 
+                            let nextStreak = virtualLossStreakRef.current;
+                            if (isWin) {
+                                // Vitória Virtual: reseta a sequência de perdas virtuais
+                                setVirtualLossStreak(0);
+                                setIsWaitingForVirtualResult(false);
+                                activeVirtualTradeRef.current = null;
+                                
+                                updateSignalResult(virtualTrade.signalId, 'WIN', 0.35, 0.35, exitDigit, virtualSymbol);
+                            } else {
+                                // Perda Virtual: incrementa a sequência de perdas virtuais
+                                nextStreak = virtualLossStreakRef.current + 1;
+                                setVirtualLossStreak(nextStreak);
+                                setIsWaitingForVirtualResult(false);
+                                activeVirtualTradeRef.current = null;
 
-                        let nextStreak = virtualLossStreakRef.current;
-                        if (isWin) {
-                            // Vitória Virtual: reseta a sequência de perdas virtuais
-                            setVirtualLossStreak(0);
-                            setIsWaitingForVirtualResult(false);
-                            activeVirtualTradeRef.current = null;
-                            
-                            updateSignalResult(virtualTrade.signalId, 'WIN', 0.35, 0.35, exitDigit);
-                        } else {
-                            // Perda Virtual: incrementa a sequência de perdas virtuais
-                            nextStreak = virtualLossStreakRef.current + 1;
-                            setVirtualLossStreak(nextStreak);
-                            setIsWaitingForVirtualResult(false);
-                            activeVirtualTradeRef.current = null;
+                                updateSignalResult(virtualTrade.signalId, 'LOSS', -0.35, 0.35, exitDigit, virtualSymbol);
+                            }
 
-                            updateSignalResult(virtualTrade.signalId, 'LOSS', -0.35, 0.35, exitDigit);
-                        }
-
-                        // === MANUAL VIRTUAL LOSS CYCLE ===
-                        const isManual = virtualTrade.strategyName.toLowerCase().includes('manual');
-                        if (isManual) {
+                            // === VIRTUAL LOSS TRIGGER CYCLE ===
                             const targetLosses = isSmartModeActiveRef.current ? 1 : virtualTargetLossesRef.current;
                             if (nextStreak >= targetLosses && targetLosses > 0) {
-
-                                // MET TARGET LOSSES! Enter real trade!
-                                addLog(`[LOSS AUTOMÁTICO] Alvo atingido para entrada manual. Executando conta real...`, "INFO");
-                                setTimeout(() => {
-                                    if (executeBuyRef.current) {
-                                        const realSignalId = `manual-real-${Date.now()}`;
-                                        const r = executeBuyRef.current(
-                                            virtualTrade.prediction, 
-                                            virtualTrade.strategyName.replace('VIRTUAL: ', ''), 
-                                            realSignalId, 
-                                            asset, 
-                                            virtualTrade.baseStake
-                                        );
-                                        
-                                        if (r && r.success && !r.isVirtual) {
-                                            // Adiciona o sinal real
-                                            stateAndSetters.setSignals((prev: any) => [
-                                                {
-                                                    id: realSignalId,
-                                                    timestamp: new Date().toLocaleTimeString('pt-BR', { hour12: false }),
-                                                    type: 'Manual',
-                                                    signal: contractToSignal(virtualTrade.prediction),
-                                                    details: 'Loss automático atingido. Operação real iniciada.',
-                                                    winRate: '-'
-                                                },
-                                                ...prev
-                                            ].slice(0, 100));
-                                        }
+                                // MET TARGET LOSSES! Enter real trade immediately on this very tick!
+                                addLog(`[LOSS AUTOMÁTICO] Alvo de Loss Virtual atingido em ${virtualSymbol} (${nextStreak}/${targetLosses}). Executando entrada REAL instantânea (1 Tick)...`, "INFO");
+                                if (executeBuyRef.current) {
+                                    const realSignalId = `real-${Date.now()}`;
+                                    const cleanStrategyName = virtualTrade.strategyName.replace('VIRTUAL: ', '');
+                                    const r = executeBuyRef.current(
+                                        virtualTrade.prediction, 
+                                        cleanStrategyName, 
+                                        realSignalId, 
+                                        virtualSymbol, 
+                                        virtualTrade.baseStake
+                                    );
+                                    
+                                    if (r && r.success && !r.isVirtual) {
+                                        stateAndSetters.setSignals((prev: any) => [
+                                            {
+                                                id: realSignalId,
+                                                timestamp: new Date().toLocaleTimeString('pt-BR', { hour12: false }),
+                                                type: 'Manual',
+                                                signal: contractToSignal(virtualTrade.prediction),
+                                                details: `Loss automático atingido (${virtualSymbol}). Operação real iniciada.`,
+                                                winRate: '-'
+                                            },
+                                            ...prev
+                                        ].slice(0, 100));
                                     }
-                                }, 800);
+                                }
 
                             } else if (targetLosses > 0) {
-                                // NOT YET MET. Keep trying virtual!
-                                addLog(`[LOSS AUTOMÁTICO] Entrada manual aguardando loss virtual (${nextStreak}/${targetLosses}). Tentando novamente...`, "INFO");
-                                setTimeout(() => {
-                                    if (executeBuyRef.current) {
-                                        executeBuyRef.current(
-                                            virtualTrade.prediction, 
-                                            virtualTrade.strategyName.replace('VIRTUAL: ', ''), 
-                                            `manual-virtual-${Date.now()}`, 
-                                            asset, 
-                                            virtualTrade.baseStake
-                                        );
-                                    }
-                                }, 800);
+                                // NOT YET MET. Keep trying virtual immediately!
+                                addLog(`[LOSS AUTOMÁTICO] Aguardando loss virtual em ${virtualSymbol} (${nextStreak}/${targetLosses}). Continuando teste...`, "INFO");
+                                if (executeBuyRef.current) {
+                                    const cleanStrategyName = virtualTrade.strategyName.replace('VIRTUAL: ', '');
+                                    executeBuyRef.current(
+                                        virtualTrade.prediction, 
+                                        cleanStrategyName, 
+                                        `virtual-${Date.now()}`, 
+                                        virtualSymbol, 
+                                        virtualTrade.baseStake
+                                    );
+                                }
                             }
-                        }
 
+                        }
                     }
                 }
             }
+            return;
         }
 
-            } // fechar o if (tickSymbol === asset) que eu abri
         if (data?.msg_type === 'balance' && data.balance?.balance !== undefined) {
             setAccountBalance(parseFloat(data.balance.balance));
             if (data.balance.currency) {
@@ -693,7 +708,8 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setCurrency,
         setIsWaitingForVirtualResult,
         setLastDigits,
-        setLastTickEpoch
+        setLastTickEpoch,
+        setMultiMarketDigits
     ]);
 
     const ws = useTradingWebSocketManager({
@@ -740,23 +756,13 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (isConnected && ws.sendMessage) {
             const ALL_MARKETS = ['1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V', 'R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
             
-            // Subscribe to main asset immediately if not already subscribed
-            if (!subscribedMarketsRef.current.has(asset)) {
-                addLog(`[SISTEMA] Solicitando fluxo de dados de ${asset}...`, "INFO");
-                ws.sendMessage({ ticks: asset, subscribe: 1 });
-                subscribedMarketsRef.current.add(asset);
-            }
-
-            // Slowly subscribe to others
-            ALL_MARKETS.forEach((m, i) => {
+            // Subscribe to all markets immediately
+            ALL_MARKETS.forEach((m) => {
                 if (!subscribedMarketsRef.current.has(m)) {
-                    setTimeout(() => {
-                        if (ws.sendMessage) {
-                            console.log("Subscribing to market for radar:", m);
-                            ws.sendMessage({ ticks: m, subscribe: 1 });
-                            subscribedMarketsRef.current.add(m);
-                        }
-                    }, 1000 + i * 500);
+                    if (ws.sendMessage) {
+                        ws.sendMessage({ ticks: m, subscribe: 1 });
+                        subscribedMarketsRef.current.add(m);
+                    }
                 }
             });
         }
@@ -830,7 +836,17 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const isMartingaleCycle = martingaleLevel.current > 0;
         const targetLosses = isMartingaleCycle ? 0 : (isSmartModeActiveRef.current ? 1 : virtualTargetLossesRef.current);
         
-        if (targetLosses > 0 && virtualLossStreakRef.current < targetLosses) {
+        const marketSymbol = symbol || asset;
+        const marketDigits = (multiMarketDigits && multiMarketDigits[marketSymbol]) || (marketSymbol === asset ? lastDigits : []);
+        const marketTickLossStreak = getMarketVirtualLossStreak(
+            marketDigits,
+            digitTradeMode,
+            Number(stateAndSetters.digitPrediction) || 4,
+            overUnderDirection
+        );
+        const effectiveLossStreak = Math.max(virtualLossStreakRef.current, marketTickLossStreak);
+
+        if (targetLosses > 0 && effectiveLossStreak < targetLosses) {
             // Executa como simulação virtual local
             if (activeVirtualTradeRef.current || isWaitingForVirtualResult) {
                 return { success: false, isVirtual: false }; // Já existe uma simulação em andamento
@@ -838,6 +854,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             setIsWaitingForVirtualResult(true);
             activeVirtualTradeRef.current = {
+                symbol: marketSymbol,
                 ticksRemaining: duration,
                 prediction: contractType,
                 signalId,
@@ -847,12 +864,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             // Registra o início da simulação virtual no terminal de dados
             addLog(
-                `[VIRTUAL] Iniciando simulação virtual para ${contractToSignal(contractType)} (${virtualLossStreakRef.current}/${targetLosses}).`,
+                `[VIRTUAL - ${marketSymbol}] Iniciando simulação virtual para ${contractToSignal(contractType)} em ${marketSymbol} (${effectiveLossStreak}/${targetLosses}).`,
                 "TRADE",
-                { isVirtual: true, strategyName, contractType, stake: 0.35 }
+                { isVirtual: true, asset: marketSymbol, strategyName, contractType, stake: 0.35 }
             );
 
-            setAiThought(`Simulando entrada virtual ${contractToSignal(contractType)}...`);
+            setAiThought(`[${marketSymbol}] Simulando entrada virtual ${contractToSignal(contractType)}...`);
             return { success: true, isVirtual: true };
         }
 
@@ -882,8 +899,17 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return { success: false, isVirtual: false };
         }
 
+        // --- Risco e Recovery Reset por Ciclo ---
+        if (martingaleLevel.current === 0) {
+            cycleStartProfitRef.current = totalProfitRef.current;
+            stateAndSetters.setMaxDrawdown(0);
+            stateAndSetters.setMaxRecoveryStake(0);
+            stateAndSetters.setMaxConsecutiveLosses(0);
+        }
+
         isTradeInProgressRef.current = true;
         lastTradedContractTypeRef.current = contractType;
+        lastTradedSymbolRef.current = symbol || asset;
 
         const reqId = Date.now();
         const proposalContractType = getProposalContractType(contractType, digitTradeMode, overUnderDirection, symbol);
@@ -907,9 +933,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             proposal.barrier = String(stateAndSetters.digitPrediction);
         }
 
-        proposalTracker.current.set(reqId, { strategyName, signalId, stake, contractType, tradeCycleId, baseStake });
-        addLog(`[ENVIO] Solicitando proposta ${proposalContractType} em ${symbol} com stake $${stake.toFixed(2)}.`, "INFO");
-        setAiThought(`Preparando entrada ${contractToSignal(contractType)} com stake $${stake.toFixed(2)}...`);
+        proposalTracker.current.set(reqId, { strategyName, signalId, stake, contractType, tradeCycleId, baseStake, symbol: marketSymbol });
+        addLog(`[ENTRADA REAL - ${marketSymbol}] Solicitando proposta ${proposalContractType} no mercado ${marketSymbol} com stake $${stake.toFixed(2)}.`, "INFO");
+        setAiThought(`[${marketSymbol}] Preparando entrada ${contractToSignal(contractType)} no mercado ${marketSymbol} com stake $${stake.toFixed(2)}...`);
         setTradeStatus('SENDING');
 
         ws.sendMessage(proposal);
@@ -936,7 +962,9 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isSmartModeActive,
         lastTickEpoch,
         accountType,
-        isConnected
+        isConnected,
+        asset,
+        stateAndSetters
     ]);
 
     useEffect(() => {
@@ -1198,12 +1226,22 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         const ALL_MARKETS = ['1HZ10V', '1HZ25V', '1HZ50V', '1HZ75V', '1HZ100V', 'R_10', 'R_25', 'R_50', 'R_75', 'R_100'];
 
+        const isRecoveryCycle = martingaleLevel.current > 0;
+        const targetLosses = isRecoveryCycle ? 0 : (isSmartModeActiveRef.current ? 1 : virtualTargetLossesRef.current);
+
         let bestOpp: ReturnType<typeof evaluateMarketOpportunity> | null = null;
         let highestScore = -1;
 
         for (const mSymbol of ALL_MARKETS) {
             const mDigits = (multiMarketDigits && multiMarketDigits[mSymbol]) || (mSymbol === asset ? lastDigits : []);
             if (!mDigits || mDigits.length < 5) continue;
+
+            const mStreak = getMarketVirtualLossStreak(
+                mDigits,
+                digitTradeMode,
+                Number(digitPrediction) || 4,
+                overUnderDirection
+            );
 
             const evalRes = evaluateMarketOpportunity(
                 mSymbol,
@@ -1214,17 +1252,30 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 stateAndSetters.strategyConfig
             );
 
-            if (evalRes.score > highestScore || !bestOpp) {
-                highestScore = evalRes.score;
-                bestOpp = evalRes;
+            // Se targetLosses > 0, priorizamos mercados que ATINGIRAM o alvo de Loss Virtual no radar
+            if (targetLosses > 0) {
+                if (mStreak >= targetLosses || virtualLossStreakRef.current >= targetLosses) {
+                    if (evalRes.score > highestScore || !bestOpp) {
+                        highestScore = evalRes.score;
+                        bestOpp = evalRes;
+                    }
+                }
+            } else {
+                if (evalRes.score > highestScore || !bestOpp) {
+                    highestScore = evalRes.score;
+                    bestOpp = evalRes;
+                }
             }
         }
 
-        if (!bestOpp || !bestOpp.contractType) return;
+        if (!bestOpp || !bestOpp.contractType) {
+            if (targetLosses > 0 && !isRecoveryCycle) {
+                setAiThought(`Radar Quântico (10 Mercados): Monitorando... Aguardando algum mercado atingir ${targetLosses} Loss Virtual.`);
+            }
+            return;
+        }
 
         // --- REGRA DE RECUPERAÇÃO IMEDIATA APÓS LOSS ---
-        const isRecoveryCycle = martingaleLevel.current > 0;
-        
         let targetContract = bestOpp.contractType;
         let targetConfidence = bestOpp.confidence;
         let targetReason = bestOpp.reason;
@@ -1237,7 +1288,7 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
             targetConfidence = 99;
             targetReason = `⚡ [RECUPERAÇÃO IMEDIATA - MARTINGALE LVL ${martingaleLevel.current}] Recuperação acionada mantendo o mesmo padrão (${contractToSignal(targetContract)}) em ${bestOpp.symbol}.`;
-            targetThought = `⚡ RECUPERAÇÃO DE LOSS: Mantendo a mesma direção (${contractToSignal(targetContract)}) em ${bestOpp.symbol} sem inverter.`;
+            targetThought = `⚡ RECUPERAÇÃO DE LOSS: Mantendo a mesma direção (${contractToSignal(targetContract)}) em ${bestOpp.symbol}.`;
         }
 
         const minConfidence = isRecoveryCycle ? 0 : Math.min(50, Number(stateAndSetters.marketStabilityThreshold) || 50);
@@ -1336,6 +1387,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setLosses(0);
             stateAndSetters.setSignals([]);
             martingaleLevel.current = 0;
+            
+            // Zerar métricas de risco
+            stateAndSetters.setMaxDrawdown(0);
+            stateAndSetters.setMaxRecoveryStake(0);
+            stateAndSetters.setMaxConsecutiveLosses(0);
+
             proposalTracker.current.clear();
             buyTracker.current.clear();
             pendingContracts.current.clear();
@@ -1361,11 +1418,12 @@ export const BotProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsSettingsOpen,
         isConfigModalOpen,
         setIsConfigModalOpen,
+        cloudBackground,
         countdown: 0,
         currentLiveTick,
         activeContractTick,
         activeContractDigit
-    }), [stateAndSetters, isConnected, isConnecting, status, handleConnect, ws.disconnect, isBotRunning, setIsBotRunning, appFlow, selectedAIInfo, aiThought, manualBuy, isSettingsOpen, isConfigModalOpen, currentLiveTick, activeContractTick, activeContractDigit, setVirtualLossStreak, setIsWaitingForVirtualResult, setIsWaitingForRecoveryVirtual, setLosses, setTotalProfit, setTradeStatus, setWins, multiMarketDigits]);
+    }), [stateAndSetters, isConnected, isConnecting, status, handleConnect, ws.disconnect, isBotRunning, setIsBotRunning, appFlow, selectedAIInfo, aiThought, manualBuy, isSettingsOpen, isConfigModalOpen, cloudBackground, currentLiveTick, activeContractTick, activeContractDigit, setVirtualLossStreak, setIsWaitingForVirtualResult, setIsWaitingForRecoveryVirtual, setLosses, setTotalProfit, setTradeStatus, setWins, multiMarketDigits]);
 
         useEffect(() => {
         if (tradeStatus !== 'IDLE') {
